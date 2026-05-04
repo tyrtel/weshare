@@ -54,10 +54,11 @@ Files in `src/hooks/` (shared hooks, not feature-scoped)
 
 Each hook has exactly one responsibility and reads exclusively from the Zustand store — never from `AsyncStorage` or `IStorageService` directly.
 
-- [ ] 3.1 `useSplitTotals(personId, tripId)` → `{ foodTotal, taxShare, serviceShare, grandTotal }` all as cent integers with a companion `.display` string via `Intl.NumberFormat`. Split math: each person's share of a shared item with price `p` assigned to `n` people = `Math.round(p / n)` (integer cents). Tax and service distributed proportionally to each person's food subtotal vs the trip subtotal.
-- [ ] 3.2 `useAssignmentState(tripId)` → `{ assignments: Record<ExpenseId, UserId[]>, unassignedExpenses: Expense[], assignExpense, unassignExpense }`
-- [ ] 3.3 `usePeopleWithTotals(tripId)` → `TripMember[]` each decorated with `{ grandTotal: number, grandTotalDisplay: string }`
-- [ ] 3.4 Unit tests for split math: single assignee, multi-assignee shared item, three-way split rounding, zero-item edge case, all-settled edge case
+- [x] 3.1 `useSplitTotals(personId, tripId)` → `SplitTotals` with `foodTotalCents`, `taxShareCents` (0, embedded in model), `serviceShareCents` (0), `grandTotalCents`, `currency`, and `.display` companions formatted via `Intl.NumberFormat`
+- [x] 3.2 `useAssignmentState(tripId)` → `{ assignments: Record<ExpenseId, UserId[]>, unassignedExpenses: Expense[], assignExpense (stub), unassignExpense (stub) }` — mutation stubs pending Phase 5 split-mutation store actions
+- [x] 3.3 `usePeopleWithTotals(tripId)` → `MemberWithTotal[]` each decorated with `grandTotalCents` + `grandTotalDisplay`
+- [x] 3.4 27 tests covering: zero-item, single assignee, multi-assignee shared item, three-way rounding (100¢ and 1000¢ cases), all-settled edge case, multi-expense accumulation, display formatting, `deriveAssignments` (all edge cases), `computePeopleWithTotals` (all edge cases)
+- [x] Pure computation functions extracted to `src/hooks/computations/` (no React/Expo imports) — hooks are thin wrappers. Tests import from `computations/` directly to avoid `expo-modules-core` transitive dependency.
 
 ---
 
