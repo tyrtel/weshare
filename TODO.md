@@ -68,11 +68,9 @@ Files in `src/hooks/useSessionPersistence.ts`
 
 Zustand's `persist` middleware rehydrates asynchronously on React Native. Components must not render stale data before hydration completes.
 
-- [ ] 4.1 `useSessionPersistence()` → `{ isHydrated: boolean, hydrationError: Error | null, resetSession: () => void }`
-  - `isHydrated` starts `false`, flips `true` inside `onRehydrateStorage` success callback
-  - `hydrationError` captures any Zod parse or storage failure from §2.3
-- [ ] 4.2 `ScreenWrapper` (already exists in `src/components/ui/`) updated to gate render on `isHydrated` — shows a skeleton or spinner while `false`
-- [ ] 4.3 Unit test: `isHydrated` is `false` before hydration callback fires, `true` after
+- [x] 4.1 `useSessionPersistence()` → `{ isHydrated: boolean, hydrationError: AppError | null, resetSession: () => void }`. Reads the store's `isHydrated` flag — equivalent to `onRehydrateStorage` but driven by the first `loadTrips` round-trip rather than local storage. `isHydrated` flips `true` on success OR error so screens never hang in a permanent loading state.
+- [x] 4.2 `ScreenWrapper` updated with `isLoading?: boolean` prop — when true, replaces children with a centered `ActivityIndicator` (design-token teal). Screens use `useSessionPersistence` and pass `isLoading={!isHydrated}`. Prop is optional (default false) so existing screens are unaffected.
+- [x] 4.3 11 unit tests via vanilla store (no React renderer): `isHydrated` false before load, true after success, true after error; `hydrationError` null on success, set on failure, cleared by resetSession; Zod-dropped invalid trips don't set hydrationError; resetSession restores full initial state.
 
 ---
 
