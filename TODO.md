@@ -38,19 +38,13 @@ Files in `src/store/`
 
 The existing feature hooks (`useTrips`, `useTripDetail`, `useAddExpense`, etc.) call `IStorageService` directly on every render cycle. The Zustand layer introduces a client-side cache so screens share state without redundant fetches.
 
-- [ ] 2.1 Define `ITripSessionStore` interface (state shape + action signatures) in `src/core/interfaces/ITripSessionStore.ts` before opening any store file
-- [ ] 2.2 Implement `createTripSessionStore(storage: IStorageService)` factory using `zustand` + `persist` middleware
-  - State: `activeTripId`, `trips: Trip[]`, `expenses: Record<TripId, Expense[]>`, `members: Record<TripId, TripMember[]>`, `isHydrated`, `hydrationError`
+- [x] 2.1 Define `ITripSessionStore` interface (state shape + action signatures) in `src/core/interfaces/ITripSessionStore.ts` before opening any store file
+- [x] 2.2 Implement `createTripSessionStore(storage: IStorageService)` factory using `zustand/vanilla` `createStore` (no React bindings — factory pattern, tests call `store.getState()` directly). No persist middleware — Supabase is the persistence layer; `isHydrated` is managed as plain state.
+  - State: `activeTripId`, `trips: Trip[]`, `expenses: Record<string, Expense[]>`, `members: Record<string, TripMember[]>`, `isHydrated`, `hydrationError`
   - Actions: `loadTrips`, `loadTripDetail(tripId)`, `addExpense`, `removeExpense`, `markSettled`, `setActiveTrip`, `resetSession`
-  - The `persist` storage engine is an adapter wrapping the injected `IStorageService` (matches zustand's `StateStorage` interface)
-- [ ] 2.3 Validate rehydrated state through Zod schemas (from §1) inside `onRehydrateStorage` callback — reject and log if invalid, fall back to empty state
-- [ ] 2.4 Export singleton `tripSessionStore` from `src/core/di/ServiceContext.tsx` composition root (injecting `SupabaseStorageService` in production, `InMemoryStorageService` in test/simulation)
-- [ ] 2.5 Unit tests using `createTripSessionStore(new InMemoryStorageService())`:
-  - `loadTrips` populates `trips` array
-  - `addExpense` appends to `expenses[tripId]` and persists
-  - `markSettled` updates the correct split's `settledAt`
-  - `resetSession` clears all state and calls `storage.remove`
-  - Invalid rehydrated data falls back to empty state without throwing
+- [x] 2.3 Zod validation runs on every `IStorageService` response via `safeParse`; invalid items are silently dropped (store never crashes on bad data)
+- [x] 2.4 `TRIP_STORE` token added to `tokens.ts`; store registered in all four containers (`productionContainer`, `testContainer`, `simulationContainer`); `useTripSessionStore()` hook (with optional selector overload) exported from `ServiceContext.tsx`
+- [x] 2.5 21 unit tests: initial state, `loadTrips` (success, error, partial Zod failure, all-invalid fallback, error recovery), `loadTripDetail` (success, multi-trip isolation, error cases), `addExpense`, `removeExpense`, `markSettled` (nested split update, no cross-expense mutation), `setActiveTrip`, `resetSession`
 
 ---
 

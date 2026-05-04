@@ -1,39 +1,74 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
 import Constants from 'expo-constants';
-import {
-  ServiceContainer,
-  ServiceKey,
-  createProductionContainer,
-  createTestContainer,
-} from './container';
+import { useStore } from 'zustand';
+import { ServiceContainer } from './ServiceContainer';
+import type { ServiceToken } from './ServiceContainer';
+import { createProductionContainer } from './productionContainer';
+import { createSimulationContainer } from './simulationContainer';
+import type { ITripSessionStore } from '../interfaces/ITripSessionStore';
+import { TRIP_STORE } from './tokens';
 
 // ── Context ───────────────────────────────────────────────────────────────────
+// Exported so test wrappers can inject a container directly via
+// <ServiceContext.Provider value={createTestContainer()}>
 
-const ServiceContext = createContext<ServiceContainer | null>(null);
+export const ServiceContext = createContext<ServiceContainer | null>(null);
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 /**
- * Wrap the app root with this provider. It automatically selects production or
- * simulation bindings based on the `simulation` flag in `app.config.ts`.
+ * Mount at the app root. Reads `Constants.expoConfig.extra.simulation` to
+ * choose between production (Supabase) and simulation (in-memory mocks).
  */
 export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const [container, setContainer] = useState<ServiceContainer | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
-    const isSimulation = Constants.expoConfig?.extra?.simulation === true;
+    // Check both the Expo config extra field AND the raw env var so the flag
+    // works whether the bundle was built with a config reload or not.
+    const isSimulation =
+      Constants.expoConfig?.extra?.simulation === true ||
+      process.env.EXPO_PUBLIC_SIMULATE === 'true';
 
-    if (isSimulation) {
-      setContainer(createTestContainer());
-    } else {
-      createProductionContainer().then(setContainer);
-    }
+    console.log('[ServiceProvider] isSimulation =', isSimulation);
+    console.log('[ServiceProvider] extra =', JSON.stringify(Constants.expoConfig?.extra));
+
+    const factory = isSimulation ? createSimulationContainer : createProductionContainer;
+    console.log('[ServiceProvider] calling factory:', factory.name);
+
+    factory()
+      .then(c => {
+        console.log('[ServiceProvider] container ready');
+        setContainer(c);
+      })
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[ServiceProvider] init error:', msg);
+        setInitError(msg);
+      });
   }, []);
 
+  if (initError) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#1a1a2e' }}>
+        <Text style={{ color: '#f87171', fontSize: 14, textAlign: 'center' }}>
+          Failed to initialise app:{'\n\n'}{initError}
+        </Text>
+      </View>
+    );
+  }
+
   if (!container) {
-    // Container is not ready yet; return nothing rather than children with
-    // unregistered services. A splash screen or skeleton would go here.
-    return null;
+    // Render a spinner rather than null — Expo Router SDK 51 keeps the native
+    // splash screen visible until the Stack navigator mounts. Returning null
+    // here prevents the Stack from ever mounting, so the splash never hides.
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a2e' }}>
+        <ActivityIndicator color="#1D9E75" size="large" />
+      </View>
+    );
   }
 
   return (
@@ -54,13 +89,32 @@ export function useContainer(): ServiceContainer {
 }
 
 /**
- * Convenience hook: resolves a service by key from the nearest container.
+ * Convenience hook: resolves a typed service from the nearest container.
  *
  * @example
- * const storage = useService('storageService');
+ * const storage = useService(STORAGE);   // typed as IStorageService
+ * const auth    = useService(AUTH);      // typed as IAuthService
  */
-export function useService<K extends ServiceKey>(
-  key: K,
-): ReturnType<ServiceContainer['resolve']> {
-  return useContainer().resolve(key);
+export function useService<T>(token: ServiceToken<T>): T {
+  return useContainer().resolve(token);
+}
+
+/**
+ * Subscribe to the Zustand trip session store from any component.
+ * The store is a singleton per DI container — shared across all screens.
+ *
+ * @example
+ * const { trips, loadTrips, isHydrated } = useTripSessionStore();
+ *
+ * @example (selector — avoids re-renders when unrelated state changes)
+ * const trips = useTripSessionStore(s => s.trips);
+ */
+export function useTripSessionStore(): ITripSessionStore;
+export function useTripSessionStore<T>(selector: (state: ITripSessionStore) => T): T;
+export function useTripSessionStore<T>(
+  selector?: (state: ITripSessionStore) => T,
+): ITripSessionStore | T {
+  const store = useService(TRIP_STORE);
+  // useStore with no selector returns the full state snapshot.
+  return useStore(store, selector as (state: ITripSessionStore) => T);
 }
