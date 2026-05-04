@@ -26,9 +26,9 @@
 
 Files in `src/core/schemas/`
 
-- [ ] 1.1 `billSessionSchema.ts` — Zod schemas mirroring existing domain models (`Trip`, `Expense`, `Split`, `TripMember`, `Settlement`). These are used to validate data rehydrated from the Zustand persist layer before it is accepted into the store — protecting against stale or malformed persisted state.
-- [ ] 1.2 Export a `safeParse<T>(schema, data)` helper that returns `Result<T, ValidationError>` using the existing `Result` type from `src/core/types/Result.ts`
-- [ ] 1.3 Unit tests: valid object passes, missing required field fails with `ValidationError`, extra fields are stripped
+- [x] 1.1 `billSessionSchema.ts` — Zod schemas mirroring existing domain models (`Trip`, `Expense`, `Split`, `TripMember`, `Settlement`). These are used to validate data rehydrated from the Zustand persist layer before it is accepted into the store — protecting against stale or malformed persisted state.
+- [x] 1.2 Export a `safeParse<T>(schema, data)` helper that returns `Result<T, ValidationError>` using the existing `Result` type from `src/core/types/Result.ts`
+- [x] 1.3 Unit tests: valid object passes, missing required field fails with `ValidationError`, extra fields are stripped
 
 ---
 
