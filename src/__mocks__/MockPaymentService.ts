@@ -1,48 +1,29 @@
-import type { IPaymentService, PaymentRequest } from '../core/interfaces/IPaymentService';
+import type { IPaymentService, PaymentProvider } from '../core/interfaces/IPaymentService';
 
-export interface RecordedCall {
-  method: 'generateDeepLink' | 'openPayment' | 'isAvailable';
-  request?: PaymentRequest;
-  timestamp: Date;
+export interface PaymentLinkCall {
+  provider: PaymentProvider;
+  amountCents: number;
+  currency: string;
+  recipientHandle: string;
 }
 
-/**
- * Test double for IPaymentService.
- * Records every call so assertions can inspect exactly what was triggered.
- * Use `setAvailable(false)` to exercise error-handling paths.
- */
 export class MockPaymentService implements IPaymentService {
-  readonly providerName = 'Mock';
+  readonly calls: PaymentLinkCall[] = [];
 
-  private _calls: RecordedCall[] = [];
-  private _available = true;
+  // Override in tests to control which wallets are "installed".
+  installedWallets: PaymentProvider[] = ['revolut', 'venmo', 'lydia', 'paypal', 'other'];
 
-  get calls(): ReadonlyArray<RecordedCall> {
-    return this._calls;
+  buildPaymentLink(
+    provider: PaymentProvider,
+    amountCents: number,
+    currency: string,
+    recipientHandle: string,
+  ): string {
+    this.calls.push({ provider, amountCents, currency, recipientHandle });
+    return `${provider}://pay/${recipientHandle}?amount=${amountCents}&currency=${currency}`;
   }
 
-  setAvailable(available: boolean): void {
-    this._available = available;
-  }
-
-  clearCalls(): void {
-    this._calls = [];
-  }
-
-  generateDeepLink(request: PaymentRequest): string {
-    this._calls.push({ method: 'generateDeepLink', request, timestamp: new Date() });
-    return `mock://pay?recipient=${request.recipientHandle}&amount=${request.amount.toFixed(2)}`;
-  }
-
-  async openPayment(request: PaymentRequest): Promise<void> {
-    this._calls.push({ method: 'openPayment', request, timestamp: new Date() });
-    if (!this._available) {
-      throw new Error('Mock payment service is set to unavailable.');
-    }
-  }
-
-  async isAvailable(): Promise<boolean> {
-    this._calls.push({ method: 'isAvailable', timestamp: new Date() });
-    return this._available;
+  async getInstalledWallets(): Promise<PaymentProvider[]> {
+    return [...this.installedWallets];
   }
 }

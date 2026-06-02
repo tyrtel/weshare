@@ -54,6 +54,7 @@ export const expenseMetadataSchema = z.object({
   notes: z.string().optional(),
   receiptUrl: z.string().optional(),
   lineItems: z.array(expenseLineItemSchema).optional(),
+  category: z.string().optional(),
 });
 
 export const expenseSchema = z.object({
@@ -80,6 +81,8 @@ export const tripSchema = z.object({
   ownerId: z.string(),
   members: z.array(tripMemberSchema),
   inviteToken: z.string().optional(),
+  status: z.enum(['active', 'settling', 'closed']).default('active'),
+  closedAt: z.coerce.date().nullable().default(null),
 });
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import { formatCurrency } from '../../core/utils/formatCurrency';
 import type { Expense } from '../../core/models/Expense';
 
 // ---------------------------------------------------------------------------
@@ -20,13 +21,7 @@ export interface SplitTotals {
 // Helpers
 // ---------------------------------------------------------------------------
 
-export function formatCents(cents: number, currency: string): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
-}
+export { formatCurrency as formatCents };
 
 // ---------------------------------------------------------------------------
 // Pure computation
@@ -69,9 +64,9 @@ export function computeSplitTotals(
     serviceShareCents,
     grandTotalCents,
     currency,
-    foodTotalDisplay: formatCents(foodTotalCents, currency),
-    taxShareDisplay: formatCents(taxShareCents, currency),
-    serviceShareDisplay: formatCents(serviceShareCents, currency),
-    grandTotalDisplay: formatCents(grandTotalCents, currency),
+    foodTotalDisplay: formatCurrency(foodTotalCents, currency),
+    taxShareDisplay: formatCurrency(taxShareCents, currency),
+    serviceShareDisplay: formatCurrency(serviceShareCents, currency),
+    grandTotalDisplay: formatCurrency(grandTotalCents, currency),
   };
 }

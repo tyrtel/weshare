@@ -1,50 +1,7 @@
 import { computeSplitTotals } from '../computations/splitTotals';
 import { deriveAssignments } from '../computations/assignmentState';
 import { computePeopleWithTotals } from '../computations/peopleWithTotals';
-import type { Expense } from '../../core/models/Expense';
-import type { Split } from '../../core/models/Split';
-import type { TripMember } from '../../core/models/TripMember';
-
-// ---------------------------------------------------------------------------
-// Fixture helpers
-// ---------------------------------------------------------------------------
-
-const NOW = new Date('2025-01-01T00:00:00.000Z');
-
-function makeExpense(id: string, tripId: string, splits: Split[]): Expense {
-  return {
-    id,
-    tripId,
-    description: 'Test expense',
-    totalAmountCents: splits.reduce((s, sp) => s + sp.amountOwedCents, 0),
-    currency: 'EUR',
-    paidByUserId: 'u1',
-    createdAt: NOW,
-    splits,
-    metadata: {},
-  };
-}
-
-function makeSplit(
-  id: string,
-  expenseId: string,
-  userId: string,
-  amountOwedCents: number,
-  settledAt?: Date,
-): Split {
-  return {
-    id,
-    expenseId,
-    userId,
-    amountOwedCents,
-    amountPaidCents: settledAt ? amountOwedCents : 0,
-    settledAt,
-  };
-}
-
-function makeMember(userId: string, tripId = 't1'): TripMember {
-  return { userId, tripId, displayName: userId, joinedAt: NOW, isGuest: true };
-}
+import { memberFactory, splitFactory, expenseFactory, TEST_DATE as NOW } from '../../__testUtils__/factories';
 
 // ---------------------------------------------------------------------------
 // computeSplitTotals
@@ -61,29 +18,29 @@ describe('computeSplitTotals', () => {
     });
 
     it('returns zero when the person has no splits in any expense', () => {
-      const expense = makeExpense('e1', 't1', [
-        makeSplit('s1', 'e1', 'u2', 5000),
-      ]);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u2', amountOwedCents: 5000 }),
+      ] });
       expect(computeSplitTotals('u1', [expense], 'EUR').foodTotalCents).toBe(0);
     });
   });
 
   describe('single assignee', () => {
     it('returns the full split amount when the person is the only assignee', () => {
-      const expense = makeExpense('e1', 't1', [
-        makeSplit('s1', 'e1', 'u1', 10000),
-      ]);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 10000 }),
+      ] });
       const totals = computeSplitTotals('u1', [expense], 'EUR');
       expect(totals.foodTotalCents).toBe(10000);
       expect(totals.grandTotalCents).toBe(10000);
     });
 
     it('ignores splits belonging to other users', () => {
-      const expense = makeExpense('e1', 't1', [
-        makeSplit('s1', 'e1', 'u1', 5000),
-        makeSplit('s2', 'e1', 'u2', 5000),
-        makeSplit('s3', 'e1', 'u3', 5000),
-      ]);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 5000 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 5000 }),
+        splitFactory({ id: 's3', expenseId: 'e1', userId: 'u3', amountOwedCents: 5000 }),
+      ] });
       expect(computeSplitTotals('u1', [expense], 'EUR').foodTotalCents).toBe(5000);
     });
   });
@@ -92,11 +49,11 @@ describe('computeSplitTotals', () => {
     it('each person receives only their own share', () => {
       // €10.00 split 3 ways: 334 + 333 + 333 = 1000
       const splits = [
-        makeSplit('s1', 'e1', 'u1', 334),
-        makeSplit('s2', 'e1', 'u2', 333),
-        makeSplit('s3', 'e1', 'u3', 333),
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 334 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 333 }),
+        splitFactory({ id: 's3', expenseId: 'e1', userId: 'u3', amountOwedCents: 333 }),
       ];
-      const expense = makeExpense('e1', 't1', splits);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: splits });
 
       expect(computeSplitTotals('u1', [expense], 'EUR').foodTotalCents).toBe(334);
       expect(computeSplitTotals('u2', [expense], 'EUR').foodTotalCents).toBe(333);
@@ -105,11 +62,11 @@ describe('computeSplitTotals', () => {
 
     it('all individual shares sum to the expense total', () => {
       const splits = [
-        makeSplit('s1', 'e1', 'u1', 334),
-        makeSplit('s2', 'e1', 'u2', 333),
-        makeSplit('s3', 'e1', 'u3', 333),
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 334 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 333 }),
+        splitFactory({ id: 's3', expenseId: 'e1', userId: 'u3', amountOwedCents: 333 }),
       ];
-      const expense = makeExpense('e1', 't1', splits);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: splits });
       const total =
         computeSplitTotals('u1', [expense], 'EUR').foodTotalCents +
         computeSplitTotals('u2', [expense], 'EUR').foodTotalCents +
@@ -122,11 +79,11 @@ describe('computeSplitTotals', () => {
     it('sum of three rounded shares equals the exact original total (100¢)', () => {
       // Math.floor(100 / 3) = 33, remainder 1 → one person gets 34
       const splits = [
-        makeSplit('s1', 'e1', 'u1', 34),
-        makeSplit('s2', 'e1', 'u2', 33),
-        makeSplit('s3', 'e1', 'u3', 33),
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 34 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 33 }),
+        splitFactory({ id: 's3', expenseId: 'e1', userId: 'u3', amountOwedCents: 33 }),
       ];
-      const expense = makeExpense('e1', 't1', splits);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: splits });
       const u1 = computeSplitTotals('u1', [expense], 'EUR').foodTotalCents;
       const u2 = computeSplitTotals('u2', [expense], 'EUR').foodTotalCents;
       const u3 = computeSplitTotals('u3', [expense], 'EUR').foodTotalCents;
@@ -138,9 +95,9 @@ describe('computeSplitTotals', () => {
       // 1000 / 7 = 142.857...; floor = 142; remainder 6 → 6 people get 143, 1 gets 142
       const shares = [143, 143, 143, 143, 143, 143, 142];
       const splits = shares.map((amt, i) =>
-        makeSplit(`s${i}`, 'e1', `u${i}`, amt),
+        splitFactory({ id: `s${i}`, expenseId: 'e1', userId: `u${i}`, amountOwedCents: amt }),
       );
-      const expense = makeExpense('e1', 't1', splits);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: splits });
       const sum = shares
         .map((_, i) => computeSplitTotals(`u${i}`, [expense], 'EUR').foodTotalCents)
         .reduce((a, b) => a + b, 0);
@@ -150,29 +107,29 @@ describe('computeSplitTotals', () => {
 
   describe('all-settled edge case', () => {
     it('includes settled splits in foodTotal — it tracks what was owed, not outstanding', () => {
-      const expense = makeExpense('e1', 't1', [
-        makeSplit('s1', 'e1', 'u1', 5000, NOW),
-      ]);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 5000, amountPaidCents: 5000, settledAt: NOW }),
+      ] });
       expect(computeSplitTotals('u1', [expense], 'EUR').foodTotalCents).toBe(5000);
     });
 
     it('still returns 0 when person has no splits even if others are settled', () => {
-      const expense = makeExpense('e1', 't1', [
-        makeSplit('s1', 'e1', 'u2', 5000, NOW),
-      ]);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u2', amountOwedCents: 5000, amountPaidCents: 5000, settledAt: NOW }),
+      ] });
       expect(computeSplitTotals('u1', [expense], 'EUR').foodTotalCents).toBe(0);
     });
   });
 
   describe('multi-expense accumulation', () => {
     it('sums totals across multiple expenses for the same person', () => {
-      const e1 = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 3000)]);
-      const e2 = makeExpense('e2', 't1', [makeSplit('s2', 'e2', 'u1', 2000)]);
+      const e1 = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 3000 })] });
+      const e2 = expenseFactory({ id: 'e2', tripId: 't1', splits: [splitFactory({ id: 's2', expenseId: 'e2', userId: 'u1', amountOwedCents: 2000 })] });
       expect(computeSplitTotals('u1', [e1, e2], 'EUR').foodTotalCents).toBe(5000);
     });
 
     it('grandTotal equals foodTotal when tax and service are zero', () => {
-      const expense = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 7500)]);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 7500 })] });
       const totals = computeSplitTotals('u1', [expense], 'EUR');
       expect(totals.grandTotalCents).toBe(totals.foodTotalCents);
     });
@@ -180,7 +137,7 @@ describe('computeSplitTotals', () => {
 
   describe('display formatting', () => {
     it('formats grandTotalDisplay as a currency string containing the amount', () => {
-      const expense = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 14800)]);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 14800 })] });
       const { grandTotalDisplay } = computeSplitTotals('u1', [expense], 'EUR');
       expect(grandTotalDisplay).toMatch(/148/);
     });
@@ -191,7 +148,7 @@ describe('computeSplitTotals', () => {
     });
 
     it('preserves currency code in the output', () => {
-      const expense = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 5000)]);
+      const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 5000 })] });
       const { currency } = computeSplitTotals('u1', [expense], 'GBP');
       expect(currency).toBe('GBP');
     });
@@ -204,23 +161,23 @@ describe('computeSplitTotals', () => {
 
 describe('deriveAssignments', () => {
   it('maps each expense to the userIds in its splits', () => {
-    const expense = makeExpense('e1', 't1', [
-      makeSplit('s1', 'e1', 'u1', 5000),
-      makeSplit('s2', 'e1', 'u2', 5000),
-    ]);
+    const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [
+      splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 5000 }),
+      splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 5000 }),
+    ] });
     const { assignments } = deriveAssignments([expense]);
     expect(assignments['e1']).toEqual(['u1', 'u2']);
   });
 
   it('returns an empty array for expenses with no splits', () => {
-    const expense = makeExpense('e1', 't1', []);
+    const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [] });
     const { assignments } = deriveAssignments([expense]);
     expect(assignments['e1']).toEqual([]);
   });
 
   it('identifies unassigned expenses correctly', () => {
-    const assigned = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 5000)]);
-    const unassigned = makeExpense('e2', 't1', []);
+    const assigned = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 5000 })] });
+    const unassigned = expenseFactory({ id: 'e2', tripId: 't1', splits: [] });
     const { unassignedExpenses } = deriveAssignments([assigned, unassigned]);
     expect(unassignedExpenses).toHaveLength(1);
     expect(unassignedExpenses[0].id).toBe('e2');
@@ -233,12 +190,12 @@ describe('deriveAssignments', () => {
   });
 
   it('handles multiple expenses correctly', () => {
-    const e1 = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 3000)]);
-    const e2 = makeExpense('e2', 't1', [
-      makeSplit('s2', 'e2', 'u1', 1500),
-      makeSplit('s3', 'e2', 'u2', 1500),
-    ]);
-    const e3 = makeExpense('e3', 't1', []); // unassigned
+    const e1 = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 3000 })] });
+    const e2 = expenseFactory({ id: 'e2', tripId: 't1', splits: [
+      splitFactory({ id: 's2', expenseId: 'e2', userId: 'u1', amountOwedCents: 1500 }),
+      splitFactory({ id: 's3', expenseId: 'e2', userId: 'u2', amountOwedCents: 1500 }),
+    ] });
+    const e3 = expenseFactory({ id: 'e3', tripId: 't1', splits: [] }); // unassigned
     const result = deriveAssignments([e1, e2, e3]);
     expect(result.assignments['e1']).toEqual(['u1']);
     expect(result.assignments['e2']).toEqual(['u1', 'u2']);
@@ -252,12 +209,12 @@ describe('deriveAssignments', () => {
 
 describe('computePeopleWithTotals', () => {
   it('decorates each member with their grandTotal', () => {
-    const members = [makeMember('u1'), makeMember('u2')];
+    const members = [memberFactory({ userId: 'u1', displayName: 'u1' }), memberFactory({ userId: 'u2', displayName: 'u2' })];
     const expenses = [
-      makeExpense('e1', 't1', [
-        makeSplit('s1', 'e1', 'u1', 6000),
-        makeSplit('s2', 'e1', 'u2', 4000),
-      ]),
+      expenseFactory({ id: 'e1', tripId: 't1', splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 6000 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 4000 }),
+      ] }),
     ];
     const result = computePeopleWithTotals(members, expenses, 'EUR');
     const u1 = result.find((m) => m.userId === 'u1')!;
@@ -267,7 +224,7 @@ describe('computePeopleWithTotals', () => {
   });
 
   it('preserves all TripMember fields on the decorated output', () => {
-    const member = makeMember('u1');
+    const member = memberFactory({ userId: 'u1', displayName: 'u1' });
     const result = computePeopleWithTotals([member], [], 'EUR');
     expect(result[0].userId).toBe(member.userId);
     expect(result[0].displayName).toBe(member.displayName);
@@ -276,32 +233,32 @@ describe('computePeopleWithTotals', () => {
   });
 
   it('returns 0 grandTotal for members with no splits', () => {
-    const result = computePeopleWithTotals([makeMember('u1')], [], 'EUR');
+    const result = computePeopleWithTotals([memberFactory({ userId: 'u1', displayName: 'u1' })], [], 'EUR');
     expect(result[0].grandTotalCents).toBe(0);
   });
 
   it('returns an empty array when there are no members', () => {
-    const expense = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 5000)]);
+    const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 5000 })] });
     expect(computePeopleWithTotals([], [expense], 'EUR')).toEqual([]);
   });
 
   it('grandTotalDisplay is a formatted currency string', () => {
-    const members = [makeMember('u1')];
-    const expenses = [makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 10000)])];
+    const members = [memberFactory({ userId: 'u1', displayName: 'u1' })];
+    const expenses = [expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 10000 })] })];
     const result = computePeopleWithTotals(members, expenses, 'EUR');
     expect(result[0].grandTotalDisplay).toMatch(/100/);
   });
 
   it('sums across multiple expenses per member', () => {
-    const e1 = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 3000)]);
-    const e2 = makeExpense('e2', 't1', [makeSplit('s2', 'e2', 'u1', 2000)]);
-    const result = computePeopleWithTotals([makeMember('u1')], [e1, e2], 'EUR');
+    const e1 = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 3000 })] });
+    const e2 = expenseFactory({ id: 'e2', tripId: 't1', splits: [splitFactory({ id: 's2', expenseId: 'e2', userId: 'u1', amountOwedCents: 2000 })] });
+    const result = computePeopleWithTotals([memberFactory({ userId: 'u1', displayName: 'u1' })], [e1, e2], 'EUR');
     expect(result[0].grandTotalCents).toBe(5000);
   });
 
   it('handles settled splits without changing the total', () => {
-    const expense = makeExpense('e1', 't1', [makeSplit('s1', 'e1', 'u1', 5000, NOW)]);
-    const result = computePeopleWithTotals([makeMember('u1')], [expense], 'EUR');
+    const expense = expenseFactory({ id: 'e1', tripId: 't1', splits: [splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 5000, amountPaidCents: 5000, settledAt: NOW })] });
+    const result = computePeopleWithTotals([memberFactory({ userId: 'u1', displayName: 'u1' })], [expense], 'EUR');
     expect(result[0].grandTotalCents).toBe(5000);
   });
 });

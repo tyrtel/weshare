@@ -5,7 +5,7 @@ export interface SessionPersistence {
   /**
    * False until the first loadTrips call resolves (success or error).
    * Equivalent to Zustand persist's onRehydrateStorage callback — driven by
-   * the first IStorageService round-trip rather than local storage rehydration.
+   * the first repository round-trip rather than local storage rehydration.
    * Gate screen renders on this flag to avoid showing stale empty state.
    */
   isHydrated: boolean;

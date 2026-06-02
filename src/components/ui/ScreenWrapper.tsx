@@ -8,24 +8,34 @@ interface ScreenWrapperProps {
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   /**
-   * When true the wrapper replaces its children with a centered spinner.
-   * Use with useSessionPersistence: isLoading={!isHydrated}
+   * When true the wrapper replaces its children with either the provided
+   * skeleton or a centred ActivityIndicator.
    */
   isLoading?: boolean;
+  /**
+   * Layout-preserving placeholder rendered instead of a spinner when isLoading
+   * is true. Falls back to ActivityIndicator when omitted.
+   */
+  skeleton?: React.ReactNode;
 }
 
-export function ScreenWrapper({ children, style, isLoading = false }: ScreenWrapperProps) {
+export function ScreenWrapper({
+  children,
+  style,
+  isLoading = false,
+  skeleton,
+}: ScreenWrapperProps) {
   const colors = useColors();
 
+  const loadingContent = skeleton ?? (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator color={colors.primary.default} size="large" />
+    </View>
+  );
+
   return (
-    <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }, style]}>
-      {isLoading ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.primary.default} size="large" />
-        </View>
-      ) : (
-        children
-      )}
+    <SafeAreaView edges={['top', 'left', 'right']} style={[{ flex: 1, backgroundColor: colors.background }, style]}>
+      {isLoading ? loadingContent : children}
     </SafeAreaView>
   );
 }

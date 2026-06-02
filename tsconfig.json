@@ -4,12 +4,32 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@core/*": ["src/core/*"],
-      "@features/*": ["src/features/*"],
-      "@infrastructure/*": ["src/infrastructure/*"],
-      "@mocks/*": ["src/__mocks__/*"],
-      "@shared/*": ["src/shared/*"]
+      "@core/*": [
+        "src/core/*"
+      ],
+      "@features/*": [
+        "src/features/*"
+      ],
+      "@infrastructure/*": [
+        "src/infrastructure/*"
+      ],
+      "@mocks/*": [
+        "src/__mocks__/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
+      ],
+      "@theme/*": [
+        "src/theme/*"
+      ],
+      "@components/*": [
+        "src/components/*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.d.ts", "expo-env.d.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.d.ts"
+  ]
 }

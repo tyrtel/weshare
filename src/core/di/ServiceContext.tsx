@@ -8,6 +8,7 @@ import { createProductionContainer } from './productionContainer';
 import { createSimulationContainer } from './simulationContainer';
 import type { ITripSessionStore } from '../interfaces/ITripSessionStore';
 import { TRIP_STORE } from './tokens';
+import { logger } from '../utils/logger';
 
 // ── Context ───────────────────────────────────────────────────────────────────
 // Exported so test wrappers can inject a container directly via
@@ -32,20 +33,20 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       Constants.expoConfig?.extra?.simulation === true ||
       process.env.EXPO_PUBLIC_SIMULATE === 'true';
 
-    console.log('[ServiceProvider] isSimulation =', isSimulation);
-    console.log('[ServiceProvider] extra =', JSON.stringify(Constants.expoConfig?.extra));
+    logger.log('[ServiceProvider] isSimulation =', isSimulation);
+    logger.log('[ServiceProvider] extra =', JSON.stringify(Constants.expoConfig?.extra));
 
     const factory = isSimulation ? createSimulationContainer : createProductionContainer;
-    console.log('[ServiceProvider] calling factory:', factory.name);
+    logger.log('[ServiceProvider] calling factory:', factory.name);
 
     factory()
       .then(c => {
-        console.log('[ServiceProvider] container ready');
+        logger.log('[ServiceProvider] container ready');
         setContainer(c);
       })
       .catch((e: unknown) => {
         const msg = e instanceof Error ? e.message : String(e);
-        console.error('[ServiceProvider] init error:', msg);
+        logger.error('[ServiceProvider] init error:', msg);
         setInitError(msg);
       });
   }, []);
