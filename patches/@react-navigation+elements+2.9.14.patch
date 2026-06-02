@@ -1,0 +1,55 @@
+diff --git a/node_modules/@react-navigation/elements/lib/module/ResourceSavingView.js b/node_modules/@react-navigation/elements/lib/module/ResourceSavingView.js
+index eb063ab..ac140f2 100644
+--- a/node_modules/@react-navigation/elements/lib/module/ResourceSavingView.js
++++ b/node_modules/@react-navigation/elements/lib/module/ResourceSavingView.js
+@@ -17,26 +17,24 @@ export function ResourceSavingView({
+     , {
+       hidden: !visible,
+       style: [{
+-        display: visible ? 'flex' : 'none'
++        display: visible ? 'flex' : 'none',
++        pointerEvents: visible ? 'auto' : 'none'
+       }, styles.container, style],
+-      pointerEvents: visible ? 'auto' : 'none',
+       ...rest,
+       children: children
+     });
+   }
+   return /*#__PURE__*/_jsx(View, {
+-    style: [styles.container, style]
++    style: [{ pointerEvents: visible ? 'auto' : 'none' }, styles.container, style]
+     // box-none doesn't seem to work properly on Android
+     ,
+-    pointerEvents: visible ? 'auto' : 'none',
+     children: /*#__PURE__*/_jsx(View, {
+       collapsable: false,
+       removeClippedSubviews:
+       // On iOS & macOS, set removeClippedSubviews to true only when not focused
+       // This is an workaround for a bug where the clipped view never re-appears
+       Platform.OS === 'ios' || Platform.OS === 'macos' ? !visible : true,
+-      pointerEvents: visible ? 'auto' : 'none',
+-      style: visible ? styles.attached : styles.detached,
++      style: [{ pointerEvents: visible ? 'auto' : 'none' }, visible ? styles.attached : styles.detached],
+       children: children
+     })
+   });
+diff --git a/node_modules/@react-navigation/elements/lib/module/Screen.js b/node_modules/@react-navigation/elements/lib/module/Screen.js
+index 5a7086e..4f78fa6 100644
+--- a/node_modules/@react-navigation/elements/lib/module/Screen.js
++++ b/node_modules/@react-navigation/elements/lib/module/Screen.js
+@@ -46,14 +46,13 @@ export function Screen(props) {
+       navigation: navigation,
+       children: /*#__PURE__*/_jsx(View, {
+         ref: headerRef,
+-        pointerEvents: "box-none",
+         onLayout: e => {
+           const {
+             height
+           } = e.nativeEvent.layout;
+           setHeaderHeight(height);
+         },
+-        style: [styles.header, headerTransparent ? styles.absolute : null],
++        style: [{ pointerEvents: "box-none" }, styles.header, headerTransparent ? styles.absolute : null],
+         children: header
+       })
+     }) : null, /*#__PURE__*/_jsx(View, {

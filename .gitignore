@@ -7,9 +7,36 @@ web-build/
 *.p8
 *.p12
 *.key
+*.pem
 *.mobileprovision
 *.orig.*
 web-build/
+coverage/
+
+# ── Environment / secrets ────────────────────────────────────────────────────
+# .env.example is intentionally NOT listed here — it contains only placeholder
+# values and should be committed so new contributors know what to set.
 .env
 .env.local
-coverage/
+.env.development
+.env.staging
+.env.production
+.env.test
+.env.*.local
+.env.*.development
+.env.*.staging
+.env.*.production
+
+# Google / Apple credential files
+google-services.json
+GoogleService-Info.plist
+credentials.json
+service-account*.json
+
+# EAS / Expo build artifacts
+*.ipa
+*.aab
+*.apk
+
+# Claude Code local settings (machine-specific, not for source control)
+.claude/
