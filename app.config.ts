@@ -74,5 +74,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ocrLive: isOcrLive,
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    eas: {
+      projectId: 'a1b9adb5-735f-46c6-9457-e4161f0eee99',
+    },
   },
 });
