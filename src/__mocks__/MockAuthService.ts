@@ -36,6 +36,7 @@ export class MockAuthService implements IAuthService {
     const user: User = {
       id: `guest_${name.trim().toLowerCase().replace(/\s+/g, '_')}`,
       name,
+      isGuest: true,
       createdAt: new Date(),
     };
     this._currentUser = user;
@@ -43,7 +44,39 @@ export class MockAuthService implements IAuthService {
     return ok(user);
   }
 
+  async signInWithGoogle(): Promise<Result<User, AppError>> {
+    const user: User = {
+      id: 'google_mock_user',
+      name: 'Google User',
+      email: 'google@example.com',
+      createdAt: new Date(),
+    };
+    this._currentUser = user;
+    this._notify(user);
+    return ok(user);
+  }
+
+  async signInWithApple(): Promise<Result<User, AppError>> {
+    const user: User = {
+      id: 'apple_mock_user',
+      name: 'Apple User',
+      email: 'apple@example.com',
+      createdAt: new Date(),
+    };
+    this._currentUser = user;
+    this._notify(user);
+    return ok(user);
+  }
+
+  async recoverGuestSession(_guestUserId: string): Promise<Result<void, AppError>> {
+    return ok(undefined);
+  }
+
   currentUser(): User | null {
+    return this._currentUser;
+  }
+
+  async getInitialUser(): Promise<User | null> {
     return this._currentUser;
   }
 

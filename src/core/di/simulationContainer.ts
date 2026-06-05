@@ -11,7 +11,7 @@ import Constants from 'expo-constants';
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, RECEIPT_PARSER, RECEIPT_STORAGE, TRIP_STORE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, TRIP_STORE,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import { InMemoryTripRepository } from '../../__mocks__/InMemoryTripRepository';
@@ -26,11 +26,13 @@ import { MockStripeService } from '../../__mocks__/MockStripeService';
 import { MockOpenBankingService } from '../../__mocks__/MockOpenBankingService';
 import { MockPaymentMethodRegistry } from '../../__mocks__/MockPaymentMethodRegistry';
 import { InMemoryAuditLogRepository } from '../../__mocks__/InMemoryAuditLogRepository';
+import { MockBankListService } from '../../__mocks__/MockBankListService';
 import { MockReceiptParserService } from '../../__mocks__/MockReceiptParserService';
 import { MockReceiptStorage } from '../../__mocks__/MockReceiptStorage';
 
 import { restaurantScenario, RESTAURANT_CURRENT_USER } from '../../__mocks__/fixtures/restaurantScenario';
 import { twoPersonScenario } from '../../__mocks__/fixtures/twoPersonScenario';
+import { settlingScenario } from '../../__mocks__/fixtures/settlingScenario';
 import type { StorageFixtures } from '../../__mocks__/fixtures/types';
 import { logger } from '../utils/logger';
 
@@ -76,7 +78,7 @@ export async function createSimulationContainer(): Promise<ServiceContainer> {
   if (USE_LIVE_OCR) assertLiveOcrConfig();
   logger.log('[simulationContainer] OCR mode:', USE_LIVE_OCR ? 'LIVE (Supabase Edge Function)' : 'mock');
   logger.log('[simulationContainer] start');
-  const merged = mergeFixtures(restaurantScenario, twoPersonScenario);
+  const merged = mergeFixtures(restaurantScenario, twoPersonScenario, settlingScenario);
 
   const tripRepo   = new InMemoryTripRepository().seed(merged.trips ?? []);
   const memberRepo = new InMemoryMemberRepository().seed(merged.members ?? []);
@@ -104,6 +106,7 @@ export async function createSimulationContainer(): Promise<ServiceContainer> {
   container.register(OPEN_BANKING,     new MockOpenBankingService());
   container.register(PAYMENT_REGISTRY, new MockPaymentMethodRegistry());
   container.register(AUDIT_LOG,        new InMemoryAuditLogRepository());
+  container.register(BANK_LIST,        new MockBankListService());
   if (USE_LIVE_OCR) {
     // The live ReceiptParserService calls supabase.functions.invoke, which
     // requires a real Supabase JWT (anon key alone has no `sub` claim).

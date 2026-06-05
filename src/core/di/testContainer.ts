@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, RECEIPT_PARSER, RECEIPT_STORAGE, TRIP_STORE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, TRIP_STORE,
 } from './tokens';
 import type { ITripRepository } from '../interfaces/ITripRepository';
 import type { IMemberRepository } from '../interfaces/IMemberRepository';
@@ -15,6 +15,7 @@ import type { IStripeService } from '../interfaces/IStripeService';
 import type { IOpenBankingService } from '../interfaces/IOpenBankingService';
 import type { IPaymentMethodRegistry } from '../interfaces/IPaymentMethod';
 import type { IAuditLogRepository } from '../interfaces/IAuditLogRepository';
+import type { IBankListService } from '../interfaces/IBankListService';
 import type { IReceiptParser } from '../interfaces/IReceiptParser';
 import type { IReceiptStorage } from '../interfaces/IReceiptStorage';
 import type { TripSessionStoreApi } from '../../store/tripSessionStore';
@@ -32,6 +33,7 @@ export interface ContainerOverrides {
   openBanking?:      IOpenBankingService;
   paymentRegistry?:  IPaymentMethodRegistry;
   auditLog?:         IAuditLogRepository;
+  bankList?:         IBankListService;
   receiptParser?:    IReceiptParser;
   receiptStorage?:   IReceiptStorage;
   tripStore?:        TripSessionStoreApi;
@@ -65,6 +67,7 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   const { MockOpenBankingService } = require('../../__mocks__/MockOpenBankingService');
   const { MockPaymentMethodRegistry } = require('../../__mocks__/MockPaymentMethodRegistry');
   const { InMemoryAuditLogRepository } = require('../../__mocks__/InMemoryAuditLogRepository');
+  const { MockBankListService } = require('../../__mocks__/MockBankListService');
   const { MockReceiptParserService } = require('../../__mocks__/MockReceiptParserService');
   const { MockReceiptStorage } = require('../../__mocks__/MockReceiptStorage');
   const { createTripSessionStore } = require('../../store/tripSessionStore');
@@ -91,6 +94,7 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   container.register(OPEN_BANKING,     overrides.openBanking     ?? new MockOpenBankingService());
   container.register(PAYMENT_REGISTRY, overrides.paymentRegistry ?? new MockPaymentMethodRegistry());
   container.register(AUDIT_LOG,        overrides.auditLog        ?? new InMemoryAuditLogRepository());
+  container.register(BANK_LIST,        overrides.bankList        ?? new MockBankListService());
   container.register(RECEIPT_PARSER,   overrides.receiptParser   ?? new MockReceiptParserService());
   container.register(RECEIPT_STORAGE,  overrides.receiptStorage  ?? new MockReceiptStorage());
   container.register(

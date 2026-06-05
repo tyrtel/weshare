@@ -32,4 +32,28 @@ export class InMemoryMemberRepository implements IMemberRepository {
     this.members.set(tripId, existing.filter(m => m.userId !== userId));
     return ok(undefined);
   };
+
+  findMemberByEmail = async (tripId: string, email: string): Promise<Result<TripMember | null, AppError>> => {
+    const list = this.members.get(tripId) ?? [];
+    const match = list.find(m => m.email != null && m.email.toLowerCase() === email.toLowerCase()) ?? null;
+    return ok(match);
+  };
+
+  claimMemberSlot = async (
+    tripId: string,
+    placeholderUserId: string,
+    newUserId: string,
+    newDisplayName: string,
+  ): Promise<Result<TripMember, AppError>> => {
+    const list = this.members.get(tripId) ?? [];
+    const idx = list.findIndex(m => m.userId === placeholderUserId);
+    if (idx === -1) {
+      return { ok: false, error: { kind: 'NotFoundError', resource: 'TripMember', id: placeholderUserId } };
+    }
+    const updated: TripMember = { ...list[idx], userId: newUserId, displayName: newDisplayName, isGuest: false };
+    const next = [...list];
+    next[idx] = updated;
+    this.members.set(tripId, next);
+    return ok(updated);
+  };
 }

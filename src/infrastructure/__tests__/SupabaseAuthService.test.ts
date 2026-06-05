@@ -4,6 +4,7 @@ jest.mock('../supabase/supabaseClient', () => ({
       signInWithPassword: jest.fn(),
       signInAnonymously: jest.fn(),
       signOut: jest.fn(),
+      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
       onAuthStateChange: jest.fn().mockReturnValue({
         data: { subscription: { unsubscribe: jest.fn() } },
       }),
@@ -29,10 +30,11 @@ const { supabase } = require('../supabase/supabaseClient') as {
 // Build a mock Supabase query chain that resolves with `result` at .single().
 function mockFromChain(result: { data: unknown; error: null | { message: string } }) {
   const single = jest.fn().mockResolvedValue(result);
-  const chain = { select: jest.fn(), eq: jest.fn(), insert: jest.fn(), single };
+  const chain = { select: jest.fn(), eq: jest.fn(), insert: jest.fn(), upsert: jest.fn(), single };
   chain.select.mockReturnValue(chain);
   chain.eq.mockReturnValue(chain);
   chain.insert.mockReturnValue(chain);
+  chain.upsert.mockReturnValue(chain);
   return chain;
 }
 

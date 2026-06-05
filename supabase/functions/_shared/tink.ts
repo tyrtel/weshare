@@ -59,10 +59,11 @@ export async function tinkInitiatePayment(
   creditorIban: string,
   market: string,
   redirectUri: string,
+  providerId?: string,
 ): Promise<TinkPaymentInitiateResponse> {
   const token = await getClientToken(clientId, clientSecret);
 
-  const body: TinkPaymentInitiateRequest = {
+  const body: TinkPaymentInitiateRequest & { providerName?: string } = {
     amount: {
       value:        { unscaledValue: amountCents, scale: 2 },
       currencyCode: currency,
@@ -72,6 +73,7 @@ export async function tinkInitiatePayment(
     remittanceInformation:  { value: note, type: 'UNSTRUCTURED' },
     creditor: { accountNumber: creditorIban, accountNumberType: 'IBAN' },
     market,
+    ...(providerId ? { providerName: providerId } : {}),
   };
 
   const res = await fetch(`${TINK_BASE}/api/v1/payments/initiations?redirect_uri=${encodeURIComponent(redirectUri)}`, {

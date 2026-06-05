@@ -9,6 +9,7 @@ import { Text } from '../../../components/ui/Text';
 import { IBANInputField } from '../../../components/ui/IBANInputField';
 import { SplitStatusBadge } from '../../../components/ui/SplitStatusBadge';
 import { PaymentProofCard } from '../../../components/ui/PaymentProofCard';
+import { BankSelectorSheet } from '../components/BankSelectorSheet';
 import { useService } from '../../../core/di/ServiceContext';
 import { OPEN_BANKING, SPLIT_REQUEST_REPO } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
@@ -17,6 +18,7 @@ import { generateId } from '../../../core/utils/generateId';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
+import type { Bank } from '../../../core/interfaces/IBankListService';
 import type { SplitRequest, SplitRequestStatus } from '../../../core/models/SplitRequest';
 
 const POLL_INTERVAL_MS = 8000;
@@ -58,11 +60,13 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
   const ob               = useService(OPEN_BANKING);
   const splitRequestRepo = useService(SPLIT_REQUEST_REPO);
 
-  const [iban, setIban]             = useState('');
-  const [ibanValid, setIbanValid]   = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [activeReq, setActiveReq]   = useState<SplitRequest | null>(null);
-  const [status, setStatus]         = useState<SplitRequestStatus | null>(null);
+  const [iban, setIban]                   = useState('');
+  const [ibanValid, setIbanValid]         = useState(false);
+  const [selectedBank, setSelectedBank]   = useState<Bank | null>(null);
+  const [bankSheetOpen, setBankSheetOpen] = useState(false);
+  const [submitting, setSubmitting]       = useState(false);
+  const [activeReq, setActiveReq]         = useState<SplitRequest | null>(null);
+  const [status, setStatus]               = useState<SplitRequestStatus | null>(null);
 
   const isTerminal = status !== null && TERMINAL.includes(status);
 
@@ -175,10 +179,46 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
           </Text>
         </View>
 
-        {/* IBAN input — only shown before initiation */}
+        {/* Bank + IBAN inputs — only shown before initiation */}
         {!activeReq && (
           <View style={{ gap: tokens.spacing.sm }}>
-            <Text variant="label" color={colors.text.secondary}>
+            {/* Optional bank selection */}
+            <Text variant="label" color={colors.text.secondary}>Bank (optional)</Text>
+            <Pressable
+              onPress={() => setBankSheetOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={selectedBank ? `Selected bank: ${selectedBank.name}` : 'Select your bank'}
+              style={({ pressed }) => ({
+                flexDirection:     'row',
+                alignItems:        'center',
+                backgroundColor:   colors.surfaceAlt,
+                borderRadius:      tokens.radius.md,
+                padding:           tokens.spacing.sm,
+                opacity:           pressed ? 0.7 : 1,
+              })}
+            >
+              <Ionicons
+                name={selectedBank ? 'business' : 'business-outline'}
+                size={18}
+                color={selectedBank ? colors.primary.default : colors.text.tertiary}
+                style={{ marginRight: tokens.spacing.sm }}
+              />
+              <Text
+                variant="body"
+                color={selectedBank ? colors.text.primary : colors.text.tertiary}
+                style={{ flex: 1 }}
+              >
+                {selectedBank ? selectedBank.name : 'Select your bank…'}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.text.tertiary} />
+            </Pressable>
+            {selectedBank && (
+              <Pressable onPress={() => setSelectedBank(null)} accessibilityLabel="Clear bank selection">
+                <Text variant="caption" color={colors.text.tertiary}>Clear bank selection</Text>
+              </Pressable>
+            )}
+
+            <Text variant="label" color={colors.text.secondary} style={{ marginTop: tokens.spacing.xs }}>
               Your IBAN (creditor account)
             </Text>
             <IBANInputField
@@ -190,6 +230,12 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
             </Text>
           </View>
         )}
+
+        <BankSelectorSheet
+          visible={bankSheetOpen}
+          onSelect={(bank) => setSelectedBank(bank)}
+          onClose={() => setBankSheetOpen(false)}
+        />
 
         {/* In-progress state after initiation */}
         {activeReq && (

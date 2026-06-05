@@ -1,10 +1,12 @@
 import React, { useRef, useEffect } from 'react';
-import { View, PanResponder } from 'react-native';
+import { View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  runOnJS,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 
@@ -28,14 +30,12 @@ export function ProportionalSplitBar({
   accent,
   onChange,
 }: ProportionalSplitBarProps) {
-  const colors        = useColors();
-  const trackWidthRef = useRef(0);
-  const weightRef     = useRef(weight);
-  const startWeightRef = useRef(weight);
-  const onChangeRef   = useRef(onChange);
-  const fillWidth     = useSharedValue(0);
+  const colors          = useColors();
+  const trackWidthRef   = useRef(0);
+  const startWeightRef  = useRef(weight);
+  const onChangeRef     = useRef(onChange);
+  const fillWidth       = useSharedValue(0);
 
-  useEffect(() => { weightRef.current   = weight;   }, [weight]);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
   // Sync fill when weight changes from outside (normalisation or mode entry).
@@ -48,34 +48,26 @@ export function ProportionalSplitBar({
     }
   }, [weight, fillWidth]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      // Claim the touch immediately so the parent Pressable (row toggle) can't steal it.
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        startWeightRef.current = weightRef.current;
-      },
-      onPanResponderMove: (_, { dx }) => {
-        if (trackWidthRef.current === 0) return;
-        const raw     = startWeightRef.current + Math.round(dx / trackWidthRef.current * 10000);
-        const clamped = Math.max(0, Math.min(10000, raw));
-        // eslint-disable-next-line react-hooks/immutability
-        fillWidth.value = clamped / 10000 * trackWidthRef.current;
-      },
-      onPanResponderRelease: (_, { dx }) => {
-        if (trackWidthRef.current === 0) return;
-        const raw     = startWeightRef.current + Math.round(dx / trackWidthRef.current * 10000);
-        const clamped = Math.max(0, Math.min(10000, raw));
-        // eslint-disable-next-line react-hooks/immutability
-        fillWidth.value = withSpring(
-          clamped / 10000 * trackWidthRef.current,
-          { damping: 20, stiffness: 300 },
-        );
-        onChangeRef.current(clamped);
-      },
+  const dragGesture = Gesture.Pan()
+    .onBegin(() => {
+      startWeightRef.current = weight;
     })
-  ).current;
+    .onUpdate(({ translationX }) => {
+      if (trackWidthRef.current === 0) return;
+      const raw     = startWeightRef.current + Math.round(translationX / trackWidthRef.current * 10000);
+      const clamped = Math.max(0, Math.min(10000, raw));
+      fillWidth.value = clamped / 10000 * trackWidthRef.current;
+    })
+    .onEnd(({ translationX }) => {
+      if (trackWidthRef.current === 0) return;
+      const raw     = startWeightRef.current + Math.round(translationX / trackWidthRef.current * 10000);
+      const clamped = Math.max(0, Math.min(10000, raw));
+      fillWidth.value = withSpring(
+        clamped / 10000 * trackWidthRef.current,
+        { damping: 20, stiffness: 300 },
+      );
+      runOnJS(onChangeRef.current)(clamped);
+    });
 
   const fillStyle = useAnimatedStyle(() => ({
     width: Math.max(0, fillWidth.value),
@@ -86,61 +78,61 @@ export function ProportionalSplitBar({
   }));
 
   return (
-    <View
-      style={{
-        height: CONTAINER_H,
-        justifyContent: 'center',
-        marginTop: tokens.spacing.xs,
-        marginBottom: tokens.spacing.xs,
-      }}
-      {...panResponder.panHandlers}
-      onLayout={({ nativeEvent: { layout } }) => {
-        trackWidthRef.current = layout.width;
-        // eslint-disable-next-line react-hooks/immutability
-        fillWidth.value = weight / 10000 * layout.width;
-      }}
-    >
-      {/* Track */}
+    <GestureDetector gesture={dragGesture}>
       <View
         style={{
-          height: TRACK_HEIGHT,
-          borderRadius: TRACK_HEIGHT / 2,
-          backgroundColor: colors.borderMuted,
-          overflow: 'hidden',
+          height: CONTAINER_H,
+          justifyContent: 'center',
+          marginTop: tokens.spacing.xs,
+          marginBottom: tokens.spacing.xs,
+        }}
+        onLayout={({ nativeEvent: { layout } }) => {
+          trackWidthRef.current = layout.width;
+          fillWidth.value = weight / 10000 * layout.width;
         }}
       >
+        {/* Track */}
+        <View
+          style={{
+            height: TRACK_HEIGHT,
+            borderRadius: TRACK_HEIGHT / 2,
+            backgroundColor: colors.borderMuted,
+            overflow: 'hidden',
+          }}
+        >
+          <Animated.View
+            style={[
+              fillStyle,
+              {
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                borderRadius: TRACK_HEIGHT / 2,
+                backgroundColor: color,
+              },
+            ]}
+          />
+        </View>
+
+        {/* Drag handle — positioned absolutely so it overlaps the track */}
         <Animated.View
           style={[
-            fillStyle,
+            handleStyle,
             {
               position: 'absolute',
               left: 0,
-              top: 0,
-              bottom: 0,
-              borderRadius: TRACK_HEIGHT / 2,
-              backgroundColor: color,
+              width: HANDLE_SIZE,
+              height: HANDLE_SIZE,
+              borderRadius: HANDLE_SIZE / 2,
+              backgroundColor: colors.surface,
+              borderWidth: 2,
+              borderColor: accent,
+              ...tokens.shadow.sm,
             },
           ]}
         />
       </View>
-
-      {/* Drag handle — positioned absolutely so it overlaps the track */}
-      <Animated.View
-        style={[
-          handleStyle,
-          {
-            position: 'absolute',
-            left: 0,
-            width: HANDLE_SIZE,
-            height: HANDLE_SIZE,
-            borderRadius: HANDLE_SIZE / 2,
-            backgroundColor: colors.surface,
-            borderWidth: 2,
-            borderColor: accent,
-            ...tokens.shadow.sm,
-          },
-        ]}
-      />
-    </View>
+    </GestureDetector>
   );
 }

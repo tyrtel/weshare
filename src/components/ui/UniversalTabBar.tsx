@@ -39,6 +39,8 @@ export function UniversalTabBar() {
   const router   = useRouter();
   const insets   = useSafeAreaInsets();
 
+  if (pathname.startsWith('/auth') || pathname.startsWith('/join')) return null;
+
   return (
     <View
       style={{

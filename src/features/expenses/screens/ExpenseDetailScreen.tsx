@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, ActivityIndicator, Platform, Pressable, Image } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Platform, Pressable, Image, Modal, StatusBar, SafeAreaView } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -63,8 +63,9 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   const tripClosed = useTripSessionStore(
     s => s.trips.find(t => t.id === expense?.tripId)?.status === 'closed',
   );
-  const [members,    setMembers]    = useState<TripMember[]>([]);
-  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [members,         setMembers]         = useState<TripMember[]>([]);
+  const [receiptUrl,      setReceiptUrl]      = useState<string | null>(null);
+  const [receiptFullscreen, setReceiptFullscreen] = useState(false);
 
   useEffect(() => {
     if (!expense) return;
@@ -157,25 +158,78 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
           </Text>
         </Animated.View>
 
-        {/* Receipt image */}
+        {/* Receipt image — tap to view fullscreen */}
         {receiptUrl && (
           <View style={{ marginBottom: tokens.spacing.md }}>
             <Text variant="caption" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
               Receipt
             </Text>
-            <Image
-              source={{ uri: receiptUrl }}
-              style={{
-                width: '100%',
-                height: 220,
-                borderRadius: tokens.radius.card,
-                backgroundColor: colors.surface,
-              }}
-              resizeMode="contain"
-              accessibilityLabel="Receipt image"
-            />
+            <Pressable
+              onPress={() => setReceiptFullscreen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="View receipt fullscreen"
+            >
+              <Image
+                source={{ uri: receiptUrl }}
+                style={{
+                  width: '100%',
+                  height: 220,
+                  borderRadius: tokens.radius.card,
+                  backgroundColor: colors.surface,
+                }}
+                resizeMode="contain"
+                accessibilityLabel="Receipt image"
+              />
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: tokens.spacing.xs,
+                  right: tokens.spacing.xs,
+                  backgroundColor: 'rgba(0,0,0,0.55)',
+                  borderRadius: 999,
+                  padding: 6,
+                }}
+              >
+                <Ionicons name="expand-outline" size={16} color="#fff" />
+              </View>
+            </Pressable>
           </View>
         )}
+
+        {/* Receipt fullscreen modal */}
+        <Modal
+          visible={receiptFullscreen}
+          transparent={false}
+          animationType="fade"
+          onRequestClose={() => setReceiptFullscreen(false)}
+          statusBarTranslucent
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
+            <StatusBar barStyle="light-content" backgroundColor="#000" />
+            <Pressable
+              onPress={() => setReceiptFullscreen(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Close receipt"
+              style={{
+                position: 'absolute',
+                top: tokens.spacing.lg,
+                right: tokens.spacing.md,
+                zIndex: 10,
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 999,
+                padding: 8,
+              }}
+            >
+              <Ionicons name="close" size={24} color="#fff" />
+            </Pressable>
+            <Image
+              source={{ uri: receiptUrl }}
+              style={{ flex: 1 }}
+              resizeMode="contain"
+              accessibilityLabel="Receipt image fullscreen"
+            />
+          </SafeAreaView>
+        </Modal>
 
         {/* Paid by */}
         <View

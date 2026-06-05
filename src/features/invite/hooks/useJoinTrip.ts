@@ -52,7 +52,7 @@ export function useJoinTrip(token: string) {
   // ── Shared join logic ─────────────────────────────────────────────────────
 
   const _doJoin = useCallback(
-    async (userId: string, displayName: string, isGuest: boolean): Promise<Trip | null> => {
+    async (userId: string, displayName: string, isGuest: boolean, email?: string): Promise<Trip | null> => {
       const { trip } = state;
       if (!trip) {
         setState(s => ({ ...s, joinError: { kind: 'NotFoundError', resource: 'Trip', id: token } }));
@@ -66,6 +66,27 @@ export function useJoinTrip(token: string) {
       if (isOk(membersResult)) {
         const alreadyMember = membersResult.value.some(m => m.userId === userId);
         if (alreadyMember) {
+          setState(s => ({ ...s, joining: false }));
+          return trip;
+        }
+      }
+
+      // Email-based matching: if the user has an email, check for a placeholder
+      // TripMember with that email and merge instead of adding a new row.
+      if (email && !isGuest) {
+        const matchResult = await memberRepo.findMemberByEmail(trip.id, email);
+        if (isOk(matchResult) && matchResult.value) {
+          const claimResult = await memberRepo.claimMemberSlot(
+            trip.id,
+            matchResult.value.userId,
+            userId,
+            displayName,
+          );
+          if (!isOk(claimResult)) {
+            setState(s => ({ ...s, joining: false, joinError: claimResult.error }));
+            return null;
+          }
+          storeApi.getState().appendMember(claimResult.value);
           setState(s => ({ ...s, joining: false }));
           return trip;
         }
@@ -128,7 +149,7 @@ export function useJoinTrip(token: string) {
       }));
       return null;
     }
-    return _doJoin(user.id, user.name, false);
+    return _doJoin(user.id, user.name, false, user.email);
   }, [auth, _doJoin]);
 
   return {

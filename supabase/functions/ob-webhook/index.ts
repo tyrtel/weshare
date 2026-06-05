@@ -92,6 +92,21 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(`[ob-webhook] ${obPaymentId} → ${internalStatus}`);
+
+    // Fire-and-forget audit log insert — failure must not fail the webhook response.
+    supabase.from('audit_log').insert({
+      entity_type: 'split_request',
+      entity_id:   obPaymentId,
+      event_type:  `ob.${internalStatus}`,
+      payload: {
+        ob_payment_id: obPaymentId,
+        tink_status:   rawStatus,
+        next_status:   internalStatus,
+      },
+    }).then(({ error: auditError }) => {
+      if (auditError) console.warn('[ob-webhook] audit log insert failed:', auditError.message);
+    });
+
     return Response.json({ received: true, status: internalStatus }, { headers: corsHeaders });
 
   } catch (err) {

@@ -76,5 +76,19 @@ Deno.serve(async (req: Request) => {
   }
 
   console.log(`[stripe-webhook] ${event.type} → split_request ${splitRequestId} = ${nextStatus}`);
+
+  // Fire-and-forget audit log insert — failure must not fail the webhook response.
+  supabase.from('audit_log').insert({
+    entity_type: 'split_request',
+    entity_id:   splitRequestId,
+    event_type:  event.type,
+    payload: {
+      stripe_event_id: event.id,
+      next_status:     nextStatus,
+    },
+  }).then(({ error: auditError }) => {
+    if (auditError) console.warn('[stripe-webhook] audit log insert failed:', auditError.message);
+  });
+
   return Response.json({ received: true }, { headers: corsHeaders });
 });

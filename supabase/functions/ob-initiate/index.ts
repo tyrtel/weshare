@@ -51,12 +51,14 @@ Deno.serve(async (req: Request) => {
       currency,
       note,
       creditor_iban,
+      provider_id,
     } = await req.json() as {
       split_request_id: string;
       amount_cents:     number;
       currency:         string;
       note:             string;
       creditor_iban:    string;
+      provider_id?:     string;  // optional Tink financialInstitutionId from BankSelectorSheet
     };
 
     // ── Authorisation: verify caller is the payer on the split_request ───────
@@ -115,6 +117,7 @@ Deno.serve(async (req: Request) => {
       creditor_iban,
       TINK_MARKET,
       TINK_REDIRECT_URI,
+      provider_id,
     );
 
     await adminClient

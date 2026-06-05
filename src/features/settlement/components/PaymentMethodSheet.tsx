@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Modal, View, Pressable, PanResponder, Platform, StyleSheet, ActivityIndicator } from 'react-native';
+import { Modal, View, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   runOnJS,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Text } from '../../../components/ui/Text';
@@ -61,27 +62,22 @@ export function PaymentMethodSheet({
     void registry.getAvailable().then(setAvailableMethods);
   }, [visible, translateY, registry]);
 
-  const panResponder = useRef(
-    Platform.OS !== 'web'
-      ? PanResponder.create({
-          onMoveShouldSetPanResponder: (_, { dy }) => dy > 8,
-          onPanResponderMove: (_, { dy }) => {
-            translateY.value = Math.max(0, dy);
-          },
-          onPanResponderRelease: (_, { dy, vy }) => {
-            if (dy > DISMISS_THRESHOLD || vy > DISMISS_VELOCITY) {
-              translateY.value = withSpring(
-                600,
-                { damping: 20, stiffness: 180 },
-                () => runOnJS(onCloseRef.current)(),
-              );
-            } else {
-              translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
-            }
-          },
-        })
-      : { panHandlers: {} },
-  ).current;
+  const dragGesture = Gesture.Pan()
+    .activeOffsetY(8)
+    .onUpdate(({ translationY }) => {
+      translateY.value = Math.max(0, translationY);
+    })
+    .onEnd(({ translationY, velocityY }) => {
+      if (translationY > DISMISS_THRESHOLD || velocityY > DISMISS_VELOCITY * 1000) {
+        translateY.value = withSpring(
+          600,
+          { damping: 20, stiffness: 180 },
+          () => runOnJS(onCloseRef.current)(),
+        );
+      } else {
+        translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
+      }
+    });
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -138,12 +134,12 @@ export function PaymentMethodSheet({
           accessibilityLabel="Close payment options"
         />
 
+        <GestureDetector gesture={dragGesture}>
         <Animated.View
           style={[
             sheetStyle,
             { backgroundColor: colors.surface, borderTopLeftRadius: tokens.radius.card, borderTopRightRadius: tokens.radius.card },
           ]}
-          {...panResponder.panHandlers}
         >
           <View style={styles.handleContainer}>
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -227,6 +223,7 @@ export function PaymentMethodSheet({
             </Pressable>
           </View>
         </Animated.View>
+        </GestureDetector>
       </View>
     </Modal>
   );
