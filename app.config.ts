@@ -58,9 +58,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       '@react-native-google-signin/google-signin',
       {
-        // Replace with your Web client ID from Google Cloud Console
-        // (OAuth 2.0 client type: Web application — NOT Android/iOS)
-        webClientId: process.env.GOOGLE_WEB_CLIENT_ID ?? 'REPLACE_WITH_YOUR_GOOGLE_WEB_CLIENT_ID',
+        // Web client ID from Google Cloud Console (OAuth 2.0 → Web application).
+        // Set GOOGLE_WEB_CLIENT_ID as an EAS secret for production builds.
+        // Set GOOGLE_IOS_URL_SCHEME when adding iOS support (reversed iOS client ID).
+        webClientId: process.env.GOOGLE_WEB_CLIENT_ID ?? '',
+        // iosUrlScheme = reversed iOS OAuth client ID from Google Cloud Console.
+        // Replace GOOGLE_IOS_URL_SCHEME EAS secret when adding iOS support.
+        iosUrlScheme: process.env.GOOGLE_IOS_URL_SCHEME ?? 'com.googleusercontent.apps.placeholder',
       },
     ],
   ],
