@@ -202,17 +202,21 @@ Open both files and replace the placeholders:
 
 ---
 
-## 7 — EAS Build & Production Deploy  🔴 BLOCKING
+## 7 — EAS Build & Production Deploy  🟡 IN PROGRESS
 
-- [ ] Set EAS secrets:
+- [x] EAS CLI installed (v20.0.0)
+- [x] eas.json validated and fixed (empty submit fields removed)
+- [x] All outstanding code committed (51 files — requireCommit satisfied)
+- [ ] Log in to EAS and set secrets (run these yourself — requires browser auth):
   ```bash
-  eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_URL     --value https://xxx.supabase.co
-  eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value eyJ...
-  eas secret:create --scope project --name EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY --value pk_live_...
+  eas login
+  eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value https://yuwsqypcqstemdutywnx.supabase.co --type string --environment production
+  eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1d3NxeXBjcXN0ZW1kdXR5d254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NTMxODIsImV4cCI6MjA5NDMyOTE4Mn0.Kbh-9J5PitFmWmQey5mXJUZ9czGmGYdMqyn-_5rxD6w --type string --environment production
+  eas env:create --scope project --name EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY --value pk_test_51TeZv5Ci7qVwnUz0Xmrjsg9nd8TmKLaVhhWhn2MnTN8uB9wtUn5zAJOx2omo6eofwJfvzMAN7R2o903vvC5zLL1G00wjxFGzJj --type string --environment production
   ```
 - [ ] Run first Android production build: `eas build --platform android --profile production`
 - [ ] Download the `.aab` (Android App Bundle) from EAS dashboard
-- [ ] Upload `.aab` to Google Play Console → Production track (or Internal testing first)
+- [ ] Upload `.aab` to Google Play Console → Internal testing track first
 - [ ] Run iOS build when ready for Phase 3: `eas build --platform ios --profile production`
 
 ---
