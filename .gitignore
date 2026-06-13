@@ -40,3 +40,9 @@ service-account*.json
 
 # Claude Code local settings (machine-specific, not for source control)
 .claude/
+
+# Supabase CLI temp files (created by supabase link/start)
+supabase/.temp/
+
+# Windows/WSL Zone Identifier sidecar files
+*.Zone.Identifier

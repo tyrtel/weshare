@@ -151,38 +151,18 @@ All written copy is in `store-assets/play-store-metadata.md`:
 
 ---
 
-## 5 — Privacy Policy  🟡 DRAFT DONE — HOSTING REMAINING
+## 5 — Privacy Policy  🟡 HOSTED — PLAY CONSOLE SUBMISSION REMAINING
 
 ### Draft — done ✅
-Full GDPR-compliant policies written in both languages:
 - [x] English draft: `store-assets/privacy-policy-en.md`
 - [x] French draft: `store-assets/privacy-policy-fr.md`
+- [x] HTML versions hosted on GitHub Pages: `https://tyrtel.github.io/ouishare-legal/`
+- [x] Placeholders filled in (McCleery Enterprises, tyrtel@gmail.com)
 - [x] Covers: account data, trip data, camera, contacts, Stripe, Tink, Supabase
 - [x] Includes: legal basis, retention periods, GDPR rights, CNIL authority, children clause
 
-### Before hosting — fill in your details
-Open both files and replace the placeholders:
-- `[YOUR FULL NAME OR COMPANY NAME]`
-- `[YOUR ADDRESS]`
-- `[YOUR EMAIL ADDRESS]`
-- Update "Last updated" date if needed
-
-### Host the policy (choose one)
-**Option A — GitHub Pages (free, recommended):**
-1. Create a new public GitHub repo called `ouishare-legal`
-2. Add both markdown files (or convert to HTML)
-3. Enable GitHub Pages (Settings → Pages → Deploy from main branch)
-4. URL will be: `https://[yourusername].github.io/ouishare-legal/privacy-policy`
-
-**Option B — Notion (fastest):**
-1. Create a new Notion page, paste the English text
-2. Click Share → Publish to web
-3. Copy the public URL
-
 ### Remaining checklist
-- [ ] Fill in name, email, address placeholders in both files
-- [ ] Host at a stable public URL
-- [ ] Add URL to `app.config.ts → extra.privacyPolicyUrl`
+- [x] Add URL to `app.config.ts → extra.privacyPolicyUrl`
 - [ ] Submit URL in Google Play Console → App content → Privacy policy
 - [ ] In-app link to policy added to auth / settings screen (future task)
 - [ ] Submit URL in App Store Connect when iOS phase begins
@@ -202,21 +182,18 @@ Open both files and replace the placeholders:
 
 ---
 
-## 7 — EAS Build & Production Deploy  🟡 IN PROGRESS
+## 7 — EAS Build & Production Deploy  🟡 BUILD COMPLETE — UPLOAD REMAINING
 
 - [x] EAS CLI installed (v20.0.0)
-- [x] eas.json validated and fixed (empty submit fields removed)
-- [x] All outstanding code committed (51 files — requireCommit satisfied)
-- [ ] Log in to EAS and set secrets (run these yourself — requires browser auth):
-  ```bash
-  eas login
-  eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_URL --value https://yuwsqypcqstemdutywnx.supabase.co --type string --environment production
-  eas env:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1d3NxeXBjcXN0ZW1kdXR5d254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NTMxODIsImV4cCI6MjA5NDMyOTE4Mn0.Kbh-9J5PitFmWmQey5mXJUZ9czGmGYdMqyn-_5rxD6w --type string --environment production
-  eas env:create --scope project --name EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY --value pk_test_51TeZv5Ci7qVwnUz0Xmrjsg9nd8TmKLaVhhWhn2MnTN8uB9wtUn5zAJOx2omo6eofwJfvzMAN7R2o903vvC5zLL1G00wjxFGzJj --type string --environment production
-  ```
-- [ ] Run first Android production build: `eas build --platform android --profile production`
-- [ ] Download the `.aab` (Android App Bundle) from EAS dashboard
-- [ ] Upload `.aab` to Google Play Console → Internal testing track first
+- [x] eas.json validated and fixed; appVersionSource set to remote
+- [x] EAS project created: @tyrtel/ouishare (projectId: a1b9adb5-735f-46c6-9457-e4161f0eee99)
+- [x] EAS env vars set: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY
+- [x] Android keystore generated and stored by EAS
+- [x] Placeholder assets added (assets/icon.png, adaptive-icon.png, splash.png, favicon.png)
+- [x] metro.config.js added — all expo doctor checks pass
+- [x] First Android production build completed successfully
+- [ ] Download the `.aab` from EAS dashboard and upload to Google Play Console → Internal testing track
+- [ ] Register app SHA-1 fingerprint in Google Cloud Console (get from EAS keystore after upload)
 - [ ] Run iOS build when ready for Phase 3: `eas build --platform ios --profile production`
 
 ---
@@ -226,7 +203,7 @@ Open both files and replace the placeholders:
 - [x] Stripe webhook registered (see Section 2 above for step-by-step)
 - [x] Supabase migrations deployed to production: all 15 migrations applied
 - [x] Supabase Edge Functions deployed: all 7 functions live (create-payment-link, ob-initiate, ob-status, ob-webhook, parse-receipt, payment-status, stripe-webhook)
-- [ ] Verify Supabase project is in **EU region** (Frankfurt or West EU) — required for GDPR
+- [x] Verify Supabase project is in **EU region** (Frankfurt or West EU) — required for GDPR (confirmed eu-west-1 Ireland)
 
 ---
 
@@ -241,11 +218,27 @@ Open both files and replace the placeholders:
 
 ---
 
-## 10 — Nice-to-Have (v1.1)
+## 10 — Pre-Launch Bug Fixes  🔴 BLOCKING
+
+- [ ] **Duplicate "Total" label on expense list screen** — remove the second small "Total" text that appears under the graph
+- [ ] **Split itemized expense feature broken** — itemized split is not working; investigate and fix so users can split individual line items on a receipt
+
+---
+
+## 11 — Nice-to-Have (v1.1)
 
 - [ ] Guest → account upgrade prompt after first trip created
 - [ ] Swipe-to-mark-paid gesture in `SettlementRow`
 - [ ] Tink `BankSelectorSheet` — requires Tink sandbox credentials
 - [ ] Push notifications for settlement status changes
 - [ ] Android / iOS tablet layout optimisation
-- [ ] Localisation (French strings in-app, not just store listing)
+- [ ] **Localisation — Engineering**
+  - [ ] Install `expo-localization`, `i18next`, `react-i18next`
+  - [ ] Create `src/i18n/` with `en.json` and `fr.json` (key/value pairs)
+  - [ ] Wire up `i18next` init in `app/_layout.tsx`, reading locale from `expo-localization`
+  - [ ] Replace hardcoded display strings across components with `t('key')` hook calls
+  - [ ] Add `ILocalisationService` + mock to DI container if locale-switching is needed at runtime
+- [ ] **Localisation — Translations**
+  - [ ] Audit all user-facing strings and list them as keys in `en.json`
+  - [ ] Produce French translations for all keys in `fr.json`
+  - [ ] Verify French copy with a native speaker or translation service
