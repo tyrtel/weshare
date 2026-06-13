@@ -21,13 +21,13 @@ export default function WelcomeScreen() {
     const result = await auth.signInWithGoogle();
     setBusy(null);
     if (!isOk(result)) {
-      // User-cancelled is silently ignored; real errors surface.
       const msg = result.error.message;
       if (!msg.includes('SIGN_IN_CANCELLED') && !msg.includes('PLAY_SERVICES_NOT_AVAILABLE')) {
         setError(msg);
       }
+    } else {
+      router.replace('/' as Parameters<typeof router.replace>[0]);
     }
-    // Successful sign-in triggers onAuthStateChange → AuthGate redirects.
   }
 
   async function handleApple() {
@@ -38,6 +38,8 @@ export default function WelcomeScreen() {
     if (!isOk(result)) {
       const msg = result.error.message;
       if (!msg.includes('ERR_CANCELED')) setError(msg);
+    } else {
+      router.replace('/' as Parameters<typeof router.replace>[0]);
     }
   }
 

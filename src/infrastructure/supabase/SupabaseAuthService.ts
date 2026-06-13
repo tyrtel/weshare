@@ -118,7 +118,7 @@ export class SupabaseAuthService implements IAuthService {
       const userInfo = await GoogleSignin.signIn();
       const idToken  = userInfo.data?.idToken;
 
-      if (!idToken) return err({ kind: 'AuthError', message: `No ID token. type=${userInfo.type} keys=${Object.keys(userInfo.data ?? {}).join(',')}` });
+      if (!idToken) return err({ kind: 'AuthError', message: 'No ID token returned from Google' });
 
       const previousGuestId = this._currentUser?.isGuest ? this._currentUser.id : null;
 
@@ -206,7 +206,10 @@ export class SupabaseAuthService implements IAuthService {
   async getInitialUser(): Promise<User | null> {
     const { data } = await supabase.auth.getSession();
     if (!data.session?.user) return null;
-    return this._fetchUser(data.session.user.id, data.session.user.email);
+    this._expiresAt = data.session.expires_at ?? 0;
+    const user = await this._fetchUser(data.session.user.id, data.session.user.email);
+    if (user) this._currentUser = user;
+    return user;
   }
 
   currentUser(): User | null {
