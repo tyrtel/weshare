@@ -25,8 +25,12 @@ export class SupabaseAuthService implements IAuthService {
         this._expiresAt   = 0;
         return;
       }
-      this._expiresAt   = session.expires_at ?? 0;
-      this._currentUser = await this._fetchUser(session.user.id, session.user.email);
+      this._expiresAt = session.expires_at ?? 0;
+      // Only overwrite _currentUser when the row is actually found. The event
+      // may fire before _upsertUser completes on first sign-in, returning null
+      // and wiping out the value set by the sign-in method.
+      const user = await this._fetchUser(session.user.id, session.user.email);
+      if (user) this._currentUser = user;
     });
   }
 
@@ -223,7 +227,10 @@ export class SupabaseAuthService implements IAuthService {
     const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) { listener(null); return; }
       const user = await this._fetchUser(session.user.id, session.user.email);
-      listener(user);
+      // Only notify listeners when the row is found. If null, the sign-in method
+      // will navigate directly, so we must not call listener(null) and send
+      // AuthGate back to the auth screen.
+      if (user) listener(user);
     });
     return () => data.subscription.unsubscribe();
   }
