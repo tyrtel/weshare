@@ -29,8 +29,11 @@ export default function GuestNameScreen() {
     setBusy(false);
     if (!isOk(result)) {
       setError(result.error.message);
+    } else {
+      // Navigate directly — onAuthStateChange fires before the upsert completes
+      // so AuthGate would see user=null and miss the redirect.
+      router.replace('/' as Parameters<typeof router.replace>[0]);
     }
-    // Successful sign-in triggers onAuthStateChange → AuthGate redirects.
   }
 
   return (

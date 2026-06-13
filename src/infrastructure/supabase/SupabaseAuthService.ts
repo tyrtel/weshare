@@ -12,6 +12,13 @@ export class SupabaseAuthService implements IAuthService {
   private _expiresAt: number = 0;
 
   constructor() {
+    // Configure Google Sign-in eagerly so the native module is ready before signInWithGoogle() is called.
+    import('@react-native-google-signin/google-signin').then(({ GoogleSignin }) => {
+      GoogleSignin.configure({
+        webClientId: Constants.expoConfig?.extra?.googleWebClientId ?? '',
+      });
+    });
+
     supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
         this._currentUser = null;
@@ -107,9 +114,6 @@ export class SupabaseAuthService implements IAuthService {
     try {
       const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
 
-      GoogleSignin.configure({
-        webClientId: Constants.expoConfig?.extra?.googleWebClientId ?? '',
-      });
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const userInfo = await GoogleSignin.signIn();
       const idToken  = userInfo.data?.idToken;
