@@ -118,7 +118,7 @@ export class SupabaseAuthService implements IAuthService {
       const userInfo = await GoogleSignin.signIn();
       const idToken  = userInfo.data?.idToken;
 
-      if (!idToken) return err({ kind: 'AuthError', message: 'No ID token returned from Google' });
+      if (!idToken) return err({ kind: 'AuthError', message: `No ID token. type=${userInfo.type} keys=${Object.keys(userInfo.data ?? {}).join(',')}` });
 
       const previousGuestId = this._currentUser?.isGuest ? this._currentUser.id : null;
 
