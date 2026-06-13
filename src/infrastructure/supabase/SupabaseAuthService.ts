@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { ok, err } from '../../core/types/Result';
 import type { Result } from '../../core/types/Result';
 import type { AppError } from '../../core/types/AppError';
@@ -106,6 +107,9 @@ export class SupabaseAuthService implements IAuthService {
     try {
       const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
 
+      GoogleSignin.configure({
+        webClientId: Constants.expoConfig?.extra?.googleWebClientId ?? '',
+      });
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const userInfo = await GoogleSignin.signIn();
       const idToken  = userInfo.data?.idToken;
