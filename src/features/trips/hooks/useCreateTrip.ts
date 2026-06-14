@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
-import { TRIP_REPO, AUTH, TRIP_STORE } from '../../../core/di/tokens';
+import { TRIP_REPO, MEMBER_REPO, AUTH, TRIP_STORE } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
 import { generateId } from '../../../core/utils/generateId';
 import type { Trip } from '../../../core/models/Trip';
@@ -18,9 +18,10 @@ function generateInviteToken(): string {
 }
 
 export function useCreateTrip() {
-  const tripRepo = useService(TRIP_REPO);
-  const auth     = useService(AUTH);
-  const storeApi = useService(TRIP_STORE);
+  const tripRepo   = useService(TRIP_REPO);
+  const memberRepo = useService(MEMBER_REPO);
+  const auth       = useService(AUTH);
+  const storeApi   = useService(TRIP_STORE);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
@@ -42,39 +43,47 @@ export function useCreateTrip() {
 
       setLoading(true);
 
-      const trip: Trip = {
-        id: generateId(),
-        name: name.trim(),
-        currency,
-        ownerId: user.id,
-        createdAt: new Date(),
-        inviteToken: generateInviteToken(),
-        members: [
-          {
-            userId: user.id,
-            tripId: '',   // filled by storage; set below after we know the id
-            displayName: user.name,
-            isGuest: false,
-            joinedAt: new Date(),
-          },
-        ],
+      const tripId  = generateId();
+      const creator = {
+        userId:      user.id,
+        tripId,
+        displayName: user.name,
+        isGuest:     false,
+        joinedAt:    new Date(),
       };
-      // Patch the member's tripId now that we have the trip id.
-      trip.members[0] = { ...trip.members[0], tripId: trip.id };
+      const trip: Trip = {
+        id:          tripId,
+        name:        name.trim(),
+        currency,
+        ownerId:     user.id,
+        createdAt:   new Date(),
+        inviteToken: generateInviteToken(),
+        status:      'active',
+        closedAt:    null,
+        members:     [creator],
+      };
 
-      const result = await tripRepo.saveTrip(trip);
-      setLoading(false);
-
-      if (!isOk(result)) {
-        setError(result.error);
+      const tripResult = await tripRepo.saveTrip(trip);
+      if (!isOk(tripResult)) {
+        setLoading(false);
+        setError(tripResult.error);
         return null;
       }
 
-      storeApi.getState().appendTrip(result.value);
+      const memberResult = await memberRepo.addMember(creator);
+      setLoading(false);
 
-      return result.value;
+      if (!isOk(memberResult)) {
+        setError(memberResult.error);
+        return null;
+      }
+
+      const saved = { ...tripResult.value, members: [memberResult.value] };
+      storeApi.getState().appendTrip(saved);
+
+      return saved;
     },
-    [tripRepo, auth, storeApi],
+    [tripRepo, memberRepo, auth, storeApi],
   );
 
   return { createTrip, loading, error };
