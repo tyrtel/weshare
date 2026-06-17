@@ -22,6 +22,9 @@ export interface IAuthService {
   // Resolves once the initial session has been restored from storage.
   // Use this in the auth gate to avoid flashing /auth on relaunch.
   getInitialUser(): Promise<User | null>;
+  // Resolves as soon as getInitialUser() has completed. Safe to await before
+  // calling currentUser() on screens that mount before auth is restored.
+  awaitReady(): Promise<void>;
   // Subscribe to auth state changes. Returns an unsubscribe function.
   onAuthStateChange(listener: AuthStateListener): Unsubscribe;
 }

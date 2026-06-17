@@ -80,6 +80,10 @@ export class MockAuthService implements IAuthService {
     return this._currentUser;
   }
 
+  awaitReady(): Promise<void> {
+    return Promise.resolve();
+  }
+
   onAuthStateChange(listener: AuthStateListener): Unsubscribe {
     this._listeners.add(listener);
     return () => {

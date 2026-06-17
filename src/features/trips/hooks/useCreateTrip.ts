@@ -30,6 +30,7 @@ export function useCreateTrip() {
     async (name: string, currency: string): Promise<Trip | null> => {
       setError(null);
 
+      await auth.awaitReady();
       const user = auth.currentUser();
       if (!user) {
         setError({ kind: 'AuthError', message: 'You must be signed in to create a trip.' });
@@ -63,25 +64,28 @@ export function useCreateTrip() {
         members:     [creator],
       };
 
-      const tripResult = await tripRepo.saveTrip(trip);
-      if (!isOk(tripResult)) {
+      try {
+        const tripResult = await tripRepo.saveTrip(trip);
+        if (!isOk(tripResult)) {
+          setError(tripResult.error);
+          return null;
+        }
+
+        const memberResult = await memberRepo.addMember(creator);
+        if (!isOk(memberResult)) {
+          setError(memberResult.error);
+          return null;
+        }
+
+        const saved = { ...tripResult.value, members: [memberResult.value] };
+        storeApi.getState().appendTrip(saved);
+        return saved;
+      } catch (e) {
+        setError({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error creating trip' });
+        return null;
+      } finally {
         setLoading(false);
-        setError(tripResult.error);
-        return null;
       }
-
-      const memberResult = await memberRepo.addMember(creator);
-      setLoading(false);
-
-      if (!isOk(memberResult)) {
-        setError(memberResult.error);
-        return null;
-      }
-
-      const saved = { ...tripResult.value, members: [memberResult.value] };
-      storeApi.getState().appendTrip(saved);
-
-      return saved;
     },
     [tripRepo, memberRepo, auth, storeApi],
   );

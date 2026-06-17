@@ -34,7 +34,10 @@
   },
   "submit": {
     "production": {
-      "android": {}
+      "android": {
+        "serviceAccountKeyPath": "./serviceAccountKey.json",
+        "track": "internal"
+      }
     }
   }
 }

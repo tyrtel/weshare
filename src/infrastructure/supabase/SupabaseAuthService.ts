@@ -10,8 +10,12 @@ import { supabase } from './supabaseClient';
 export class SupabaseAuthService implements IAuthService {
   private _currentUser: User | null = null;
   private _expiresAt: number = 0;
+  private _readyPromise: Promise<void>;
+  private _readyResolve: () => void = () => {};
 
   constructor() {
+    this._readyPromise = new Promise(resolve => { this._readyResolve = resolve; });
+
     // Configure Google Sign-in eagerly so the native module is ready before signInWithGoogle() is called.
     import('@react-native-google-signin/google-signin').then(({ GoogleSignin }) => {
       GoogleSignin.configure({
@@ -208,12 +212,20 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async getInitialUser(): Promise<User | null> {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session?.user) return null;
-    this._expiresAt = data.session.expires_at ?? 0;
-    const user = await this._fetchUser(data.session.user.id, data.session.user.email);
-    if (user) this._currentUser = user;
-    return user;
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) return null;
+      this._expiresAt = data.session.expires_at ?? 0;
+      const user = await this._fetchUser(data.session.user.id, data.session.user.email);
+      if (user) this._currentUser = user;
+      return user;
+    } finally {
+      this._readyResolve();
+    }
+  }
+
+  awaitReady(): Promise<void> {
+    return this._readyPromise;
   }
 
   currentUser(): User | null {
