@@ -73,13 +73,13 @@ export function useCreateTrip() {
           members:     [creator],
         };
 
-        const tripResult = await withTimeout(tripRepo.saveTrip(trip), 30_000);
+        const tripResult = await withTimeout(tripRepo.saveTrip(trip), 10_000);
         if (!isOk(tripResult)) {
           setError(tripResult.error);
           return null;
         }
 
-        const memberResult = await withTimeout(memberRepo.addMember(creator), 30_000);
+        const memberResult = await withTimeout(memberRepo.addMember(creator), 10_000);
         if (!isOk(memberResult)) {
           setError(memberResult.error);
           return null;

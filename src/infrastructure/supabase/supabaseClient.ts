@@ -189,6 +189,15 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'placeholde
 // (localStorage) on that platform so the web build keeps working.
 const storage = Platform.OS === 'web' ? undefined : LargeSecureStore;
 
+// Fire-and-forget ping that wakes a paused free-tier Supabase project before
+// any authenticated requests are made. Safe to call multiple times — the
+// response is intentionally ignored.
+export function pingSupabase(): void {
+  fetch(`${supabaseUrl}/rest/v1/`, {
+    headers: { apikey: supabaseAnonKey },
+  }).catch(() => {});
+}
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage,

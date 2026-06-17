@@ -5,7 +5,7 @@ import type { Result } from '../../core/types/Result';
 import type { AppError } from '../../core/types/AppError';
 import type { IAuthService, AuthStateListener, Unsubscribe } from '../../core/interfaces/IAuthService';
 import type { User } from '../../core/models/User';
-import { supabase } from './supabaseClient';
+import { supabase, pingSupabase } from './supabaseClient';
 
 export class SupabaseAuthService implements IAuthService {
   private _currentUser: User | null = null;
@@ -15,6 +15,10 @@ export class SupabaseAuthService implements IAuthService {
 
   constructor() {
     this._readyPromise = new Promise(resolve => { this._readyResolve = resolve; });
+
+    // Wake up a potentially paused free-tier Supabase project before any
+    // authenticated requests are made.
+    pingSupabase();
 
     // Configure Google Sign-in eagerly so the native module is ready before signInWithGoogle() is called.
     import('@react-native-google-signin/google-signin').then(({ GoogleSignin }) => {
@@ -212,16 +216,27 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async getInitialUser(): Promise<User | null> {
+    // Race against a timeout so a Supabase cold-start (free-tier unpause can
+    // take 30-60 s) never blocks the app indefinitely. If we lose the race,
+    // _readyResolve still fires and the user lands on the auth screen.
+    const TIMEOUT_MS = 8_000;
     try {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session?.user) return null;
-      this._expiresAt = data.session.expires_at ?? 0;
-      const user = await this._fetchUser(data.session.user.id, data.session.user.email);
+      const user = await Promise.race([
+        this._restoreSession(),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), TIMEOUT_MS)),
+      ]);
       if (user) this._currentUser = user;
       return user;
     } finally {
       this._readyResolve();
     }
+  }
+
+  private async _restoreSession(): Promise<User | null> {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.user) return null;
+    this._expiresAt = data.session.expires_at ?? 0;
+    return this._fetchUser(data.session.user.id, data.session.user.email);
   }
 
   awaitReady(): Promise<void> {
