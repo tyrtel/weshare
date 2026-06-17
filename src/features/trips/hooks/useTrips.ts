@@ -22,6 +22,7 @@ export function useTrips() {
   const allExpenses = useTripSessionStore((s) => s.expenses);
 
   const load = useCallback(async () => {
+    await auth.awaitReady();
     const user = auth.currentUser();
     if (!user) {
       setState({ loading: false, error: null });
