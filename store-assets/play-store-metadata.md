@@ -11,9 +11,9 @@
 
 ### Short Description (80 chars max)
 ```
-Split travel expenses with friends — no sign-up required to get started.
+Split travel expenses with friends. Fair, fast, and simple.
 ```
-*(72 chars)*
+*(59 chars)*
 
 ### Full Description (4000 chars max)
 ```
@@ -30,8 +30,8 @@ ouiShare automatically calculates the simplest way to settle up. No more awkward
 **Settle up your way**
 Pay directly from the app by card (Stripe) or bank transfer (Open Banking). Or mark payments as settled manually if you pay in cash. ouiShare tracks it all.
 
-**No account required to try it**
-Join a trip as a guest with just your name — no email, no password. Create a Google or Apple account whenever you're ready to save your trips across devices.
+**Sign in with Google or Apple**
+Sign in with your existing Google or Apple account in seconds — no passwords to remember. Your trips are saved and synced across all your devices.
 
 **Built for groups**
 Share a trip link and your friends join in one tap. Pre-add participants by email before they arrive so their expenses are already tracked when they sign up.
@@ -53,9 +53,9 @@ Perfect for: holidays, weekend trips, group dinners, flatmate expenses, festival
 
 ### Short Description (80 chars max)
 ```
-Partagez vos dépenses de voyage entre amis — sans inscription pour commencer.
+Partagez vos dépenses de voyage entre amis. Simple et rapide.
 ```
-*(78 chars)*
+*(61 chars)*
 
 ### Full Description
 ```
@@ -72,8 +72,8 @@ ouiShare calcule automatiquement la façon la plus simple de se rembourser. Fini
 **Remboursez-vous comme vous voulez**
 Payez directement depuis l'application par carte bancaire (Stripe) ou virement (Open Banking). Ou marquez les paiements comme réglés manuellement si vous payez en espèces. ouiShare suit tout.
 
-**Aucun compte requis pour commencer**
-Rejoignez un voyage en tant qu'invité(e) avec juste votre prénom — sans e-mail, sans mot de passe. Créez un compte Google ou Apple quand vous voulez pour retrouver vos voyages sur tous vos appareils.
+**Connexion avec Google ou Apple**
+Connectez-vous avec votre compte Google ou Apple en quelques secondes — sans mot de passe à retenir. Vos voyages sont sauvegardés et synchronisés sur tous vos appareils.
 
 **Conçu pour les groupes**
 Partagez un lien de voyage et vos amis rejoignent en un seul geste. Ajoutez des participants par e-mail à l'avance pour que leurs dépenses soient déjà suivies à leur arrivée.

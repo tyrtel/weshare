@@ -21,8 +21,6 @@ Contact: tyrtel@gmail.com
 ### Account data
 When you sign in with Google or Apple, we receive your **name** and **email address** from those providers. This is used solely to identify you within the app and to match you to trips you have been invited to join.
 
-When you use the app as a guest, we store only the **display name** you provide.
-
 ### Trip and expense data
 We store the trips, expenses, and payment records you create within the app. This includes expense descriptions, amounts, participant names, and settlement status. This data is stored in your account and is necessary to provide the core functionality of the app.
 

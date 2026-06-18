@@ -112,13 +112,13 @@ describe('createTestContainer', () => {
 // ── Mock implementations smoke test ──────────────────────────────────────────
 
 describe('mock implementations via createTestContainer', () => {
-  it('MockAuthService.signInAsGuest creates a user', async () => {
+  it('MockAuthService.signIn creates a user', async () => {
     const container = createTestContainer();
     const auth = container.resolve(AUTH);
-    const result = await auth.signInAsGuest('Jay');
+    const result = await auth.signIn('jay@example.com', 'password');
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.name).toBe('Jay');
+      expect(result.value.email).toBe('jay@example.com');
     }
   });
 
@@ -133,9 +133,9 @@ describe('mock implementations via createTestContainer', () => {
     const auth = container.resolve(AUTH);
     const received: (import('../../models/User').User | null)[] = [];
     auth.onAuthStateChange(user => received.push(user));
-    await auth.signInAsGuest('Marie');
+    await auth.signIn('marie@example.com', 'password');
     expect(received).toHaveLength(1);
-    expect(received[0]?.name).toBe('Marie');
+    expect(received[0]?.email).toBe('marie@example.com');
   });
 
   it('MockAuthService.onAuthStateChange unsubscribe stops notifications', async () => {
@@ -144,7 +144,7 @@ describe('mock implementations via createTestContainer', () => {
     const received: unknown[] = [];
     const unsub = auth.onAuthStateChange(user => received.push(user));
     unsub();
-    await auth.signInAsGuest('Tom');
+    await auth.signIn('tom@example.com', 'password');
     expect(received).toHaveLength(0);
   });
 

@@ -90,7 +90,7 @@ export async function createSimulationContainer(): Promise<ServiceContainer> {
 
   const auth = new MockAuthService();
   logger.log('[simulationContainer] signing in as', RESTAURANT_CURRENT_USER);
-  await auth.signInAsGuest(RESTAURANT_CURRENT_USER);
+  await auth.signIn(`${RESTAURANT_CURRENT_USER.toLowerCase()}@sim.local`, 'password');
   logger.log('[simulationContainer] signed in');
 
   const container = new ServiceContainer();

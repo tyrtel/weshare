@@ -72,7 +72,7 @@ describe('TripDetailScreen — post-create invite nudge', () => {
   beforeEach(async () => {
     container = createTestContainer();
     const auth = container.resolve(AUTH);
-    await auth.signInAsGuest('Jay');
+    await auth.signIn('jay@example.com', 'password');
 
     mockConfirm.mockResolvedValue(false);
 
@@ -236,7 +236,7 @@ describe('TripDetailScreen — settle button', () => {
 
     const container = createTestContainer();
     const auth = container.resolve(AUTH);
-    await auth.signInAsGuest('Jay');
+    await auth.signIn('jay@example.com', 'password');
 
     const tripRepo = container.resolve(TRIP_REPO);
     await tripRepo.saveTrip({ ...BASE_TRIP, status: 'active' });
@@ -349,7 +349,7 @@ describe('TripDetailScreen — close trip button', () => {
 
     const container = createTestContainer();
     const auth      = container.resolve(AUTH);
-    await auth.signInAsGuest('Jay');
+    await auth.signIn('jay@example.com', 'password');
 
     const tripRepo = container.resolve(TRIP_REPO);
     await tripRepo.saveTrip({ ...BASE_TRIP, status: 'active' });

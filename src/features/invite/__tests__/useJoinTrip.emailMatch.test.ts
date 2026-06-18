@@ -84,13 +84,16 @@ describe('useJoinTrip — email-based participant matching', () => {
     expect(members.value.some(m => m.userId === auth.currentUser()!.id)).toBe(true);
   });
 
-  it('does not attempt email matching for guest users', async () => {
+  it('does not claim the placeholder when a different email joins', async () => {
     const container = await setupWithPlaceholder('marie@example.com');
-    // Join as guest (no email) — should add a new row, not claim the placeholder
+    const auth = container.resolve(AUTH);
+    // Different user — email does not match the placeholder
+    await auth.signIn('other@example.com', 'password');
+
     const { result } = renderHook(() => useJoinTrip('TESTTOKEN'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    await act(async () => { await result.current.joinAsGuest('Marie'); });
+    await act(async () => { await result.current.joinAuthenticated(); });
 
     const members = await container.resolve(MEMBER_REPO).getMembersForTrip(TRIP_ID);
     expect(members.ok).toBe(true);
@@ -98,7 +101,7 @@ describe('useJoinTrip — email-based participant matching', () => {
 
     // Placeholder still exists with original userId
     expect(members.value.some(m => m.userId === PLACEHOLDER_ID)).toBe(true);
-    // Guest was added as a new row
+    // The new user was added as a separate row
     expect(members.value.length).toBe(2);
   });
 

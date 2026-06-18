@@ -37,7 +37,7 @@ describe('useCreateTrip', () => {
   it('returns null and sets ValidationError for empty name', async () => {
     // Sign in as guest so auth check passes.
     const auth = container.resolve(AUTH);
-    await auth.signInAsGuest('Jay');
+    await auth.signIn('jay@example.com', 'password');
 
     const { result } = renderHook(() => useCreateTrip(), {
       wrapper: makeWrapper(container),
@@ -54,7 +54,7 @@ describe('useCreateTrip', () => {
 
   it('creates a trip and returns it', async () => {
     const auth = container.resolve(AUTH);
-    await auth.signInAsGuest('Jay');
+    await auth.signIn('jay@example.com', 'password');
 
     const { result } = renderHook(() => useCreateTrip(), {
       wrapper: makeWrapper(container),
@@ -72,7 +72,7 @@ describe('useCreateTrip', () => {
 
   it('trims whitespace from the trip name', async () => {
     const auth = container.resolve(AUTH);
-    await auth.signInAsGuest('Marie');
+    await auth.signIn('marie@example.com', 'password');
 
     const { result } = renderHook(() => useCreateTrip(), {
       wrapper: makeWrapper(container),
@@ -88,7 +88,7 @@ describe('useCreateTrip', () => {
 
   it('sets ownerId to the signed-in user id', async () => {
     const auth = container.resolve(AUTH);
-    const authResult = await auth.signInAsGuest('Tom');
+    const authResult = await auth.signIn('tom@example.com', 'password');
     const userId = authResult.ok ? authResult.value.id : '';
 
     const { result } = renderHook(() => useCreateTrip(), {
@@ -105,7 +105,7 @@ describe('useCreateTrip', () => {
 
   it('adds the owner as the first member', async () => {
     const auth = container.resolve(AUTH);
-    await auth.signInAsGuest('Sara');
+    await auth.signIn('sara@example.com', 'password');
 
     const { result } = renderHook(() => useCreateTrip(), {
       wrapper: makeWrapper(container),
@@ -122,7 +122,7 @@ describe('useCreateTrip', () => {
 
   it('persists the trip in storage', async () => {
     const auth = container.resolve(AUTH);
-    await auth.signInAsGuest('Jay');
+    await auth.signIn('jay@example.com', 'password');
     const tripRepo = container.resolve(TRIP_REPO);
 
     const { result } = renderHook(() => useCreateTrip(), {

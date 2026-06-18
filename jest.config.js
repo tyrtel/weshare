@@ -11,6 +11,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^expo-contacts$': '<rootDir>/src/__mocks__/expo-contacts.ts',
+    '^expo-secure-store$': '<rootDir>/src/__mocks__/expo-secure-store.ts',
     '^react-native-reanimated$': '<rootDir>/src/__mocks__/reanimatedMock.js',
     '^react-native-gesture-handler$': '<rootDir>/src/__mocks__/gestureHandlerMock.js',
     '^@core/(.*)$': '<rootDir>/src/core/$1',

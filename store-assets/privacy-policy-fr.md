@@ -21,8 +21,6 @@ Contact : tyrtel@gmail.com
 ### Données de compte
 Lorsque vous vous connectez avec Google ou Apple, nous recevons votre **nom** et votre **adresse e-mail** de ces fournisseurs. Ces informations sont utilisées uniquement pour vous identifier dans l'application et pour vous associer aux voyages auxquels vous avez été invité(e).
 
-Lorsque vous utilisez l'application en tant qu'invité(e), nous enregistrons uniquement le **nom d'affichage** que vous fournissez.
-
 ### Données de voyage et de dépenses
 Nous enregistrons les voyages, dépenses et enregistrements de paiements que vous créez dans l'application. Cela comprend les descriptions de dépenses, les montants, les noms des participants et le statut de règlement. Ces données sont stockées dans votre compte et sont nécessaires au fonctionnement de l'application.
 

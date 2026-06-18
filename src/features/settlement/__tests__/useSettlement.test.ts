@@ -147,12 +147,12 @@ describe('useSettlement — currentUserId', () => {
   it('reflects the signed-in user id', async () => {
     const container = createTestContainer();
     seedEqualSplit(container);
-    await container.resolve(AUTH).signInAsGuest('jay');
+    await container.resolve(AUTH).signIn('jay@example.com', 'password');
 
     const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.currentUserId).toBe('guest_jay');
+    expect(result.current.currentUserId).toBe('user_jay@example.com');
   });
 });
 

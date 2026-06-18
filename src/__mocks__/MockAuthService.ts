@@ -17,7 +17,23 @@ export class MockAuthService implements IAuthService {
   async signIn(email: string, _password: string): Promise<Result<User, AppError>> {
     const user: User = {
       id: `user_${email}`,
-      name: email.split('@')[0],
+      name: (() => { const p = email.split('@')[0]; return p.charAt(0).toUpperCase() + p.slice(1); })(),
+      email,
+      createdAt: new Date(),
+    };
+    this._currentUser = user;
+    this._notify(user);
+    return ok(user);
+  }
+
+  async signUp(
+    email: string,
+    _password: string,
+    name: string,
+  ): Promise<Result<User | { needsEmailConfirmation: true }, AppError>> {
+    const user: User = {
+      id: `user_${email}`,
+      name,
       email,
       createdAt: new Date(),
     };
@@ -30,18 +46,6 @@ export class MockAuthService implements IAuthService {
     this._currentUser = null;
     this._notify(null);
     return ok(undefined);
-  }
-
-  async signInAsGuest(name: string): Promise<Result<User, AppError>> {
-    const user: User = {
-      id: `guest_${name.trim().toLowerCase().replace(/\s+/g, '_')}`,
-      name,
-      isGuest: true,
-      createdAt: new Date(),
-    };
-    this._currentUser = user;
-    this._notify(user);
-    return ok(user);
   }
 
   async signInWithGoogle(): Promise<Result<User, AppError>> {
@@ -66,10 +70,6 @@ export class MockAuthService implements IAuthService {
     this._currentUser = user;
     this._notify(user);
     return ok(user);
-  }
-
-  async recoverGuestSession(_guestUserId: string): Promise<Result<void, AppError>> {
-    return ok(undefined);
   }
 
   currentUser(): User | null {

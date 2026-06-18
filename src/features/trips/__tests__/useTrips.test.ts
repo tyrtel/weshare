@@ -48,7 +48,7 @@ describe('useTrips — signed-in user', () => {
   beforeEach(async () => {
     container = createTestContainer();
     const auth = container.resolve(AUTH);
-    const res  = await auth.signInAsGuest('Jay');
+    const res  = await auth.signIn('jay@example.com', 'password');
     userId = res.ok ? res.value.id : '';
   });
 
@@ -93,7 +93,7 @@ describe('useTrips — refetch', () => {
     const auth    = container.resolve(AUTH);
     const storage = container.resolve(TRIP_REPO);
 
-    const res = await auth.signInAsGuest('Jay');
+    const res = await auth.signIn('jay@example.com', 'password');
     const uid = res.ok ? res.value.id : '';
 
     const { result } = renderHook(() => useTrips(), { wrapper: makeWrapper(container) });
@@ -115,7 +115,7 @@ describe('useTrips — sign out', () => {
     const auth    = container.resolve(AUTH);
     const storage = container.resolve(TRIP_REPO);
 
-    const res = await auth.signInAsGuest('Jay');
+    const res = await auth.signIn('jay@example.com', 'password');
     const uid = res.ok ? res.value.id : '';
     await storage.saveTrip(tripFactory({ id: 't1', name: 'Trip t1', ownerId: uid, closedAt: null }));
 
@@ -136,7 +136,7 @@ describe('useTrips — NetworkError from storage', () => {
   it('sets error, returns empty trips, and stops loading when the repo fails', async () => {
     const container = createTestContainer();
     const auth     = container.resolve(AUTH);
-    await auth.signInAsGuest('Jay');
+    await auth.signIn('jay@example.com', 'password');
 
     const tripRepo = container.resolve(TRIP_REPO) as InMemoryTripRepository;
     tripRepo.getTripsForUser = async () => err({ kind: 'NetworkError', message: 'connection refused' });
@@ -157,7 +157,7 @@ describe('useTrips — closed trip filter', () => {
     const auth    = container.resolve(AUTH);
     const storage = container.resolve(TRIP_REPO);
 
-    const res = await auth.signInAsGuest('Jay');
+    const res = await auth.signIn('jay@example.com', 'password');
     const uid = res.ok ? res.value.id : '';
 
     await storage.saveTrip(tripFactory({ id: 't1', name: 'Trip t1', ownerId: uid, status: 'active', closedAt: null }));
@@ -177,7 +177,7 @@ describe('useTrips — closed trip filter', () => {
     const auth    = container.resolve(AUTH);
     const storage = container.resolve(TRIP_REPO);
 
-    const res = await auth.signInAsGuest('Jay');
+    const res = await auth.signIn('jay@example.com', 'password');
     const uid = res.ok ? res.value.id : '';
 
     await storage.saveTrip(tripFactory({ id: 't1', name: 'Trip t1', ownerId: uid, status: 'closed', closedAt: null }));

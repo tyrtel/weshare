@@ -3,6 +3,5 @@ export interface User {
   name: string;
   email?: string;
   avatarUrl?: string;
-  isGuest?: boolean;
   createdAt: Date;
 }

@@ -45,7 +45,7 @@ describe('useClosedTrips — status filter', () => {
     const auth    = container.resolve(AUTH);
     const storage = container.resolve(TRIP_REPO);
 
-    const res = await auth.signInAsGuest('Jay');
+    const res = await auth.signIn('jay@example.com', 'password');
     const uid = res.ok ? res.value.id : '';
 
     await storage.saveTrip(tripFactory({ id: 't1', name: 'Trip t1', ownerId: uid, status: 'active', closedAt: null }));
@@ -70,7 +70,7 @@ describe('useClosedTrips — sort order', () => {
     const auth    = container.resolve(AUTH);
     const storage = container.resolve(TRIP_REPO);
 
-    const res = await auth.signInAsGuest('Jay');
+    const res = await auth.signIn('jay@example.com', 'password');
     const uid = res.ok ? res.value.id : '';
 
     await storage.saveTrip(tripFactory({ id: 't-old', name: 'Trip t-old', ownerId: uid, status: 'closed', closedAt: new Date('2026-03-01T00:00:00Z') }));
@@ -93,7 +93,7 @@ describe('useClosedTrips — refetch', () => {
     const auth    = container.resolve(AUTH);
     const storage = container.resolve(TRIP_REPO);
 
-    const res = await auth.signInAsGuest('Jay');
+    const res = await auth.signIn('jay@example.com', 'password');
     const uid = res.ok ? res.value.id : '';
 
     const { result } = renderHook(() => useClosedTrips(), { wrapper: makeWrapper(container) });

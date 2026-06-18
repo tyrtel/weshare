@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, ActivityIndicator, Platform, StyleSheet, Image } from 'react-native';
+import { View, Pressable, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useService } from '../../src/core/di/ServiceContext';
@@ -105,13 +105,13 @@ export default function WelcomeScreen() {
         )}
 
         <Pressable
-          onPress={() => router.push('/auth/guest' as Parameters<typeof router.push>[0])}
+          onPress={() => router.push('/auth/email' as Parameters<typeof router.push>[0])}
           disabled={busy !== null}
-          style={({ pressed }) => [styles.guestButton, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.emailButton, pressed && styles.pressed]}
           accessibilityRole="button"
-          accessibilityLabel="Continue as guest"
+          accessibilityLabel="Use email"
         >
-          <Text variant="body" color={C.text.secondary}>Continue as guest</Text>
+          <Text variant="body" color={C.text.secondary}>Use email</Text>
         </Pressable>
       </View>
     </View>
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   appleLabel: {
     color: C.text.inverse,
   },
-  guestButton: {
+  emailButton: {
     alignItems: 'center',
     paddingVertical: 14,
     marginTop: 4,

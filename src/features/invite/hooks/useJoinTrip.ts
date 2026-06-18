@@ -6,15 +6,10 @@ import type { Trip } from '../../../core/models/Trip';
 import type { AppError } from '../../../core/types/AppError';
 
 interface UseJoinTripState {
-  /** The trip resolved from the token — available before the user joins. */
   trip: Trip | null;
-  /** True while the initial token→trip lookup is in progress. */
   loading: boolean;
-  /** Error from the token lookup (e.g. NotFoundError for bad/expired token). */
   error: AppError | null;
-  /** True while the join action is executing. */
   joining: boolean;
-  /** Error from the join action itself. */
   joinError: AppError | null;
 }
 
@@ -32,7 +27,6 @@ export function useJoinTrip(token: string) {
     joinError: null,
   });
 
-  // Resolve the token to a trip on mount.
   useEffect(() => {
     if (!token) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -49,108 +43,65 @@ export function useJoinTrip(token: string) {
     });
   }, [token, tripRepo]);
 
-  // ── Shared join logic ─────────────────────────────────────────────────────
-
-  const _doJoin = useCallback(
-    async (userId: string, displayName: string, isGuest: boolean, email?: string): Promise<Trip | null> => {
-      const { trip } = state;
-      if (!trip) {
-        setState(s => ({ ...s, joinError: { kind: 'NotFoundError', resource: 'Trip', id: token } }));
-        return null;
-      }
-
-      setState(s => ({ ...s, joining: true, joinError: null }));
-
-      // Idempotency: check if already a member.
-      const membersResult = await memberRepo.getMembersForTrip(trip.id);
-      if (isOk(membersResult)) {
-        const alreadyMember = membersResult.value.some(m => m.userId === userId);
-        if (alreadyMember) {
-          setState(s => ({ ...s, joining: false }));
-          return trip;
-        }
-      }
-
-      // Email-based matching: if the user has an email, check for a placeholder
-      // TripMember with that email and merge instead of adding a new row.
-      if (email && !isGuest) {
-        const matchResult = await memberRepo.findMemberByEmail(trip.id, email);
-        if (isOk(matchResult) && matchResult.value) {
-          const claimResult = await memberRepo.claimMemberSlot(
-            trip.id,
-            matchResult.value.userId,
-            userId,
-            displayName,
-          );
-          if (!isOk(claimResult)) {
-            setState(s => ({ ...s, joining: false, joinError: claimResult.error }));
-            return null;
-          }
-          storeApi.getState().appendMember(claimResult.value);
-          setState(s => ({ ...s, joining: false }));
-          return trip;
-        }
-      }
-
-      const addResult = await memberRepo.addMember({
-        userId,
-        tripId: trip.id,
-        displayName,
-        isGuest,
-        joinedAt: new Date(),
-      });
-
-      if (!isOk(addResult)) {
-        setState(s => ({ ...s, joining: false, joinError: addResult.error }));
-        return null;
-      }
-
-      storeApi.getState().appendMember(addResult.value);
-      setState(s => ({ ...s, joining: false }));
-      return trip;
-    },
-    [state, memberRepo, storeApi, token],
-  );
-
-  // ── Public join actions ───────────────────────────────────────────────────
-
-  /** Creates an anonymous session then joins the trip. */
-  const joinAsGuest = useCallback(
-    async (name: string): Promise<Trip | null> => {
-      if (!name.trim()) {
-        setState(s => ({
-          ...s,
-          joinError: { kind: 'ValidationError', field: 'name', message: 'Name is required.' },
-        }));
-        return null;
-      }
-
-      setState(s => ({ ...s, joining: true, joinError: null }));
-
-      const authResult = await auth.signInAsGuest(name.trim());
-      if (!isOk(authResult)) {
-        setState(s => ({ ...s, joining: false, joinError: authResult.error }));
-        return null;
-      }
-
-      setState(s => ({ ...s, joining: false }));
-      return _doJoin(authResult.value.id, authResult.value.name, true);
-    },
-    [auth, _doJoin],
-  );
-
-  /** Joins the trip with the currently signed-in user. */
   const joinAuthenticated = useCallback(async (): Promise<Trip | null> => {
+    const { trip } = state;
     const user = auth.currentUser();
+
     if (!user) {
-      setState(s => ({
-        ...s,
-        joinError: { kind: 'AuthError', message: 'You must be signed in to join.' },
-      }));
+      setState(s => ({ ...s, joinError: { kind: 'AuthError', message: 'You must be signed in to join.' } }));
       return null;
     }
-    return _doJoin(user.id, user.name, false, user.email);
-  }, [auth, _doJoin]);
+    if (!trip) {
+      setState(s => ({ ...s, joinError: { kind: 'NotFoundError', resource: 'Trip', id: token } }));
+      return null;
+    }
+
+    setState(s => ({ ...s, joining: true, joinError: null }));
+
+    // Idempotency: skip if already a member.
+    const membersResult = await memberRepo.getMembersForTrip(trip.id);
+    if (isOk(membersResult) && membersResult.value.some(m => m.userId === user.id)) {
+      setState(s => ({ ...s, joining: false }));
+      return trip;
+    }
+
+    // Email-based matching: merge into a placeholder row if email matches.
+    if (user.email) {
+      const matchResult = await memberRepo.findMemberByEmail(trip.id, user.email);
+      if (isOk(matchResult) && matchResult.value) {
+        const claimResult = await memberRepo.claimMemberSlot(
+          trip.id,
+          matchResult.value.userId,
+          user.id,
+          user.name,
+        );
+        if (!isOk(claimResult)) {
+          setState(s => ({ ...s, joining: false, joinError: claimResult.error }));
+          return null;
+        }
+        storeApi.getState().appendMember(claimResult.value);
+        setState(s => ({ ...s, joining: false }));
+        return trip;
+      }
+    }
+
+    const addResult = await memberRepo.addMember({
+      userId:      user.id,
+      tripId:      trip.id,
+      displayName: user.name,
+      isGuest:     false,
+      joinedAt:    new Date(),
+    });
+
+    if (!isOk(addResult)) {
+      setState(s => ({ ...s, joining: false, joinError: addResult.error }));
+      return null;
+    }
+
+    storeApi.getState().appendMember(addResult.value);
+    setState(s => ({ ...s, joining: false }));
+    return trip;
+  }, [state, auth, memberRepo, storeApi, token]);
 
   return {
     trip:      state.trip,
@@ -158,7 +109,6 @@ export function useJoinTrip(token: string) {
     error:     state.error,
     joining:   state.joining,
     joinError: state.joinError,
-    joinAsGuest,
     joinAuthenticated,
   };
 }

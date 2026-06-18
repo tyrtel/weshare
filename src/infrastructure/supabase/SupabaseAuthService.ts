@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 import { ok, err } from '../../core/types/Result';
 import type { Result } from '../../core/types/Result';
 import type { AppError } from '../../core/types/AppError';
@@ -13,19 +14,14 @@ export class SupabaseAuthService implements IAuthService {
   private _readyPromise: Promise<void>;
   private _readyResolve: () => void = () => {};
 
+  private static readonly USER_CACHE_KEY = 'weshare_user_v1';
+
   constructor() {
     this._readyPromise = new Promise(resolve => { this._readyResolve = resolve; });
 
     // Wake up a potentially paused free-tier Supabase project before any
     // authenticated requests are made.
     pingSupabase();
-
-    // Configure Google Sign-in eagerly so the native module is ready before signInWithGoogle() is called.
-    import('@react-native-google-signin/google-signin').then(({ GoogleSignin }) => {
-      GoogleSignin.configure({
-        webClientId: Constants.expoConfig?.extra?.googleWebClientId ?? '',
-      });
-    });
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session?.user) {
@@ -42,7 +38,42 @@ export class SupabaseAuthService implements IAuthService {
     });
   }
 
+  // ── Cache helpers ─────────────────────────────────────────────────────────
+
+  private async _readUserCache(): Promise<User | null> {
+    try {
+      const json = await SecureStore.getItemAsync(SupabaseAuthService.USER_CACHE_KEY);
+      if (!json) return null;
+      const parsed = JSON.parse(json);
+      return { ...parsed, createdAt: new Date(parsed.createdAt) };
+    } catch {
+      return null;
+    }
+  }
+
+  private async _writeUserCache(user: User): Promise<void> {
+    try {
+      await SecureStore.setItemAsync(
+        SupabaseAuthService.USER_CACHE_KEY,
+        JSON.stringify({ ...user, createdAt: user.createdAt.toISOString() }),
+      );
+    } catch {}
+  }
+
+  private async _clearUserCache(): Promise<void> {
+    try { await SecureStore.deleteItemAsync(SupabaseAuthService.USER_CACHE_KEY); } catch {}
+  }
+
   // ── Private helpers ───────────────────────────────────────────────────────
+
+  private static async _withTimeout<T>(promise: Promise<T>, ms: number, message?: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(message ?? `Request timed out after ${ms / 1000}s`)), ms),
+      ),
+    ]);
+  }
 
   private async _fetchUser(authId: string, email?: string): Promise<User | null> {
     const { data, error } = await supabase
@@ -56,16 +87,15 @@ export class SupabaseAuthService implements IAuthService {
       name:      data.display_name,
       email,
       avatarUrl: data.avatar_url ?? undefined,
-      isGuest:   data.is_guest ?? false,
       createdAt: new Date(data.created_at),
     };
   }
 
-  private async _upsertUser(id: string, displayName: string, avatarUrl?: string, isGuest = false): Promise<User> {
+  private async _upsertUser(id: string, displayName: string, avatarUrl?: string): Promise<User> {
     const { data, error } = await supabase
       .from('users')
       .upsert(
-        { id, display_name: displayName, avatar_url: avatarUrl ?? null, is_guest: isGuest },
+        { id, display_name: displayName, avatar_url: avatarUrl ?? null },
         { onConflict: 'id', ignoreDuplicates: false },
       )
       .select()
@@ -80,7 +110,6 @@ export class SupabaseAuthService implements IAuthService {
       id:        data.id,
       name:      data.display_name,
       avatarUrl: data.avatar_url ?? undefined,
-      isGuest:   data.is_guest ?? false,
       createdAt: new Date(data.created_at),
     };
   }
@@ -96,7 +125,37 @@ export class SupabaseAuthService implements IAuthService {
     const user = await this._fetchUser(data.user.id, data.user.email);
     if (!user) return err({ kind: 'AuthError', message: 'User profile not found' });
     this._currentUser = user;
+    void this._writeUserCache(user);
     return ok(user);
+  }
+
+  async signUp(
+    email: string,
+    password: string,
+    name: string,
+  ): Promise<Result<User | { needsEmailConfirmation: true }, AppError>> {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return err({ kind: 'AuthError', message: error.message });
+    if (!data.user) return err({ kind: 'AuthError', message: 'Account creation failed' });
+
+    // Supabase returns session=null when email confirmation is required.
+    if (!data.session) {
+      return ok({ needsEmailConfirmation: true });
+    }
+
+    this._expiresAt = data.session.expires_at ?? 0;
+    try {
+      const user = await SupabaseAuthService._withTimeout(
+        this._upsertUser(data.user.id, name),
+        10_000,
+        'Profile save timed out — please try again',
+      );
+      this._currentUser = { ...user, email: data.user.email };
+      void this._writeUserCache(this._currentUser);
+      return ok(this._currentUser);
+    } catch (e) {
+      return err({ kind: 'AuthError', message: e instanceof Error ? e.message : String(e) });
+    }
   }
 
   async signOut(): Promise<Result<void, AppError>> {
@@ -104,27 +163,14 @@ export class SupabaseAuthService implements IAuthService {
     if (error) return err({ kind: 'AuthError', message: error.message });
     this._currentUser = null;
     this._expiresAt   = 0;
+    void this._clearUserCache();
     return ok(undefined);
-  }
-
-  async signInAsGuest(name: string): Promise<Result<User, AppError>> {
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) return err({ kind: 'AuthError', message: error.message });
-    if (!data.user) return err({ kind: 'AuthError', message: 'No user returned from anonymous sign-in' });
-
-    this._expiresAt = data.session?.expires_at ?? 0;
-    try {
-      const user = await this._upsertUser(data.user.id, name, undefined, true);
-      this._currentUser = user;
-      return ok(user);
-    } catch (e) {
-      return err({ kind: 'AuthError', message: e instanceof Error ? e.message : String(e) });
-    }
   }
 
   async signInWithGoogle(): Promise<Result<User, AppError>> {
     try {
       const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
+      GoogleSignin.configure({ webClientId: Constants.expoConfig?.extra?.googleWebClientId ?? '' });
 
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const userInfo = await GoogleSignin.signIn();
@@ -132,30 +178,28 @@ export class SupabaseAuthService implements IAuthService {
 
       if (!idToken) return err({ kind: 'AuthError', message: 'No ID token returned from Google' });
 
-      const previousGuestId = this._currentUser?.isGuest ? this._currentUser.id : null;
-
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token:    idToken,
-      });
+      const { data, error } = await SupabaseAuthService._withTimeout(
+        supabase.auth.signInWithIdToken({ provider: 'google', token: idToken }),
+        15_000,
+        'Connection timed out — Supabase may be starting up, please try again',
+      );
       if (error) return err({ kind: 'AuthError', message: error.message });
       if (!data.user) return err({ kind: 'AuthError', message: 'No user returned from Google sign-in' });
 
       const displayName = userInfo.data?.user?.name ?? data.user.email?.split('@')[0] ?? 'User';
       const avatarUrl   = userInfo.data?.user?.photo ?? undefined;
-      const user        = await this._upsertUser(data.user.id, displayName, avatarUrl, false);
+      const user        = await SupabaseAuthService._withTimeout(
+        this._upsertUser(data.user.id, displayName, avatarUrl),
+        10_000,
+        'Profile save timed out — please try again',
+      );
       this._currentUser = { ...user, email: data.user.email };
       this._expiresAt   = data.session?.expires_at ?? 0;
-
-      if (previousGuestId) await this.recoverGuestSession(previousGuestId);
+      void this._writeUserCache(this._currentUser);
 
       return ok(this._currentUser);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Google sign-in failed';
-      // User cancelled — don't treat as an error worth alerting
-      if (msg.includes('SIGN_IN_CANCELLED') || msg.includes('PLAY_SERVICES_NOT_AVAILABLE')) {
-        return err({ kind: 'AuthError', message: msg });
-      }
       return err({ kind: 'AuthError', message: msg });
     }
   }
@@ -178,12 +222,11 @@ export class SupabaseAuthService implements IAuthService {
 
       if (!credential.identityToken) return err({ kind: 'AuthError', message: 'No identity token from Apple' });
 
-      const previousGuestId = this._currentUser?.isGuest ? this._currentUser.id : null;
-
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
-        token:    credential.identityToken,
-      });
+      const { data, error } = await SupabaseAuthService._withTimeout(
+        supabase.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken }),
+        15_000,
+        'Connection timed out — Supabase may be starting up, please try again',
+      );
       if (error) return err({ kind: 'AuthError', message: error.message });
       if (!data.user) return err({ kind: 'AuthError', message: 'No user returned from Apple sign-in' });
 
@@ -194,11 +237,14 @@ export class SupabaseAuthService implements IAuthService {
         || data.user.email?.split('@')[0]
         || 'User';
 
-      const user        = await this._upsertUser(data.user.id, displayName, undefined, false);
+      const user        = await SupabaseAuthService._withTimeout(
+        this._upsertUser(data.user.id, displayName),
+        10_000,
+        'Profile save timed out — please try again',
+      );
       this._currentUser = { ...user, email: data.user.email };
       this._expiresAt   = data.session?.expires_at ?? 0;
-
-      if (previousGuestId) await this.recoverGuestSession(previousGuestId);
+      void this._writeUserCache(this._currentUser);
 
       return ok(this._currentUser);
     } catch (e) {
@@ -207,36 +253,44 @@ export class SupabaseAuthService implements IAuthService {
     }
   }
 
-  async recoverGuestSession(guestUserId: string): Promise<Result<void, AppError>> {
-    if (!guestUserId || guestUserId === this._currentUser?.id) return ok(undefined);
-    // Best-effort — a failure here must not fail the sign-in.
-    const { error } = await supabase.rpc('claim_guest_session', { old_user_id: guestUserId });
-    if (error) console.warn('[recoverGuestSession] RPC failed (non-fatal):', error.message);
-    return ok(undefined);
-  }
-
   async getInitialUser(): Promise<User | null> {
-    // Race against a timeout so a Supabase cold-start (free-tier unpause can
-    // take 30-60 s) never blocks the app indefinitely. If we lose the race,
-    // _readyResolve still fires and the user lands on the auth screen.
-    const TIMEOUT_MS = 8_000;
     try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) return null;
+
+      this._expiresAt = data.session.expires_at ?? 0;
+      const { id: userId, email } = data.session.user;
+
+      // Fast path: return cached profile immediately, refresh DB in background.
+      // Eliminates the DB round-trip on every warm restart so the app opens instantly.
+      const cached = await this._readUserCache();
+      if (cached?.id === userId) {
+        this._currentUser = cached;
+        this._fetchUser(userId, email)
+          .then(fresh => {
+            if (fresh) {
+              this._currentUser = fresh;
+              void this._writeUserCache(fresh);
+            }
+          })
+          .catch(() => {});
+        return cached;
+      }
+
+      // Cache miss (first install or after sign-out): fetch with a timeout so a
+      // cold-start Supabase pause never blocks the app indefinitely.
       const user = await Promise.race([
-        this._restoreSession(),
-        new Promise<null>(resolve => setTimeout(() => resolve(null), TIMEOUT_MS)),
+        this._fetchUser(userId, email),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 8_000)),
       ]);
-      if (user) this._currentUser = user;
+      if (user) {
+        this._currentUser = user;
+        void this._writeUserCache(user);
+      }
       return user;
     } finally {
       this._readyResolve();
     }
-  }
-
-  private async _restoreSession(): Promise<User | null> {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session?.user) return null;
-    this._expiresAt = data.session.expires_at ?? 0;
-    return this._fetchUser(data.session.user.id, data.session.user.email);
   }
 
   awaitReady(): Promise<void> {

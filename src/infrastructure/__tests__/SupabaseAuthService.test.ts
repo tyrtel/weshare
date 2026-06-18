@@ -1,8 +1,17 @@
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: jest.fn(),
+    hasPlayServices: jest.fn().mockResolvedValue(true),
+    signIn: jest.fn(),
+  },
+}));
+
 jest.mock('../supabase/supabaseClient', () => ({
+  pingSupabase: jest.fn(),
   supabase: {
     auth: {
       signInWithPassword: jest.fn(),
-      signInAnonymously: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
       getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
       onAuthStateChange: jest.fn().mockReturnValue({
@@ -19,7 +28,7 @@ const { supabase } = require('../supabase/supabaseClient') as {
   supabase: {
     auth: {
       signInWithPassword: jest.Mock;
-      signInAnonymously: jest.Mock;
+      signUp: jest.Mock;
       signOut: jest.Mock;
       onAuthStateChange: jest.Mock;
     };
@@ -109,35 +118,6 @@ describe('SupabaseAuthService', () => {
     if (!result.ok) expect(result.error.kind).toBe('AuthError');
   });
 
-  // ── signInAsGuest ────────────────────────────────────────────────────────
-
-  it('signInAsGuest creates an anonymous session and inserts user row', async () => {
-    supabase.auth.signInAnonymously.mockResolvedValue({
-      data: { user: { id: 'guest-u1' }, session: {} },
-      error: null,
-    });
-    supabase.from.mockReturnValue(
-      mockFromChain({ data: { ...USER_ROW, id: 'guest-u1', display_name: 'Marie' }, error: null }),
-    );
-
-    const result = await service.signInAsGuest('Marie');
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.name).toBe('Marie');
-      expect(result.value.id).toBe('guest-u1');
-    }
-  });
-
-  it('signInAsGuest returns AuthError when signInAnonymously fails', async () => {
-    supabase.auth.signInAnonymously.mockResolvedValue({
-      data: { user: null, session: null },
-      error: { message: 'anonymous auth disabled' },
-    });
-    const result = await service.signInAsGuest('Tom');
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.kind).toBe('AuthError');
-  });
-
   // ── currentUser ──────────────────────────────────────────────────────────
 
   it('currentUser returns null before any sign-in', () => {
@@ -194,6 +174,71 @@ describe('SupabaseAuthService', () => {
     await service.signIn('jay@example.com', 'password');
 
     expect(service.currentUser()).not.toBeNull();
+  });
+
+  // ── signUp ───────────────────────────────────────────────────────────────
+
+  it('signUp returns User when session is provided (no email confirmation)', async () => {
+    supabase.auth.signUp.mockResolvedValue({
+      data: {
+        user: { id: 'u1', email: 'new@example.com' },
+        session: { expires_at: Math.floor(Date.now() / 1000) + 3600 },
+      },
+      error: null,
+    });
+    supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+
+    const result = await service.signUp('new@example.com', 'secret123', 'Jay');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect('needsEmailConfirmation' in result.value).toBe(false);
+      if (!('needsEmailConfirmation' in result.value)) {
+        expect(result.value.email).toBe('new@example.com');
+      }
+    }
+  });
+
+  it('signUp returns needsEmailConfirmation when session is null', async () => {
+    supabase.auth.signUp.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'new@example.com' }, session: null },
+      error: null,
+    });
+
+    const result = await service.signUp('new@example.com', 'secret123', 'Jay');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual({ needsEmailConfirmation: true });
+    }
+  });
+
+  it('signUp returns AuthError on Supabase error', async () => {
+    supabase.auth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'Email already registered' },
+    });
+
+    const result = await service.signUp('taken@example.com', 'secret123', 'Jay');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe('AuthError');
+      expect(result.error.message).toContain('already registered');
+    }
+  });
+
+  it('signUp returns AuthError when user profile upsert fails', async () => {
+    supabase.auth.signUp.mockResolvedValue({
+      data: {
+        user: { id: 'u1', email: 'new@example.com' },
+        session: { expires_at: Math.floor(Date.now() / 1000) + 3600 },
+      },
+      error: null,
+    });
+    // Both upsert and fallback fetch fail
+    supabase.from.mockReturnValue(mockFromChain({ data: null, error: { message: 'DB unavailable' } }));
+
+    const result = await service.signUp('new@example.com', 'secret123', 'Jay');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('AuthError');
   });
 
   // ── onAuthStateChange ────────────────────────────────────────────────────
