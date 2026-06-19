@@ -37,7 +37,7 @@ export function CreateTripScreen() {
   const handleSubmit = async () => {
     const trip = await createTrip(name, currency);
     if (trip) {
-      router.replace(`/trip/${trip.id}?showInvitePrompt=true`);
+      router.replace(`/add-participant?tripId=${trip.id}`);
     }
   };
 

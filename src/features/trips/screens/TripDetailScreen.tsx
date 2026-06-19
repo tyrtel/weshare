@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, FlatList, Pressable, RefreshControl } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -11,7 +11,7 @@ import { TripFAB } from '../components/TripFAB';
 import { TripListHeader } from '../components/TripListHeader';
 import { useTripDetail } from '../hooks/useTripDetail';
 import { useService } from '../../../core/di/ServiceContext';
-import { SHARE, TRIP_STORE } from '../../../core/di/tokens';
+import { TRIP_STORE } from '../../../core/di/tokens';
 import { confirm } from '../../../core/utils/confirm';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
@@ -72,7 +72,7 @@ function EmptyExpenses() {
 }
 
 export function TripDetailScreen() {
-  const { id, showInvitePrompt } = useLocalSearchParams<{ id: string; showInvitePrompt?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
   const colors  = useColors();
   const { trip, expenses, loading, error, refetch } = useTripDetail(id);
@@ -90,7 +90,6 @@ export function TripDetailScreen() {
   const handleAddExpense   = () => { router.push(`/expense/add?tripId=${id}`); };
   const handleExpensePress = (expense: Expense) => { router.push(`/expense/${expense.id}`); };
 
-  const share    = useService(SHARE);
   const storeApi = useService(TRIP_STORE);
 
   const handleCloseTrip = useCallback(() => {
@@ -108,20 +107,6 @@ export function TripDetailScreen() {
     if (!trip) return;
     router.push(`/settle/${trip.id}`);
   }, [trip, router]);
-
-  const invitePromptShown = useRef(false);
-  useEffect(() => {
-    if (showInvitePrompt !== 'true' || !trip || invitePromptShown.current) return;
-    invitePromptShown.current = true;
-    void confirm(
-      'Trip created!',
-      'Share the invite link so your group can join.',
-      'Share invite',
-      'default',
-    ).then(confirmed => {
-      if (confirmed) share.shareTrip(trip.id, trip.name, trip.inviteToken ?? '');
-    });
-  }, [showInvitePrompt, trip, share]);
 
   const visibleExpenses = showAllExpenses ? expenses : expenses.slice(0, 3);
 
