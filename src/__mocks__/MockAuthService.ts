@@ -4,6 +4,13 @@ import type { AppError } from '../core/types/AppError';
 import type { IAuthService, AuthStateListener, Unsubscribe } from '../core/interfaces/IAuthService';
 import type { User } from '../core/models/User';
 
+const SIM_PROFILES: Record<string, { name: string; avatarUrl: string }> = {
+  'jay@sim.local': {
+    name:      'Jay McCleery',
+    avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocJFNrgXPuCE0bw1Ze8UM9tsWcNC9-RHJ57qAqfTJT2BPNldnfA=s96-c',
+  },
+};
+
 export class MockAuthService implements IAuthService {
   private _currentUser: User | null = null;
   private _listeners: Set<AuthStateListener> = new Set();
@@ -15,11 +22,13 @@ export class MockAuthService implements IAuthService {
   }
 
   async signIn(email: string, _password: string): Promise<Result<User, AppError>> {
+    const profile = SIM_PROFILES[email];
     const user: User = {
-      id: `user_${email}`,
-      name: (() => { const p = email.split('@')[0]; return p.charAt(0).toUpperCase() + p.slice(1); })(),
+      id:        `user_${email}`,
+      name:      profile?.name ?? (() => { const p = email.split('@')[0]; return p.charAt(0).toUpperCase() + p.slice(1); })(),
       email,
       createdAt: new Date(),
+      ...(profile?.avatarUrl && { avatarUrl: profile.avatarUrl }),
     };
     this._currentUser = user;
     this._notify(user);

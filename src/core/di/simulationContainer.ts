@@ -30,7 +30,7 @@ import { MockBankListService } from '../../__mocks__/MockBankListService';
 import { MockReceiptParserService } from '../../__mocks__/MockReceiptParserService';
 import { MockReceiptStorage } from '../../__mocks__/MockReceiptStorage';
 
-import { restaurantScenario, RESTAURANT_CURRENT_USER } from '../../__mocks__/fixtures/restaurantScenario';
+import { restaurantScenario, RESTAURANT_CURRENT_USER, RESTAURANT_CURRENT_USER_EMAIL } from '../../__mocks__/fixtures/restaurantScenario';
 import { twoPersonScenario } from '../../__mocks__/fixtures/twoPersonScenario';
 import { settlingScenario } from '../../__mocks__/fixtures/settlingScenario';
 import type { StorageFixtures } from '../../__mocks__/fixtures/types';
@@ -90,7 +90,7 @@ export async function createSimulationContainer(): Promise<ServiceContainer> {
 
   const auth = new MockAuthService();
   logger.log('[simulationContainer] signing in as', RESTAURANT_CURRENT_USER);
-  await auth.signIn(`${RESTAURANT_CURRENT_USER.toLowerCase()}@sim.local`, 'password');
+  await auth.signIn(RESTAURANT_CURRENT_USER_EMAIL, 'password');
   logger.log('[simulationContainer] signed in');
 
   const container = new ServiceContainer();
