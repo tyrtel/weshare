@@ -8,8 +8,9 @@ interface AmountInputProps {
   onChangeCents: (cents: number) => void;
   currency: string;
   label?: string;
-  /** When true, the field is read-only (used in SplitMemberRow equal-mode). */
   readOnly?: boolean;
+  /** When true, renders without the bordered box — for inline split rows. */
+  compact?: boolean;
 }
 
 function centsToDisplay(cents: number): string {
@@ -28,6 +29,7 @@ export function AmountInput({
   currency,
   label,
   readOnly = false,
+  compact = false,
 }: AmountInputProps) {
   const colors = useColors();
   // Keep a local string while the user is editing; commit to cents on blur.
@@ -47,6 +49,26 @@ export function AmountInput({
     onChangeCents(cents);
     setDisplayValue(centsToDisplay(cents));
   };
+
+  if (compact) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+        <RNText style={{ color: colors.text.primary, fontSize: tokens.fontSize.md, marginRight: 2 }}>
+          {currency}
+        </RNText>
+        <TextInput
+          value={displayValue}
+          onChangeText={setDisplayValue}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          keyboardType="decimal-pad"
+          editable={!readOnly}
+          accessibilityLabel={label ?? 'Amount'}
+          style={{ color: colors.text.primary, fontSize: tokens.fontSize.md, padding: 0, minWidth: 50, textAlign: 'right' }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View>

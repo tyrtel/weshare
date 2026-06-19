@@ -105,16 +105,22 @@ export function SplitMemberRow({
                 {formatCurrency(amountCents, currency)}
               </Text>
             </View>
+          ) : splitMode === 'equal' ? (
+            <View style={{ alignItems: 'flex-end', minWidth: 80 }}>
+              <Text variant="label" color={colors.text.primary}>
+                {formatCurrency(amountCents, currency)}
+              </Text>
+            </View>
           ) : (
             <Pressable
               onPress={e => e.stopPropagation?.()}
-              style={{ width: 100 }}
+              style={{ minWidth: 80, alignItems: 'flex-end' }}
             >
               <AmountInput
                 amountCents={amountCents}
                 onChangeCents={onChangeAmount}
                 currency={currency}
-                readOnly={splitMode !== 'custom'}
+                compact
               />
             </Pressable>
           )
