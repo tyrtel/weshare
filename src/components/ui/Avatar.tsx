@@ -1,42 +1,55 @@
-import React from 'react';
-import { View } from 'react-native';
+import React, { useState } from 'react';
+import { View, Image } from 'react-native';
 import { Text } from './Text';
-import { tokens } from '../../theme/tokens';
-import type { TypographyVariant } from '../../theme/typography';
 
 type AvatarSize = 'sm' | 'md' | 'lg';
 
 const dimensionMap: Record<AvatarSize, number> = { sm: 28, md: 36, lg: 44 };
-const fontVariantMap: Record<AvatarSize, TypographyVariant> = {
-  sm: 'caption',
-  md: 'label',
-  lg: 'body',
-};
+const fontSizeMap:  Record<AvatarSize, number> = { sm: 14, md: 17, lg: 21 };
 
 interface AvatarProps {
   initials: string;
   bg: string;
-  color: string;
   size?: AvatarSize;
+  url?: string;
 }
 
-export function Avatar({ initials, bg, color, size = 'md' }: AvatarProps) {
+export function Avatar({ initials, bg, size = 'md', url }: AvatarProps) {
   const dimension = dimensionMap[size];
+  const [imgError, setImgError] = useState(false);
+  const showImage = !!url && !imgError;
 
   return (
     <View
       style={{
         width: dimension,
         height: dimension,
-        borderRadius: tokens.radius.badge,
+        borderRadius: dimension / 2,
         backgroundColor: bg,
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden',
       }}
     >
-      <Text variant={fontVariantMap[size]} color={color}>
-        {initials.slice(0, 2).toUpperCase()}
-      </Text>
+      {showImage ? (
+        <Image
+          source={{ uri: url }}
+          style={{ width: dimension, height: dimension }}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <Text
+          style={{
+            color: '#ffffff',
+            fontSize: fontSizeMap[size],
+            fontWeight: '600',
+            lineHeight: fontSizeMap[size] + 2,
+            includeFontPadding: false,
+          }}
+        >
+          {initials.slice(0, 2).toUpperCase()}
+        </Text>
+      )}
     </View>
   );
 }

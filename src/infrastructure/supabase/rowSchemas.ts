@@ -24,6 +24,7 @@ const memberRowSchema = z.object({
   joined_at:    z.string(),
   phone:        z.string().nullable().optional(),
   email:        z.string().nullable().optional(),
+  avatar_url:   z.string().nullable().optional(),
 });
 
 const expenseRowSchema = z.object({

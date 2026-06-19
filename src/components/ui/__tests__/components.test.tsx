@@ -63,7 +63,7 @@ describe('dark theme', () => {
     expect(snap(<Card onPress={() => {}}><Text>Tap me</Text></Card>)).toMatchSnapshot());
 
   it('Avatar md', () =>
-    expect(snap(<Avatar initials="JA" bg="#2d2260" color="#b8b0ff" />)).toMatchSnapshot());
+    expect(snap(<Avatar initials="JA" bg="#2d2260" />)).toMatchSnapshot());
   it('Avatar sm', () =>
     expect(snap(<Avatar initials="ML" bg="#1a3a2a" color="#6ee7b7" size="sm" />)).toMatchSnapshot());
   it('Avatar lg', () =>
@@ -91,7 +91,7 @@ describe('light theme', () => {
     expect(snap(<Button label="Cancel" onPress={() => {}} variant="ghost" />)).toMatchSnapshot());
   it('Card', () => expect(snap(<Card><Text>Content</Text></Card>)).toMatchSnapshot());
   it('Avatar md', () =>
-    expect(snap(<Avatar initials="JA" bg="#2d2260" color="#b8b0ff" />)).toMatchSnapshot());
+    expect(snap(<Avatar initials="JA" bg="#2d2260" />)).toMatchSnapshot());
   it('Badge default', () => expect(snap(<Badge label="Assigned" />)).toMatchSnapshot());
   it('Divider', () => expect(snap(<Divider />)).toMatchSnapshot());
   it('ScreenWrapper', () =>

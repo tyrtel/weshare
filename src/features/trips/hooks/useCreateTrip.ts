@@ -60,6 +60,7 @@ export function useCreateTrip() {
           displayName: user.name,
           isGuest:     false,
           joinedAt:    new Date(),
+          avatarUrl:   user.avatarUrl,
         };
         const trip: Trip = {
           id:          tripId,

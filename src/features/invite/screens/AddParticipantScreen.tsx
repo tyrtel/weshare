@@ -254,8 +254,7 @@ function ContactsInlineContent({
             >
               <Avatar
                 initials={getInitials(item.name)}
-                bg={contactPalette(item.name).bg}
-                color={contactPalette(item.name).text}
+                bg={contactPalette(item.name).text}
                 size="sm"
               />
               <View style={{ flex: 1, marginLeft: tokens.spacing.sm }}>
@@ -508,8 +507,8 @@ function CurrentMembersSection({ members }: CurrentMembersSectionProps) {
           >
             <Avatar
               initials={getInitials(member.displayName)}
-              bg={palette.bg}
-              color={palette.text}
+              bg={palette.text}
+              url={member.avatarUrl}
               size="sm"
             />
             <Text

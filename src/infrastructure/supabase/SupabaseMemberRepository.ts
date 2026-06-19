@@ -17,8 +17,9 @@ function rowToMember(raw: unknown): Result<TripMember, AppError> {
     displayName: row.display_name,
     isGuest:     row.is_guest,
     joinedAt:    new Date(row.joined_at),
-    ...(row.phone != null && { phone: row.phone }),
-    ...(row.email != null && { email: row.email }),
+    ...(row.phone      != null && { phone:     row.phone }),
+    ...(row.email      != null && { email:     row.email }),
+    ...(row.avatar_url != null && { avatarUrl: row.avatar_url }),
   });
 }
 
@@ -40,8 +41,9 @@ export class SupabaseMemberRepository implements IMemberRepository {
         user_id:      member.userId,
         display_name: member.displayName,
         is_guest:     member.isGuest,
-        phone:        member.phone ?? null,
-        email:        member.email ?? null,
+        phone:        member.phone     ?? null,
+        email:        member.email     ?? null,
+        avatar_url:   member.avatarUrl ?? null,
       })
       .select()
       .single();

@@ -244,8 +244,8 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
         >
           <Avatar
             initials={getInitials(payerName)}
-            bg={payerPalette.bg}
-            color={payerPalette.text}
+            bg={payerPalette.text}
+            url={payer?.avatarUrl}
             size="md"
           />
           <View style={{ marginLeft: tokens.spacing.sm }}>
@@ -272,7 +272,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
             return (
               <View key={split.id}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: tokens.spacing.sm }}>
-                  <Avatar initials={getInitials(name)} bg={palette.bg} color={palette.text} size="sm" />
+                  <Avatar initials={getInitials(name)} bg={palette.text} url={member?.avatarUrl} size="sm" />
                   <Text variant="body" style={{ flex: 1, marginLeft: tokens.spacing.sm }} numberOfLines={1}>
                     {name}
                   </Text>

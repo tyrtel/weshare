@@ -35,8 +35,8 @@ export function MemberAvatarRow({ members, maxVisible = 5 }: MemberAvatarRowProp
           >
             <Avatar
               initials={getInitials(member.displayName)}
-              bg={palette.bg}
-              color={palette.text}
+              bg={palette.text}
+              url={member.avatarUrl}
               size="sm"
             />
           </View>
@@ -44,21 +44,8 @@ export function MemberAvatarRow({ members, maxVisible = 5 }: MemberAvatarRowProp
       })}
 
       {overflow > 0 && (
-        <View
-          style={{
-            marginLeft: tokens.pillStack.overlapOffset,
-            width: 28,
-            height: 28,
-            borderRadius: tokens.radius.badge,
-            backgroundColor: '#2a2a4a',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <View>
-            {/* Rendered as Avatar with custom bg to keep consistent size */}
-          </View>
-          <Avatar initials={`+${overflow}`} bg="#2a2a4a" color="#8888aa" size="sm" />
+        <View style={{ marginLeft: tokens.pillStack.overlapOffset }}>
+          <Avatar initials={`+${overflow}`} bg="#3a3a5a" size="sm" />
         </View>
       )}
     </View>

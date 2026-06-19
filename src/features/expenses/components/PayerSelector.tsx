@@ -48,14 +48,14 @@ export function PayerSelector({ members, selectedUserId, onSelect }: PayerSelect
               style={{
                 borderWidth: selected ? 2 : 0,
                 borderColor: colors.primary.default,
-                borderRadius: tokens.radius.badge + 3,
+                borderRadius: 999,
                 padding: selected ? 2 : 0,
               }}
             >
               <Avatar
                 initials={getInitials(member.displayName)}
-                bg={palette.bg}
-                color={palette.text}
+                bg={palette.text}
+                url={member.avatarUrl}
                 size="md"
               />
             </View>

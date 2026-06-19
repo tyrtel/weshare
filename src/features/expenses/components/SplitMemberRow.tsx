@@ -81,8 +81,8 @@ export function SplitMemberRow({
 
         <Avatar
           initials={getInitials(member.displayName)}
-          bg={palette.bg}
-          color={palette.text}
+          bg={palette.text}
+          url={member.avatarUrl}
           size="sm"
         />
 

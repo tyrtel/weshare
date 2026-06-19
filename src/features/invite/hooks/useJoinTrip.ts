@@ -91,6 +91,7 @@ export function useJoinTrip(token: string) {
       displayName: user.name,
       isGuest:     false,
       joinedAt:    new Date(),
+      avatarUrl:   user.avatarUrl,
     });
 
     if (!isOk(addResult)) {

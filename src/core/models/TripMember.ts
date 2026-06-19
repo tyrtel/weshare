@@ -6,4 +6,5 @@ export interface TripMember {
   isGuest: boolean;
   phone?: string;
   email?: string;
+  avatarUrl?: string;
 }
