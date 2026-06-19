@@ -82,9 +82,9 @@ export function BalanceBubblesSection({ members, expenses, currency }: BalanceBu
           const isCreditor = balanceCents >  THRESHOLD;
           const size = bubbleSize(balanceCents);
 
-          const bg   = isDebtor ? colors.error.bg      : isCreditor ? colors.success.bg      : colors.surface;
-          const tint = isDebtor ? colors.error.default : isCreditor ? colors.success.default : colors.text.tertiary;
-          const bw   = isDebtor || isCreditor ? 2 : 1;
+          const bg   = isDebtor ? colors.error.default : isCreditor ? colors.success.default : colors.surface;
+          const tint = isDebtor || isCreditor ? '#ffffff' : colors.text.tertiary;
+          const bw   = isDebtor || isCreditor ? 0 : 1;
 
           // Both font sizes scale linearly with the bubble diameter (48–108px range).
           const nameFontSize   = Math.round(9  + (size - 48) / 60 * 5); // 9 → 14 px
