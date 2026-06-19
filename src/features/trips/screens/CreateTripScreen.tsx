@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, ScrollView, Pressable, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, TextInput, ScrollView, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -122,19 +122,16 @@ export function CreateTripScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Modal lives outside ScrollView/KeyboardAvoidingView to avoid Android portal issues */}
-      <Modal
-        visible={dropdownVisible}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setDropdownVisible(false)}
-      >
+      {/* Inline overlay — avoids Modal-inside-modal crash on Android (screen is
+          already presented as a modal by expo-router presentation: 'modal'). */}
+      {dropdownVisible && (
         <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: tokens.spacing.xl }}
+          style={[styles.backdrop, { padding: tokens.spacing.xl }]}
           onPress={() => setDropdownVisible(false)}
+          accessibilityLabel="Close currency picker"
+          accessibilityRole="button"
         >
-          <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, overflow: 'hidden' }}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface, borderRadius: tokens.radius.card }]}>
             <View style={{ paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
               <Text variant="label" color={colors.text.secondary}>Select currency</Text>
             </View>
@@ -166,7 +163,19 @@ export function CreateTripScreen() {
             })}
           </View>
         </Pressable>
-      </Modal>
+      )}
     </ScreenWrapper>
   );
 }
+
+const styles = StyleSheet.create({
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  sheet: {
+    overflow: 'hidden',
+  },
+});
