@@ -47,7 +47,7 @@ export function Avatar({ initials, bg, size = 'md', url }: AvatarProps) {
             includeFontPadding: false,
           }}
         >
-          {initials.slice(0, 2).toUpperCase()}
+          {initials.slice(0, 1).toUpperCase()}
         </Text>
       )}
     </View>

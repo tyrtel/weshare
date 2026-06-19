@@ -113,8 +113,8 @@ describe('TripListScreen', () => {
     ];
     mockUseTrips.mockReturnValue({ trips, loading: false, error: null });
     render(<TripListScreen />);
-    expect(screen.getByText('JM')).toBeTruthy();
-    expect(screen.getByText('MC')).toBeTruthy();
+    expect(screen.getByText('J')).toBeTruthy();
+    expect(screen.getByText('M')).toBeTruthy();
   });
 
   it('shows "You owe €X" when the financial summary direction is "owe"', () => {
