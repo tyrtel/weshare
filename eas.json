@@ -39,6 +39,20 @@
         "track": "internal",
         "releaseStatus": "completed"
       }
+    },
+    "closed": {
+      "android": {
+        "serviceAccountKeyPath": "./serviceAccountKey.json",
+        "track": "alpha",
+        "releaseStatus": "completed"
+      }
+    },
+    "open": {
+      "android": {
+        "serviceAccountKeyPath": "./serviceAccountKey.json",
+        "track": "beta",
+        "releaseStatus": "completed"
+      }
     }
   }
 }
