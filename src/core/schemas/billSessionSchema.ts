@@ -17,11 +17,14 @@ export const splitSchema = z.object({
 });
 
 export const tripMemberSchema = z.object({
-  userId: z.string(),
-  tripId: z.string(),
+  userId:      z.string(),
+  tripId:      z.string(),
   displayName: z.string(),
-  joinedAt: z.coerce.date(),
-  isGuest: z.boolean(),
+  joinedAt:    z.coerce.date(),
+  isGuest:     z.boolean(),
+  phone:       z.string().optional(),
+  email:       z.string().optional(),
+  avatarUrl:   z.string().optional(),
 });
 
 export const settlementSchema = z.object({
