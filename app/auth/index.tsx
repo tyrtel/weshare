@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
-import { View, Pressable, ActivityIndicator, Platform, StyleSheet } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  KeyboardAvoidingView,
+  ScrollView,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useService } from '../../src/core/di/ServiceContext';
@@ -8,12 +17,32 @@ import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { darkColors as C } from '../../src/theme/colors';
 
-export default function WelcomeScreen() {
+export default function SignInScreen() {
   const auth    = useService(AUTH);
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
-  const [busy, setBusy]     = useState<'google' | 'apple' | null>(null);
-  const [error, setError]   = useState<string | null>(null);
+
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy]         = useState<'email' | 'google' | 'apple' | null>(null);
+  const [error, setError]       = useState<string | null>(null);
+
+  const passwordRef = useRef<TextInput>(null);
+
+  async function handleEmailSignIn() {
+    if (!email.trim()) { setError('Please enter your email.'); return; }
+    if (!password)     { setError('Please enter your password.'); return; }
+
+    setBusy('email');
+    setError(null);
+    const result = await auth.signIn(email.trim(), password);
+    setBusy(null);
+    if (!isOk(result)) {
+      setError(result.error.message);
+    } else {
+      router.replace('/' as Parameters<typeof router.replace>[0]);
+    }
+  }
 
   async function handleGoogle() {
     setBusy('google');
@@ -43,92 +72,175 @@ export default function WelcomeScreen() {
     }
   }
 
+  const isAnyBusy = busy !== null;
+
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 }]}>
-      {/* Branding */}
-      <View style={styles.brandSection}>
-        <View style={styles.logoPlaceholder}>
-          <Text style={{ fontSize: 40 }}>✈️</Text>
-        </View>
-        <Text variant="heading" style={styles.appName}>ouiShare</Text>
-        <Text variant="body" color={C.text.secondary} style={styles.tagline}>
-          Split trips, not friendships.
-        </Text>
-      </View>
-
-      {/* Auth buttons */}
-      <View style={styles.buttonSection}>
-        {error ? (
-          <View style={styles.errorBanner}>
-            <Text variant="caption" color={C.error.default}>{error}</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.root,
+          { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Branding */}
+        <View style={styles.brandSection}>
+          <View style={styles.logoPlaceholder}>
+            <Text style={{ fontSize: 40 }}>✈️</Text>
           </View>
-        ) : null}
+          <Text variant="heading" style={styles.appName}>ouiShare</Text>
+          <Text variant="body" color={C.text.secondary} style={styles.tagline}>
+            Split trips, not friendships.
+          </Text>
+        </View>
 
-        <Pressable
-          onPress={handleGoogle}
-          disabled={busy !== null}
-          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Sign in with Google"
-        >
-          {busy === 'google'
-            ? <ActivityIndicator color={C.text.primary} size="small" />
-            : (
-              <>
-                <Text style={styles.googleG}>G</Text>
-                <Text variant="body" style={styles.socialLabel}>Continue with Google</Text>
-              </>
-            )
-          }
-        </Pressable>
+        {/* Email sign-in */}
+        <View style={styles.formSection}>
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Text variant="caption" color={C.error.default}>{error}</Text>
+            </View>
+          ) : null}
 
-        {Platform.OS === 'ios' && (
+          <View style={styles.field}>
+            <TextInput
+              value={email}
+              onChangeText={t => { setEmail(t); setError(null); }}
+              placeholder="Email"
+              placeholderTextColor={C.text.tertiary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              editable={!isAnyBusy}
+              style={[styles.input, styles.inputTop]}
+              accessibilityLabel="Email address"
+            />
+            <TextInput
+              ref={passwordRef}
+              value={password}
+              onChangeText={t => { setPassword(t); setError(null); }}
+              placeholder="Password"
+              placeholderTextColor={C.text.tertiary}
+              secureTextEntry
+              returnKeyType="go"
+              onSubmitEditing={handleEmailSignIn}
+              editable={!isAnyBusy}
+              style={[styles.input, styles.inputBottom]}
+              accessibilityLabel="Password"
+            />
+          </View>
+
           <Pressable
-            onPress={handleApple}
-            disabled={busy !== null}
-            style={({ pressed }) => [styles.socialButton, styles.appleButton, pressed && styles.pressed]}
+            onPress={handleEmailSignIn}
+            disabled={isAnyBusy}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              isAnyBusy && styles.disabledButton,
+              pressed && styles.pressed,
+            ]}
             accessibilityRole="button"
-            accessibilityLabel="Sign in with Apple"
+            accessibilityLabel="Sign in"
           >
-            {busy === 'apple'
+            {busy === 'email'
               ? <ActivityIndicator color={C.text.inverse} size="small" />
+              : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>Sign in</Text>
+            }
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/auth/forgot-password' as Parameters<typeof router.push>[0])}
+            disabled={isAnyBusy}
+            style={({ pressed }) => [styles.textLink, pressed && { opacity: 0.6 }]}
+            accessibilityRole="button"
+          >
+            <Text variant="caption" color={C.text.secondary}>Forgot password?</Text>
+          </Pressable>
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text variant="caption" color={C.text.tertiary} style={styles.dividerLabel}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Social sign-in */}
+        <View style={styles.socialSection}>
+          <Pressable
+            onPress={handleGoogle}
+            disabled={isAnyBusy}
+            style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in with Google"
+          >
+            {busy === 'google'
+              ? <ActivityIndicator color={C.text.primary} size="small" />
               : (
                 <>
-                  <Text style={styles.appleIcon}></Text>
-                  <Text variant="body" style={[styles.socialLabel, styles.appleLabel]}>
-                    Continue with Apple
-                  </Text>
+                  <Text style={styles.googleG}>G</Text>
+                  <Text variant="body" style={styles.socialLabel}>Continue with Google</Text>
                 </>
               )
             }
           </Pressable>
-        )}
 
-        <Pressable
-          onPress={() => router.push('/auth/email' as Parameters<typeof router.push>[0])}
-          disabled={busy !== null}
-          style={({ pressed }) => [styles.emailButton, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Use email"
-        >
-          <Text variant="body" color={C.text.secondary}>Use email</Text>
-        </Pressable>
-      </View>
-    </View>
+          {Platform.OS === 'ios' && (
+            <Pressable
+              onPress={handleApple}
+              disabled={isAnyBusy}
+              style={({ pressed }) => [styles.socialButton, styles.appleButton, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in with Apple"
+            >
+              {busy === 'apple'
+                ? <ActivityIndicator color={C.text.inverse} size="small" />
+                : (
+                  <>
+                    <Text style={styles.appleIcon}></Text>
+                    <Text variant="body" style={[styles.socialLabel, styles.appleLabel]}>
+                      Continue with Apple
+                    </Text>
+                  </>
+                )
+              }
+            </Pressable>
+          )}
+        </View>
+
+        {/* Create account */}
+        <View style={styles.createSection}>
+          <Text variant="body" color={C.text.secondary}>Don't have an account?</Text>
+          <Pressable
+            onPress={() => router.push('/auth/signup' as Parameters<typeof router.push>[0])}
+            disabled={isAnyBusy}
+            style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+          >
+            <Text variant="body" color={C.primary.default} style={styles.createLink}>
+              {' '}Create one
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: C.background,
     paddingHorizontal: 24,
-    justifyContent: 'space-between',
+    gap: 24,
   },
   brandSection: {
     alignItems: 'center',
     gap: 12,
-    marginTop: 32,
   },
   logoPlaceholder: {
     width: 80,
@@ -149,14 +261,71 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: C.text.secondary,
   },
-  buttonSection: {
+  formSection: {
     gap: 12,
   },
   errorBanner: {
     backgroundColor: C.error.bg,
     borderRadius: 8,
     padding: 12,
-    marginBottom: 4,
+  },
+  field: {
+    gap: 0,
+  },
+  input: {
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: C.text.primary,
+  },
+  inputTop: {
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    borderBottomWidth: 0.5,
+  },
+  inputBottom: {
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    borderTopWidth: 0.5,
+  },
+  primaryButton: {
+    backgroundColor: C.primary.default,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  buttonLabel: {
+    fontWeight: '600',
+  },
+  textLink: {
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: C.border,
+  },
+  dividerLabel: {
+    fontSize: 13,
+  },
+  socialSection: {
+    gap: 12,
   },
   socialButton: {
     flexDirection: 'row',
@@ -172,9 +341,6 @@ const styles = StyleSheet.create({
   appleButton: {
     backgroundColor: C.text.primary,
     borderColor: C.text.primary,
-  },
-  pressed: {
-    opacity: 0.75,
   },
   googleG: {
     fontSize: 18,
@@ -192,9 +358,13 @@ const styles = StyleSheet.create({
   appleLabel: {
     color: C.text.inverse,
   },
-  emailButton: {
+  createSection: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 4,
+    paddingTop: 8,
+  },
+  createLink: {
+    fontWeight: '600',
   },
 });

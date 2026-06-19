@@ -1,6 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { LargeSecureStore } from './LargeSecureStore';
+
+// In simulation mode the real Supabase client is never used for auth, but the
+// module may still be imported (e.g. for live OCR). Disabling storage and
+// autoRefreshToken prevents the client from reading a stale production session
+// out of SecureStore and firing a token-refresh that logs a spurious error.
+const isSimulation =
+  Constants.expoConfig?.extra?.simulation === true ||
+  process.env.EXPO_PUBLIC_SIMULATE === 'true';
 
 // ── Hand-written Database type ────────────────────────────────────────────────
 // Replace this with the output of `npx supabase gen types typescript --local`
@@ -187,7 +196,8 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'placeholde
 
 // expo-secure-store is not available on web; fall back to the Supabase default
 // (localStorage) on that platform so the web build keeps working.
-const storage = Platform.OS === 'web' ? undefined : LargeSecureStore;
+// In simulation mode use no storage so the client never touches SecureStore.
+const storage = (isSimulation || Platform.OS === 'web') ? undefined : LargeSecureStore;
 
 // Fire-and-forget ping that wakes a paused free-tier Supabase project before
 // any authenticated requests are made. Safe to call multiple times — the
@@ -201,8 +211,8 @@ export function pingSupabase(): void {
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage,
-    autoRefreshToken: true,
-    persistSession: true,
+    autoRefreshToken: !isSimulation,
+    persistSession: !isSimulation,
     detectSessionInUrl: false,
   },
 });

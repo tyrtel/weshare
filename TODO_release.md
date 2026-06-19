@@ -31,6 +31,10 @@ Check off each item as it is completed.
 - [ ] In Supabase Dashboard → Authentication → Providers: enable **Apple** (paste Service ID + Key) — defer to iOS phase
 - [x] In Supabase Dashboard → Authentication → URL Configuration: add `ouishare://auth/callback` to Redirect URLs
 - [x] Run migration `015_auth_rpcs.sql` against production database
+- [x] Authentication → Settings → **Enable email confirmations** = ON (required for OTP flow — if off, signUp skips OTP)
+- [x] Authentication → Settings → **Minimum password length** = 6 (matches client-side validation)
+- [x] Authentication → Email Templates → Confirm signup: body uses `{{ .Token }}` not the default magic link URL
+- [ ] **Custom SMTP configured via Resend** — see Section 8. Free-tier Supabase SMTP is limited to 2 emails/hour; must be done before any real users sign up with email.
 
 ### Native configuration required (do before first real build)
 - [x] Get real `GOOGLE_WEB_CLIENT_ID` from Google Cloud Console (OAuth 2.0 → Web client) and set as EAS secret
@@ -204,6 +208,57 @@ All written copy is in `store-assets/play-store-metadata.md`:
 - [x] Supabase migrations deployed to production: all 15 migrations applied
 - [x] Supabase Edge Functions deployed: all 7 functions live (create-payment-link, ob-initiate, ob-status, ob-webhook, parse-receipt, payment-status, stripe-webhook)
 - [x] Verify Supabase project is in **EU region** (Frankfurt or West EU) — required for GDPR (confirmed eu-west-1 Ireland)
+- [ ] **Resend SMTP configured** (see steps below)
+
+### SMTP — Resend setup (required for email OTP sign-up)
+
+Supabase's built-in shared SMTP caps at **2 emails per hour**. Resend has a free tier of
+3,000 emails/month (100/day) and takes about 10 minutes to set up.
+
+#### Step 1 — Create a Resend account
+1. Go to [https://resend.com](https://resend.com) and sign up (free, no credit card)
+2. Verify your Resend account email
+
+#### Step 2 — Add and verify your sending domain
+1. Resend dashboard → **Domains** → "Add domain"
+2. Enter the domain you want to send from (e.g. `ouishare.app` or your support subdomain)
+3. Resend shows you 3 DNS records to add:
+   - **SPF** — TXT record on `@` or your subdomain
+   - **DKIM** — TXT record (long key) on `resend._domainkey`
+   - **DMARC** — TXT record on `_dmarc` (optional but recommended)
+4. Add these records in your DNS provider (Namecheap, Cloudflare, Google Domains, etc.)
+5. Back in Resend → **Domains** → click "Verify DNS records" — all three should turn green
+   - DNS propagation can take a few minutes to a few hours; check again if not green immediately
+
+#### Step 3 — Create an API key
+1. Resend dashboard → **API Keys** → "Create API key"
+2. Name it `ouiShare Supabase SMTP`
+3. Permission: **Sending access** is sufficient
+4. Copy the key — it starts with `re_` and is only shown once
+
+#### Step 4 — Configure Supabase SMTP
+1. Supabase Dashboard → **Authentication → Settings** → scroll to **SMTP Settings**
+2. Toggle **Enable Custom SMTP** = ON
+3. Fill in:
+   | Field | Value |
+   |---|---|
+   | Sender name | `ouiShare` |
+   | Sender email | `noreply@yourdomain.com` (must be on your verified Resend domain) |
+   | Host | `smtp.resend.com` |
+   | Port | `465` |
+   | Username | `resend` |
+   | Password | your `re_…` API key from Step 3 |
+4. Click **Save**
+
+#### Step 5 — Test it
+1. In Supabase Dashboard → **Authentication → Users** → "Invite user" (sends a test email)
+2. Confirm the email arrives from `noreply@yourdomain.com` and is not in spam
+3. Alternatively, run through the full sign-up OTP flow in your app on a real device
+
+#### Notes
+- Resend free tier: 3,000 emails/month, 100/day — more than enough for early launch
+- If you exceed the free tier, upgrade to the $20/month plan (50,000 emails/month)
+- Do **not** commit the `re_…` API key to git; it only lives in Supabase's dashboard settings
 
 ---
 
@@ -218,7 +273,46 @@ All written copy is in `store-assets/play-store-metadata.md`:
 
 ---
 
-## 10 — Pre-Launch Bug Fixes  🔴 BLOCKING
+## 10 — Pre-Launch Data Cleanup  🔴 BLOCKING
+
+- [ ] **Purge test and Firebase Test Lab accounts from Supabase before going live.** Google's automated Pre-Launch Report creates Google-provider accounts each time a build is submitted to Play Console. By launch there will be a backlog of junk accounts that should be removed so production user counts are clean.
+
+  Run the following in the Supabase SQL Editor. It deletes every account that is not yours, so confirm your own user ID first (Auth → Users → find your Google account → copy the UUID) and substitute it below.
+
+  The safe delete query (plain text, run as a transaction):
+
+      BEGIN;
+
+      CREATE TEMP TABLE accounts_to_delete AS
+      SELECT id FROM auth.users
+      WHERE id <> '<YOUR_USER_UUID_HERE>';
+
+      SELECT COUNT(*) AS accounts_to_delete FROM accounts_to_delete;
+
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM trips    WHERE owner_id        IN (SELECT id FROM accounts_to_delete)) THEN
+          RAISE EXCEPTION 'Some accounts own trips — review before deleting';
+        END IF;
+        IF EXISTS (SELECT 1 FROM expenses WHERE paid_by_user_id IN (SELECT id FROM accounts_to_delete)) THEN
+          RAISE EXCEPTION 'Some accounts paid for expenses — review before deleting';
+        END IF;
+        IF EXISTS (SELECT 1 FROM splits   WHERE user_id         IN (SELECT id FROM accounts_to_delete)) THEN
+          RAISE EXCEPTION 'Some accounts have splits — review before deleting';
+        END IF;
+      END $$;
+
+      DELETE FROM auth.users WHERE id IN (SELECT id FROM accounts_to_delete);
+
+      SELECT COUNT(*) AS remaining_users FROM auth.users;
+
+      COMMIT;
+
+  After committing, remaining_users should be 1 (your account). If the safety checks raise an exception, roll back and inspect that account before proceeding.
+
+---
+
+## 11 — Pre-Launch Bug Fixes  🔴 BLOCKING
 
 - [ ] **Duplicate "Total" label on expense list screen** — remove the second small "Total" text that appears under the graph
 - [ ] **Split itemized expense feature broken** — itemized split is not working; investigate and fix so users can split individual line items on a receipt

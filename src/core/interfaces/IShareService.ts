@@ -3,5 +3,5 @@ import type { AppError } from '../types/AppError';
 
 export interface IShareService {
   // Opens the native share sheet with a pre-built invite link for the trip.
-  shareTrip(tripId: string, tripName: string): Promise<Result<void, AppError>>;
+  shareTrip(tripId: string, tripName: string, inviteToken: string): Promise<Result<void, AppError>>;
 }

@@ -126,7 +126,7 @@ describe('TripDetailScreen — post-create invite nudge', () => {
     await waitFor(() => {
       expect(shareService.calls).toHaveLength(1);
     });
-    expect(shareService.calls[0]).toEqual({ tripId: 't1', tripName: 'Chez Paul' });
+    expect(shareService.calls[0]).toEqual({ tripId: 't1', tripName: 'Chez Paul', inviteToken: 'ABC12345' });
   });
 
   it('does not call share.shareTrip when invite confirm is declined', async () => {

@@ -8,8 +8,11 @@ export type Unsubscribe = () => void;
 export interface IAuthService {
   signIn(email: string, password: string): Promise<Result<User, AppError>>;
   // signUp returns { needsEmailConfirmation: true } when Supabase requires
-  // the user to click a verification link before the session is active.
+  // OTP verification before the session is active.
   signUp(email: string, password: string, name: string): Promise<Result<User | { needsEmailConfirmation: true }, AppError>>;
+  // Verify the OTP code that was emailed after signUp. `name` is required to
+  // create the user profile row on first activation.
+  verifyOtp(email: string, token: string, name: string): Promise<Result<User, AppError>>;
   signOut(): Promise<Result<void, AppError>>;
   signInWithGoogle(): Promise<Result<User, AppError>>;
   signInWithApple(): Promise<Result<User, AppError>>;

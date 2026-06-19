@@ -1,6 +1,7 @@
-jest.mock('expo-sharing', () => ({
-  isAvailableAsync: jest.fn(),
-  shareAsync: jest.fn(),
+jest.mock('react-native', () => ({
+  Share: {
+    share: jest.fn(),
+  },
 }));
 
 jest.mock('expo-linking', () => ({
@@ -9,10 +10,7 @@ jest.mock('expo-linking', () => ({
 
 import { NativeShareService } from '../services/NativeShareService';
 
-const Sharing = require('expo-sharing') as {
-  isAvailableAsync: jest.Mock;
-  shareAsync: jest.Mock;
-};
+const { Share } = require('react-native') as { Share: { share: jest.Mock } };
 
 describe('NativeShareService', () => {
   let service: NativeShareService;
@@ -22,46 +20,39 @@ describe('NativeShareService', () => {
     service = new NativeShareService();
   });
 
-  it('returns ok(undefined) when sharing succeeds', async () => {
-    Sharing.isAvailableAsync.mockResolvedValue(true);
-    Sharing.shareAsync.mockResolvedValue(undefined);
+  it('returns ok when sharing succeeds', async () => {
+    Share.share.mockResolvedValue({ action: 'sharedAction' });
 
-    const result = await service.shareTrip('t1', 'Chez Paul');
+    const result = await service.shareTrip('t1', 'Chez Paul', 'tok_abc');
     expect(result.ok).toBe(true);
   });
 
-  it('calls shareAsync with the invite deep-link URL', async () => {
-    Sharing.isAvailableAsync.mockResolvedValue(true);
-    Sharing.shareAsync.mockResolvedValue(undefined);
+  it('calls Share.share with a message containing the invite token URL', async () => {
+    Share.share.mockResolvedValue({ action: 'sharedAction' });
 
-    await service.shareTrip('t1', 'Chez Paul');
-    expect(Sharing.shareAsync).toHaveBeenCalledWith(
-      'ouishare://join/t1',
-      expect.objectContaining({ dialogTitle: 'Invite to Chez Paul' }),
-    );
+    await service.shareTrip('t1', 'Chez Paul', 'tok_abc');
+    expect(Share.share).toHaveBeenCalledWith({
+      message: expect.stringContaining('ouishare://join/tok_abc'),
+    });
   });
 
-  it('returns NetworkError when sharing is not available', async () => {
-    Sharing.isAvailableAsync.mockResolvedValue(false);
+  it('includes the trip name in the share message', async () => {
+    Share.share.mockResolvedValue({ action: 'sharedAction' });
 
-    const result = await service.shareTrip('t1', 'Road Trip');
+    await service.shareTrip('t1', 'Road Trip', 'tok_xyz');
+    expect(Share.share).toHaveBeenCalledWith({
+      message: expect.stringContaining('Road Trip'),
+    });
+  });
+
+  it('returns NetworkError when Share.share throws', async () => {
+    Share.share.mockRejectedValue(new Error('user cancelled'));
+
+    const result = await service.shareTrip('t1', 'Weekend', 'tok_123');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.kind).toBe('NetworkError');
-    }
-  });
-
-  it('returns NetworkError when shareAsync throws', async () => {
-    Sharing.isAvailableAsync.mockResolvedValue(true);
-    Sharing.shareAsync.mockRejectedValue(new Error('user cancelled'));
-
-    const result = await service.shareTrip('t1', 'Weekend');
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.kind).toBe('NetworkError');
-      if (result.error.kind === 'NetworkError') {
-        expect(result.error.message).toContain('user cancelled');
-      }
+      expect(result.error.message).toContain('user cancelled');
     }
   });
 });

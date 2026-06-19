@@ -18,7 +18,7 @@ const NOW     = new Date('2025-06-10T09:00:00Z');
 const TRIP_ID = 'trip_amsterdam';
 
 const MEMBERS = [
-  { userId: 'guest_jay',   tripId: TRIP_ID, displayName: 'Jay',   joinedAt: NOW, isGuest: true },
+  { userId: 'user_jay@sim.local',   tripId: TRIP_ID, displayName: 'Jay',   joinedAt: NOW, isGuest: true },
   { userId: 'guest_marie', tripId: TRIP_ID, displayName: 'Marie', joinedAt: NOW, isGuest: true },
   { userId: 'guest_sara',  tripId: TRIP_ID, displayName: 'Sara',  joinedAt: NOW, isGuest: true },
 ];
@@ -29,7 +29,7 @@ export const settlingScenario: StorageFixtures = {
       id:          TRIP_ID,
       name:        'Amsterdam Conf',
       currency:    'EUR',
-      ownerId:     'guest_jay',
+      ownerId:     'user_jay@sim.local',
       createdAt:   NOW,
       inviteToken: 'AMSTCONF',
       status:      'settling' as const,
@@ -44,7 +44,7 @@ export const settlingScenario: StorageFixtures = {
     {
       id: 'exp_hotel_ams', tripId: TRIP_ID,
       description: 'Hotel', totalAmountCents: 30000, currency: 'EUR',
-      paidByUserId: 'guest_jay', createdAt: NOW, splits: [], metadata: {},
+      paidByUserId: 'user_jay@sim.local', createdAt: NOW, splits: [], metadata: {},
     },
     {
       id: 'exp_dinner_ams', tripId: TRIP_ID,
@@ -55,12 +55,12 @@ export const settlingScenario: StorageFixtures = {
 
   splits: [
     // Hotel — Jay pays, 3-way equal
-    { id: 'sa1', expenseId: 'exp_hotel_ams', userId: 'guest_jay',   amountOwedCents: 10000, amountPaidCents: 0 },
+    { id: 'sa1', expenseId: 'exp_hotel_ams', userId: 'user_jay@sim.local',   amountOwedCents: 10000, amountPaidCents: 0 },
     { id: 'sa2', expenseId: 'exp_hotel_ams', userId: 'guest_marie', amountOwedCents: 10000, amountPaidCents: 0 },
     { id: 'sa3', expenseId: 'exp_hotel_ams', userId: 'guest_sara',  amountOwedCents: 10000, amountPaidCents: 0 },
 
     // Team Dinner — Sara pays, 3-way equal
-    { id: 'sb1', expenseId: 'exp_dinner_ams', userId: 'guest_jay',   amountOwedCents: 3000, amountPaidCents: 0 },
+    { id: 'sb1', expenseId: 'exp_dinner_ams', userId: 'user_jay@sim.local',   amountOwedCents: 3000, amountPaidCents: 0 },
     { id: 'sb2', expenseId: 'exp_dinner_ams', userId: 'guest_marie', amountOwedCents: 3000, amountPaidCents: 0 },
     { id: 'sb3', expenseId: 'exp_dinner_ams', userId: 'guest_sara',  amountOwedCents: 3000, amountPaidCents: 0 },
   ],

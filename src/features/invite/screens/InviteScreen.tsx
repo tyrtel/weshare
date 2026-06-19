@@ -34,7 +34,7 @@ export function InviteScreen() {
     : null;
 
   const handleShare = () => {
-    share.shareTrip(trip.id, trip.name);
+    share.shareTrip(trip.id, trip.name, trip.inviteToken ?? '');
   };
 
   return (

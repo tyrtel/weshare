@@ -119,7 +119,7 @@ export function TripDetailScreen() {
       'Share invite',
       'default',
     ).then(confirmed => {
-      if (confirmed) share.shareTrip(trip.id, trip.name);
+      if (confirmed) share.shareTrip(trip.id, trip.name, trip.inviteToken ?? '');
     });
   }, [showInvitePrompt, trip, share]);
 

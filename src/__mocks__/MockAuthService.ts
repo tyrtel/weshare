@@ -42,6 +42,18 @@ export class MockAuthService implements IAuthService {
     return ok(user);
   }
 
+  async verifyOtp(email: string, _token: string, name: string): Promise<Result<User, AppError>> {
+    const user: User = {
+      id: `user_${email}`,
+      name,
+      email,
+      createdAt: new Date(),
+    };
+    this._currentUser = user;
+    this._notify(user);
+    return ok(user);
+  }
+
   async signOut(): Promise<Result<void, AppError>> {
     this._currentUser = null;
     this._notify(null);

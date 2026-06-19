@@ -158,7 +158,7 @@ describe('mock implementations via createTestContainer', () => {
   it('MockShareService records shareTrip calls', async () => {
     const container = createTestContainer();
     const share = container.resolve(SHARE);
-    const result = await share.shareTrip('t1', 'Chez Paul');
+    const result = await share.shareTrip('t1', 'Chez Paul', 'tok_abc');
     expect(result.ok).toBe(true);
   });
 

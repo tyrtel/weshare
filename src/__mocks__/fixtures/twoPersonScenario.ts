@@ -17,7 +17,7 @@ const NOW = new Date('2025-05-24T18:00:00Z');
 const TRIP_ID = 'trip_lisbon';
 
 const MEMBERS = [
-  { userId: 'guest_jay',   tripId: TRIP_ID, displayName: 'Jay',   joinedAt: NOW, isGuest: true },
+  { userId: 'user_jay@sim.local',   tripId: TRIP_ID, displayName: 'Jay',   joinedAt: NOW, isGuest: true },
   { userId: 'guest_marie', tripId: TRIP_ID, displayName: 'Marie', joinedAt: NOW, isGuest: true },
 ];
 
@@ -27,7 +27,7 @@ export const twoPersonScenario: StorageFixtures = {
       id:          TRIP_ID,
       name:        'Lisbon Weekend',
       currency:    'EUR',
-      ownerId:     'guest_jay',
+      ownerId:     'user_jay@sim.local',
       createdAt:   NOW,
       inviteToken: 'LISBWKND',
       status:      'active' as const,
@@ -42,7 +42,7 @@ export const twoPersonScenario: StorageFixtures = {
     {
       id: 'exp_hotel', tripId: TRIP_ID,
       description: 'Hotel', totalAmountCents: 20000, currency: 'EUR',
-      paidByUserId: 'guest_jay', createdAt: NOW, splits: [], metadata: {},
+      paidByUserId: 'user_jay@sim.local', createdAt: NOW, splits: [], metadata: {},
     },
     {
       id: 'exp_dinner', tripId: TRIP_ID,
@@ -53,11 +53,11 @@ export const twoPersonScenario: StorageFixtures = {
 
   splits: [
     // Hotel — Jay pays, 2-way equal
-    { id: 'sh1', expenseId: 'exp_hotel', userId: 'guest_jay',   amountOwedCents: 10000, amountPaidCents: 0 },
+    { id: 'sh1', expenseId: 'exp_hotel', userId: 'user_jay@sim.local',   amountOwedCents: 10000, amountPaidCents: 0 },
     { id: 'sh2', expenseId: 'exp_hotel', userId: 'guest_marie', amountOwedCents: 10000, amountPaidCents: 0 },
 
     // Dinner — Marie pays, 2-way equal
-    { id: 'sd1', expenseId: 'exp_dinner', userId: 'guest_jay',   amountOwedCents: 3000, amountPaidCents: 0 },
+    { id: 'sd1', expenseId: 'exp_dinner', userId: 'user_jay@sim.local',   amountOwedCents: 3000, amountPaidCents: 0 },
     { id: 'sd2', expenseId: 'exp_dinner', userId: 'guest_marie', amountOwedCents: 3000, amountPaidCents: 0 },
   ],
 };

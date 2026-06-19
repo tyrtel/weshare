@@ -721,7 +721,7 @@ export function AddParticipantScreen() {
                   <Divider style={{ marginBottom: tokens.spacing.lg }} />
                   <ShareInviteSection
                     inviteUrl={inviteUrl}
-                    onShare={() => share.shareTrip(trip.id, trip.name)}
+                    onShare={() => share.shareTrip(trip.id, trip.name, trip.inviteToken ?? '')}
                   />
                 </>
               )}

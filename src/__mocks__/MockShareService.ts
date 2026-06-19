@@ -6,13 +6,14 @@ import type { IShareService } from '../core/interfaces/IShareService';
 export interface ShareTripCall {
   tripId: string;
   tripName: string;
+  inviteToken: string;
 }
 
 export class MockShareService implements IShareService {
   readonly calls: ShareTripCall[] = [];
 
-  async shareTrip(tripId: string, tripName: string): Promise<Result<void, AppError>> {
-    this.calls.push({ tripId, tripName });
+  async shareTrip(tripId: string, tripName: string, inviteToken: string): Promise<Result<void, AppError>> {
+    this.calls.push({ tripId, tripName, inviteToken });
     return ok(undefined);
   }
 }

@@ -12,6 +12,7 @@ jest.mock('../supabase/supabaseClient', () => ({
     auth: {
       signInWithPassword: jest.fn(),
       signUp: jest.fn(),
+      verifyOtp: jest.fn(),
       signOut: jest.fn(),
       getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
       onAuthStateChange: jest.fn().mockReturnValue({
@@ -29,6 +30,7 @@ const { supabase } = require('../supabase/supabaseClient') as {
     auth: {
       signInWithPassword: jest.Mock;
       signUp: jest.Mock;
+      verifyOtp: jest.Mock;
       signOut: jest.Mock;
       onAuthStateChange: jest.Mock;
     };
@@ -237,6 +239,55 @@ describe('SupabaseAuthService', () => {
     supabase.from.mockReturnValue(mockFromChain({ data: null, error: { message: 'DB unavailable' } }));
 
     const result = await service.signUp('new@example.com', 'secret123', 'Jay');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('AuthError');
+  });
+
+  // ── verifyOtp ────────────────────────────────────────────────────────────
+
+  it('verifyOtp returns User on valid token', async () => {
+    supabase.auth.verifyOtp.mockResolvedValue({
+      data: {
+        user: { id: 'u1', email: 'new@example.com' },
+        session: { expires_at: Math.floor(Date.now() / 1000) + 3600 },
+      },
+      error: null,
+    });
+    supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+
+    const result = await service.verifyOtp('new@example.com', '123456', 'Jay');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.email).toBe('new@example.com');
+      expect(result.value.name).toBe('Jay');
+    }
+  });
+
+  it('verifyOtp returns AuthError on invalid token', async () => {
+    supabase.auth.verifyOtp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'Token has expired or is invalid' },
+    });
+
+    const result = await service.verifyOtp('new@example.com', '000000', 'Jay');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe('AuthError');
+      expect(result.error.message).toContain('expired or is invalid');
+    }
+  });
+
+  it('verifyOtp returns AuthError when profile upsert fails', async () => {
+    supabase.auth.verifyOtp.mockResolvedValue({
+      data: {
+        user: { id: 'u1', email: 'new@example.com' },
+        session: { expires_at: Math.floor(Date.now() / 1000) + 3600 },
+      },
+      error: null,
+    });
+    supabase.from.mockReturnValue(mockFromChain({ data: null, error: { message: 'DB error' } }));
+
+    const result = await service.verifyOtp('new@example.com', '123456', 'Jay');
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe('AuthError');
   });

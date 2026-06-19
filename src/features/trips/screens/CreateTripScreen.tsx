@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, ScrollView, Pressable, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, TextInput, ScrollView, Pressable, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -129,34 +129,32 @@ export function CreateTripScreen() {
                 <View style={{ paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                   <Text variant="label" color={colors.text.secondary}>Select currency</Text>
                 </View>
-                <FlatList
-                  data={CURRENCIES}
-                  keyExtractor={item => item.code}
-                  renderItem={({ item }) => {
+                {CURRENCIES.map((item, index) => {
                     const selected = item.code === currency;
                     return (
-                      <Pressable
-                        onPress={() => { setCurrency(item.code); setDropdownVisible(false); }}
-                        accessibilityRole="option"
-                        accessibilityState={{ selected }}
-                        style={({ pressed }) => ({
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          paddingHorizontal: tokens.spacing.md,
-                          paddingVertical: tokens.spacing.md,
-                          backgroundColor: pressed ? colors.surfaceAlt : selected ? colors.primary.subtle : 'transparent',
-                        })}
-                      >
-                        <Text variant="body" color={selected ? colors.primary.default : colors.text.primary}>
-                          {`${item.symbol} ${item.code}`}
-                        </Text>
-                        {selected && <Ionicons name="checkmark" size={16} color={colors.primary.default} />}
-                      </Pressable>
+                      <View key={item.code}>
+                        {index > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
+                        <Pressable
+                          onPress={() => { setCurrency(item.code); setDropdownVisible(false); }}
+                          accessibilityRole="option"
+                          accessibilityState={{ selected }}
+                          style={({ pressed }) => ({
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            paddingHorizontal: tokens.spacing.md,
+                            paddingVertical: tokens.spacing.md,
+                            backgroundColor: pressed ? colors.surfaceAlt : selected ? colors.primary.subtle : 'transparent',
+                          })}
+                        >
+                          <Text variant="body" color={selected ? colors.primary.default : colors.text.primary}>
+                            {`${item.symbol} ${item.code}`}
+                          </Text>
+                          {selected && <Ionicons name="checkmark" size={16} color={colors.primary.default} />}
+                        </Pressable>
+                      </View>
                     );
-                  }}
-                  ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
-                />
+                  })}
               </View>
             </Pressable>
           </Pressable>

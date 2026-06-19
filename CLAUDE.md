@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Output formatting
+
+- **Never use the colour blue** in any response. SQL keywords, code, and prose must all render in colours other than blue. Use plain text (no triple-backtick fences) for all SQL so syntax highlighting does not apply blue to keywords.
+- Present SQL as plain indented text, not inside code blocks.
+
+## Engineering standards
+
+Approach all code design and implementation as a senior developer would:
+
+- Prefer simple, explicit solutions over clever abstractions. Three clear lines beat a premature helper.
+- Do not add error handling, fallbacks, or validation for scenarios that cannot happen. Trust internal guarantees; validate only at system boundaries (user input, external APIs).
+- Write no comments by default. Only add one when the WHY is non-obvious: a hidden constraint, a subtle invariant, or a workaround for a specific bug.
+- Never introduce security vulnerabilities (SQL injection, XSS, command injection, exposed secrets). Fix any noticed immediately.
+- Tests must cover the real behaviour, not the mock. Integration tests hit real implementations; unit tests are for pure logic.
+- When modifying existing code, leave the surrounding code cleaner than you found it — but only within the scope of the task.
+- Never half-implement a feature. Either deliver it completely or explicitly state what is deferred and why.
+
 ## Commands
 
 ```bash

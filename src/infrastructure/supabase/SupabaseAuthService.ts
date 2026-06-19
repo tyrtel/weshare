@@ -158,6 +158,26 @@ export class SupabaseAuthService implements IAuthService {
     }
   }
 
+  async verifyOtp(email: string, token: string, name: string): Promise<Result<User, AppError>> {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+    if (error) return err({ kind: 'AuthError', message: error.message });
+    if (!data.user) return err({ kind: 'AuthError', message: 'Verification failed' });
+
+    this._expiresAt = data.session?.expires_at ?? 0;
+    try {
+      const user = await SupabaseAuthService._withTimeout(
+        this._upsertUser(data.user.id, name),
+        10_000,
+        'Profile save timed out — please try again',
+      );
+      this._currentUser = { ...user, email: data.user.email };
+      void this._writeUserCache(this._currentUser);
+      return ok(this._currentUser);
+    } catch (e) {
+      return err({ kind: 'AuthError', message: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
   async signOut(): Promise<Result<void, AppError>> {
     const { error } = await supabase.auth.signOut();
     if (error) return err({ kind: 'AuthError', message: error.message });
