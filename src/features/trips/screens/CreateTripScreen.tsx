@@ -30,9 +30,9 @@ export function CreateTripScreen() {
   const colors = useColors();
   const { createTrip, loading, error } = useCreateTrip();
 
-  const [name,             setName]             = useState('');
-  const [currency,         setCurrency]         = useState('EUR');
-  const [dropdownVisible,  setDropdownVisible]  = useState(false);
+  const [name,            setName]            = useState('');
+  const [currency,        setCurrency]        = useState('EUR');
+  const [dropdownVisible, setDropdownVisible] = useState(false);
 
   const handleSubmit = async () => {
     const trip = await createTrip(name, currency);
@@ -59,118 +59,114 @@ export function CreateTripScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-      <ScrollView
-        contentContainerStyle={{ padding: tokens.spacing.md }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text variant="heading2" style={{ marginBottom: tokens.spacing.lg }}>
-          New Trip
-        </Text>
-
-        {/* Trip name */}
-        <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-          Trip name
-        </Text>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g. Chez Paul dinner"
-          placeholderTextColor={colors.text.tertiary}
-          style={inputStyle}
-          autoFocus
-          returnKeyType="done"
-          onSubmitEditing={handleSubmit}
-          accessibilityLabel="Trip name"
-        />
-
-        {/* Currency dropdown */}
-        <Text
-          variant="label"
-          color={colors.text.secondary}
-          style={{ marginBottom: tokens.spacing.xs }}
+        <ScrollView
+          contentContainerStyle={{ padding: tokens.spacing.md }}
+          keyboardShouldPersistTaps="handled"
         >
-          Currency
-        </Text>
-        <Pressable
-          onPress={() => setDropdownVisible(true)}
-          accessibilityRole="combobox"
-          accessibilityLabel="Select currency"
-          accessibilityState={{ expanded: dropdownVisible }}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            borderWidth: 1,
-            borderRadius: tokens.radius.md,
-            paddingHorizontal: tokens.spacing.md,
-            paddingVertical: tokens.spacing.sm,
-            marginBottom: tokens.spacing.lg,
-            opacity: pressed ? 0.8 : 1,
-          })}
-        >
-          <Text variant="body" color={colors.text.primary}>{currencyLabel(currency)}</Text>
-          <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
-        </Pressable>
+          <Text variant="heading2" style={{ marginBottom: tokens.spacing.lg }}>
+            New Trip
+          </Text>
 
-        <Modal
-          visible={dropdownVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setDropdownVisible(false)}
-        >
-          <Pressable
-            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: tokens.spacing.xl }}
-            onPress={() => setDropdownVisible(false)}
+          <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
+            Trip name
+          </Text>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Chez Paul dinner"
+            placeholderTextColor={colors.text.tertiary}
+            style={inputStyle}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleSubmit}
+            accessibilityLabel="Trip name"
+          />
+
+          <Text
+            variant="label"
+            color={colors.text.secondary}
+            style={{ marginBottom: tokens.spacing.xs }}
           >
-            <Pressable onPress={() => {}}>
-              <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, overflow: 'hidden' }}>
-                <View style={{ paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-                  <Text variant="label" color={colors.text.secondary}>Select currency</Text>
-                </View>
-                {CURRENCIES.map((item, index) => {
-                    const selected = item.code === currency;
-                    return (
-                      <View key={item.code}>
-                        {index > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
-                        <Pressable
-                          onPress={() => { setCurrency(item.code); setDropdownVisible(false); }}
-                          accessibilityRole="option"
-                          accessibilityState={{ selected }}
-                          style={({ pressed }) => ({
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            paddingHorizontal: tokens.spacing.md,
-                            paddingVertical: tokens.spacing.md,
-                            backgroundColor: pressed ? colors.surfaceAlt : selected ? colors.primary.subtle : 'transparent',
-                          })}
-                        >
-                          <Text variant="body" color={selected ? colors.primary.default : colors.text.primary}>
-                            {`${item.symbol} ${item.code}`}
-                          </Text>
-                          {selected && <Ionicons name="checkmark" size={16} color={colors.primary.default} />}
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-              </View>
-            </Pressable>
+            Currency
+          </Text>
+          <Pressable
+            onPress={() => setDropdownVisible(true)}
+            accessibilityRole="combobox"
+            accessibilityLabel="Select currency"
+            accessibilityState={{ expanded: dropdownVisible }}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+              borderRadius: tokens.radius.md,
+              paddingHorizontal: tokens.spacing.md,
+              paddingVertical: tokens.spacing.sm,
+              marginBottom: tokens.spacing.lg,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Text variant="body" color={colors.text.primary}>{currencyLabel(currency)}</Text>
+            <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
           </Pressable>
-        </Modal>
 
-        {/* Error message */}
-        <ErrorBanner error={error} fallback="Could not create trip. Try again." style={{ marginBottom: tokens.spacing.md }} />
+          <ErrorBanner error={error} fallback="Could not create trip. Try again." style={{ marginBottom: tokens.spacing.md }} />
 
-        {/* Submit */}
-        <Button
-          label={loading ? 'Creating…' : 'Create trip'}
-          onPress={handleSubmit}
-          disabled={loading || !name.trim()}
-        />
-      </ScrollView>
+          <Button
+            label={loading ? 'Creating…' : 'Create trip'}
+            onPress={handleSubmit}
+            disabled={loading || !name.trim()}
+          />
+        </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal lives outside ScrollView/KeyboardAvoidingView to avoid Android portal issues */}
+      <Modal
+        visible={dropdownVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setDropdownVisible(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: tokens.spacing.xl }}
+          onPress={() => setDropdownVisible(false)}
+        >
+          <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, overflow: 'hidden' }}>
+            <View style={{ paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <Text variant="label" color={colors.text.secondary}>Select currency</Text>
+            </View>
+            {CURRENCIES.map((item, index) => {
+              const selected = item.code === currency;
+              return (
+                <View key={item.code}>
+                  {index > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
+                  <Pressable
+                    onPress={() => { setCurrency(item.code); setDropdownVisible(false); }}
+                    accessibilityRole="option"
+                    accessibilityState={{ selected }}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingHorizontal: tokens.spacing.md,
+                      paddingVertical: tokens.spacing.md,
+                      backgroundColor: pressed ? colors.surfaceAlt : selected ? colors.primary.subtle : 'transparent',
+                    })}
+                  >
+                    <Text variant="body" color={selected ? colors.primary.default : colors.text.primary}>
+                      {`${item.symbol} ${item.code}`}
+                    </Text>
+                    {selected && <Ionicons name="checkmark" size={16} color={colors.primary.default} />}
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Modal>
     </ScreenWrapper>
   );
 }
