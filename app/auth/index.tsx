@@ -89,7 +89,7 @@ export default function SignInScreen() {
         {/* Branding */}
         <View style={styles.brandSection}>
           <View style={styles.logoPlaceholder}>
-            <Text style={{ fontSize: 40 }}>✈️</Text>
+            <Text style={{ fontSize: 36, lineHeight: 40, includeFontPadding: false }}>✈️</Text>
           </View>
           <Text variant="heading" style={styles.appName}>ouiShare</Text>
           <Text variant="body" color={C.text.secondary} style={styles.tagline}>
