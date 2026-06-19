@@ -1,22 +1,22 @@
 import React, { useMemo } from 'react';
-import { View } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
+import { Avatar } from '../../../components/ui/Avatar';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import { computeMemberNetBalances } from '../../../core/logic/settlement';
-import { useColors } from '../../../theme/colors';
+import { useColors, personColorFor } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
+import { useStandingsStyle, type StandingsStyle } from '../hooks/useStandingsStyle';
 import type { TripMember } from '../../../core/models/TripMember';
 import type { Expense } from '../../../core/models/Expense';
 
-// Cents below this threshold are treated as effectively settled (rounding noise).
 const THRESHOLD = 50;
 
-// Debtors always render larger than creditors so the "biggest debtor" reads
-// as the most prominent element in the group.
-const DEBTOR_SIZE_MAX  = 108;
-const DEBTOR_SIZE_MIN  = 76;
-const CREDIT_SIZE_MAX  = 68;
-const CREDIT_SIZE_MIN  = 52;
+const DEBTOR_SIZE_MAX = 108;
+const DEBTOR_SIZE_MIN = 76;
+const CREDIT_SIZE_MAX = 68;
+const CREDIT_SIZE_MIN = 52;
 
 function firstName(name: string): string {
   return name.split(/\s+/)[0];
@@ -28,10 +28,251 @@ interface BalanceBubblesSectionProps {
   currency: string;
 }
 
-export function BalanceBubblesSection({ members, expenses, currency }: BalanceBubblesSectionProps) {
+type BalanceRow = {
+  userId: string;
+  balanceCents: number;
+  member: TripMember;
+};
+
+// ── Style toggle ──────────────────────────────────────────────────────────────
+
+const STYLE_TABS: { key: StandingsStyle; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'tinted', icon: 'ellipse-outline' },
+  { key: 'person', icon: 'people-outline' },
+  { key: 'list',   icon: 'list-outline' },
+];
+
+function StyleToggle() {
+  const { style, setStyle } = useStandingsStyle();
   const colors = useColors();
 
-  // Join balance data with member objects, sort most-negative (biggest debtor) first.
+  return (
+    <View style={{ flexDirection: 'row', gap: tokens.spacing.xs }}>
+      {STYLE_TABS.map(({ key, icon }) => {
+        const active = style === key;
+        return (
+          <TouchableOpacity
+            key={key}
+            onPress={() => setStyle(key)}
+            hitSlop={8}
+            style={{
+              padding: tokens.spacing.xs,
+              borderRadius: tokens.radius.sm,
+              backgroundColor: active ? colors.primary.subtle : 'transparent',
+            }}
+          >
+            <Ionicons
+              name={icon}
+              size={18}
+              color={active ? colors.primary.default : colors.text.tertiary}
+            />
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+// ── Mode A: tinted (dark-bg + vibrant-text, design system convention) ─────────
+
+function TintedBubbles({ sorted, currency, members }: {
+  sorted: BalanceRow[];
+  currency: string;
+  members: TripMember[];
+}) {
+  const colors = useColors();
+
+  const debtors  = sorted.filter(b => b.balanceCents < -THRESHOLD);
+  const credits  = sorted.filter(b => b.balanceCents >  THRESHOLD);
+  const maxDebt  = debtors.reduce((m, b) => Math.max(m, Math.abs(b.balanceCents)), 1);
+  const maxCredit = credits.reduce((m, b) => Math.max(m, b.balanceCents), 1);
+
+  function bubbleSize(cents: number) {
+    if (cents < -THRESHOLD) return DEBTOR_SIZE_MIN + (Math.abs(cents) / maxDebt)   * (DEBTOR_SIZE_MAX - DEBTOR_SIZE_MIN);
+    if (cents >  THRESHOLD) return CREDIT_SIZE_MIN + (cents           / maxCredit) * (CREDIT_SIZE_MAX - CREDIT_SIZE_MIN);
+    return 48;
+  }
+
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-end', gap: tokens.spacing.lg }}>
+      {sorted.map(({ userId, balanceCents, member }) => {
+        const isDebtor   = balanceCents < -THRESHOLD;
+        const isCreditor = balanceCents >  THRESHOLD;
+        const size = bubbleSize(balanceCents);
+
+        const bg   = isDebtor ? colors.error.bg   : isCreditor ? colors.success.bg   : colors.surface;
+        const tint = isDebtor ? colors.error.default : isCreditor ? colors.success.default : colors.text.tertiary;
+
+        const nameFontSize   = Math.round(9  + (size - 48) / 60 * 5);
+        const amountFontSize = Math.round(8  + (size - 48) / 60 * 4);
+
+        const amountLabel = isDebtor
+          ? `−${formatCurrency(Math.abs(balanceCents), currency)}`
+          : isCreditor
+            ? `+${formatCurrency(balanceCents, currency)}`
+            : 'even';
+
+        return (
+          <View
+            key={userId}
+            style={{
+              width: size, height: size, borderRadius: size / 2,
+              backgroundColor: bg, borderWidth: 1, borderColor: tint,
+              alignItems: 'center', justifyContent: 'center',
+              paddingHorizontal: tokens.spacing.xs, ...tokens.shadow.sm,
+            }}
+          >
+            <Text numberOfLines={1} style={{ fontSize: nameFontSize, fontWeight: '700', color: tint, lineHeight: nameFontSize + 2 }}>
+              {firstName(member.displayName)}
+            </Text>
+            <Text numberOfLines={1} style={{ fontSize: amountFontSize, fontWeight: '600', color: tint, lineHeight: amountFontSize + 2 }}>
+              {amountLabel}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ── Mode B: person (each person's avatar color, white text) ──────────────────
+
+function PersonBubbles({ sorted, currency, members }: {
+  sorted: BalanceRow[];
+  currency: string;
+  members: TripMember[];
+}) {
+  const debtors   = sorted.filter(b => b.balanceCents < -THRESHOLD);
+  const credits   = sorted.filter(b => b.balanceCents >  THRESHOLD);
+  const maxDebt   = debtors.reduce((m, b) => Math.max(m, Math.abs(b.balanceCents)), 1);
+  const maxCredit = credits.reduce((m, b) => Math.max(m, b.balanceCents), 1);
+
+  function bubbleSize(cents: number) {
+    if (cents < -THRESHOLD) return DEBTOR_SIZE_MIN + (Math.abs(cents) / maxDebt)   * (DEBTOR_SIZE_MAX - DEBTOR_SIZE_MIN);
+    if (cents >  THRESHOLD) return CREDIT_SIZE_MIN + (cents           / maxCredit) * (CREDIT_SIZE_MAX - CREDIT_SIZE_MIN);
+    return 48;
+  }
+
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-end', gap: tokens.spacing.lg }}>
+      {sorted.map(({ userId, balanceCents, member }) => {
+        const isDebtor   = balanceCents < -THRESHOLD;
+        const isCreditor = balanceCents >  THRESHOLD;
+        const size = bubbleSize(balanceCents);
+        const palette = personColorFor(userId, members);
+
+        const nameFontSize   = Math.round(9  + (size - 48) / 60 * 5);
+        const amountFontSize = Math.round(8  + (size - 48) / 60 * 4);
+
+        const amountLabel = isDebtor
+          ? `−${formatCurrency(Math.abs(balanceCents), currency)}`
+          : isCreditor
+            ? `+${formatCurrency(balanceCents, currency)}`
+            : 'even';
+
+        return (
+          <View
+            key={userId}
+            style={{
+              width: size, height: size, borderRadius: size / 2,
+              backgroundColor: palette.text,
+              alignItems: 'center', justifyContent: 'center',
+              paddingHorizontal: tokens.spacing.xs, ...tokens.shadow.sm,
+            }}
+          >
+            <Text numberOfLines={1} style={{ fontSize: nameFontSize, fontWeight: '700', color: '#ffffff', lineHeight: nameFontSize + 2 }}>
+              {firstName(member.displayName)}
+            </Text>
+            <Text numberOfLines={1} style={{ fontSize: amountFontSize, fontWeight: '600', color: '#ffffff', lineHeight: amountFontSize + 2 }}>
+              {amountLabel}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ── Mode C: list (avatar row, no bubbles) ─────────────────────────────────────
+
+function ListRows({ sorted, currency, members }: {
+  sorted: BalanceRow[];
+  currency: string;
+  members: TripMember[];
+}) {
+  const colors = useColors();
+
+  return (
+    <View style={{ gap: tokens.spacing.sm }}>
+      {sorted.map(({ userId, balanceCents, member }) => {
+        const isDebtor   = balanceCents < -THRESHOLD;
+        const isCreditor = balanceCents >  THRESHOLD;
+        const palette = personColorFor(userId, members);
+
+        const pillBg   = isDebtor ? colors.error.bg    : isCreditor ? colors.success.bg    : colors.surfaceAlt;
+        const pillText = isDebtor ? colors.error.default : isCreditor ? colors.success.default : colors.text.tertiary;
+
+        const amountLabel = isDebtor
+          ? `−${formatCurrency(Math.abs(balanceCents), currency)}`
+          : isCreditor
+            ? `+${formatCurrency(balanceCents, currency)}`
+            : 'even';
+
+        return (
+          <View
+            key={userId}
+            style={{
+              flexDirection: 'row', alignItems: 'center',
+              paddingVertical: tokens.spacing.xs,
+              paddingHorizontal: tokens.spacing.sm,
+              backgroundColor: colors.surface,
+              borderRadius: tokens.radius.md,
+              borderWidth: 1, borderColor: colors.border,
+            }}
+          >
+            <Avatar
+              initials={member.displayName}
+              bg={palette.text}
+              size="sm"
+              url={member.avatarUrl}
+            />
+            <Text
+              numberOfLines={1}
+              style={{
+                flex: 1,
+                marginLeft: tokens.spacing.sm,
+                fontSize: tokens.fontSize.md,
+                fontWeight: '500',
+                color: colors.text.primary,
+              }}
+            >
+              {member.displayName}
+            </Text>
+            <View
+              style={{
+                backgroundColor: pillBg,
+                borderRadius: tokens.radius.pill,
+                paddingHorizontal: tokens.spacing.sm,
+                paddingVertical: 4,
+              }}
+            >
+              <Text style={{ fontSize: tokens.fontSize.sm, fontWeight: '600', color: pillText }}>
+                {amountLabel}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+export function BalanceBubblesSection({ members, expenses, currency }: BalanceBubblesSectionProps) {
+  const colors = useColors();
+  const { style } = useStandingsStyle();
+
   const sorted = useMemo(() => {
     const raw = computeMemberNetBalances(members, expenses);
     return raw
@@ -42,92 +283,18 @@ export function BalanceBubblesSection({ members, expenses, currency }: BalanceBu
 
   if (expenses.length === 0 || sorted.length === 0) return null;
 
-  const debtors = sorted.filter(b => b.balanceCents < -THRESHOLD);
-  const credits = sorted.filter(b => b.balanceCents >  THRESHOLD);
-
-  const maxDebt   = debtors.reduce((m, b) => Math.max(m, Math.abs(b.balanceCents)), 1);
-  const maxCredit = credits.reduce((m, b) => Math.max(m, b.balanceCents), 1);
-
-  function bubbleSize(cents: number): number {
-    if (cents < -THRESHOLD) {
-      return DEBTOR_SIZE_MIN + (Math.abs(cents) / maxDebt) * (DEBTOR_SIZE_MAX - DEBTOR_SIZE_MIN);
-    }
-    if (cents > THRESHOLD) {
-      return CREDIT_SIZE_MIN + (cents / maxCredit) * (CREDIT_SIZE_MAX - CREDIT_SIZE_MIN);
-    }
-    return 48;
-  }
-
   return (
     <View style={{ marginBottom: tokens.spacing.lg }}>
-      <Text
-        variant="label"
-        color={colors.text.secondary}
-        style={{ marginBottom: tokens.spacing.md }}
-      >
-        Current standings
-      </Text>
-
-      <View
-        style={{
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          alignItems: 'flex-end',
-          gap: tokens.spacing.lg,
-        }}
-      >
-        {sorted.map(({ userId, balanceCents, member }) => {
-          const isDebtor   = balanceCents < -THRESHOLD;
-          const isCreditor = balanceCents >  THRESHOLD;
-          const size = bubbleSize(balanceCents);
-
-          const bg   = isDebtor ? colors.error.default : isCreditor ? colors.success.default : colors.surface;
-          const tint = isDebtor || isCreditor ? '#ffffff' : colors.text.tertiary;
-          const bw   = isDebtor || isCreditor ? 0 : 1;
-
-          // Both font sizes scale linearly with the bubble diameter (48–108px range).
-          const nameFontSize   = Math.round(9  + (size - 48) / 60 * 5); // 9 → 14 px
-          const amountFontSize = Math.round(8  + (size - 48) / 60 * 4); // 8 → 12 px
-
-          const amountLabel = isDebtor
-            ? `−${formatCurrency(Math.abs(balanceCents), currency)}`
-            : isCreditor
-              ? `+${formatCurrency(balanceCents, currency)}`
-              : 'even';
-
-          return (
-            <View
-              key={userId}
-              style={{
-                width: size,
-                height: size,
-                borderRadius: size / 2,
-                backgroundColor: bg,
-                borderWidth: bw,
-                borderColor: tint,
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: tokens.spacing.xs,
-                ...tokens.shadow.sm,
-              }}
-            >
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: nameFontSize, fontWeight: '700', color: tint, lineHeight: nameFontSize + 2 }}
-              >
-                {firstName(member.displayName)}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: amountFontSize, fontWeight: '600', color: tint, lineHeight: amountFontSize + 2 }}
-              >
-                {amountLabel}
-              </Text>
-            </View>
-          );
-        })}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: tokens.spacing.md }}>
+        <Text variant="label" color={colors.text.secondary} style={{ flex: 1 }}>
+          Current standings
+        </Text>
+        <StyleToggle />
       </View>
+
+      {style === 'tinted' && <TintedBubbles sorted={sorted} currency={currency} members={members} />}
+      {style === 'person' && <PersonBubbles sorted={sorted} currency={currency} members={members} />}
+      {style === 'list'   && <ListRows      sorted={sorted} currency={currency} members={members} />}
     </View>
   );
 }
