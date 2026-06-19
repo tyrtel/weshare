@@ -7,6 +7,15 @@ import type { Trip } from '../../../core/models/Trip';
 import type { AppError } from '../../../core/types/AppError';
 import type { TripFinancialSummary } from '../../../core/logic/settlement';
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Request timed out after ${ms / 1000}s`)), ms),
+    ),
+  ]);
+}
+
 interface UseTripsState {
   loading: boolean;
   error: AppError | null;
@@ -22,7 +31,12 @@ export function useTrips() {
   const allExpenses = useTripSessionStore((s) => s.expenses);
 
   const load = useCallback(async () => {
-    await auth.awaitReady();
+    try {
+      await withTimeout(auth.awaitReady(), 8_000);
+    } catch {
+      setState({ loading: false, error: { kind: 'AuthError', message: 'Session restore timed out. Please restart the app.' } });
+      return;
+    }
     const user = auth.currentUser();
     if (!user) {
       setState({ loading: false, error: null });

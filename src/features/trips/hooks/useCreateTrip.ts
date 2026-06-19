@@ -41,7 +41,7 @@ export function useCreateTrip() {
       setLoading(true);
 
       try {
-        await auth.awaitReady();
+        await withTimeout(auth.awaitReady(), 8_000);
         const user = auth.currentUser();
         if (!user) {
           setError({ kind: 'AuthError', message: 'You must be signed in to create a trip.' });
