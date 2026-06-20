@@ -26,7 +26,7 @@ import { useTripDetail } from '../../trips/hooks/useTripDetail';
 import { useTripSessionStore } from '../../../core/di/ServiceContext';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
-import { CURRENCIES, currencyLabel } from '../../../core/constants/currencies';
+import { CURRENCIES, currencyLabel, currencySymbol } from '../../../core/constants/currencies';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import type { ParsedReceiptLineItem } from '../../../core/models/ParsedReceipt';
 import type { SplitResult } from '../utils/splitCalculations';
@@ -44,11 +44,10 @@ const EMPTY_EXPENSES: never[] = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatAge(date?: Date): string {
-  if (!date) return '';
-  const hours = Math.round((Date.now() - date.getTime()) / 3_600_000);
-  if (hours < 1) return 'just now';
-  return hours === 1 ? '1h ago' : `${hours}h ago`;
+// Strips trailing zeros beyond the first decimal digit: 1.0800→1.08, 2.0000→2.0
+function formatRate(r: number): string {
+  const trimmed = r.toFixed(4).replace(/\.?0+$/, '');
+  return trimmed.includes('.') ? trimmed : `${trimmed}.0`;
 }
 
 function scaleAndCorrect(splits: SplitResult[], rate: number, targetCents: number): SplitResult[] {
@@ -202,7 +201,6 @@ export function AddExpenseScreen() {
     ? colors.text.secondary
     : colors.warning?.default ?? colors.text.secondary;
 
-  const ratePrefix = rate.result && rate.result.source !== 'live' ? '≈ ' : '';
 
   return (
     <ScreenWrapper>
@@ -305,25 +303,9 @@ export function AddExpenseScreen() {
                     </Pressable>
                   </View>
                 ) : rate.result ? (
-                  <View style={{ gap: 2 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs }}>
-                      <Text variant="caption" color={colors.text.secondary}>
-                        {ratePrefix}1 {entryCurrency} = {rate.result.rate.toFixed(4)} {tripCurrency}
-                      </Text>
-                      {rate.result.source !== 'live' && (
-                        <Text variant="caption" color={rateSourceColor}>
-                          · {rate.result.source === 'cached'
-                            ? `cached ${formatAge(rate.result.cachedAt)}`
-                            : 'approximate'}
-                        </Text>
-                      )}
-                    </View>
-                    {convertedCents > 0 && (
-                      <Text variant="caption" color={colors.text.secondary}>
-                        = {formatCurrency(convertedCents, tripCurrency)}
-                      </Text>
-                    )}
-                  </View>
+                  <Text variant="caption" color={rateSourceColor}>
+                    {`at ${rate.result.source !== 'live' ? '≈' : ''}${currencySymbol(entryCurrency)}${formatRate(rate.result.rate)}${convertedCents > 0 ? ` = ${formatCurrency(convertedCents, tripCurrency)}` : ''}${rate.result.source === 'approximate' ? ' · approx.' : ''}`}
+                  </Text>
                 ) : null}
               </View>
             )}
