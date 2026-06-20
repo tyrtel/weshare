@@ -8,21 +8,7 @@ import { Text } from '../../../components/ui/Text';
 import { useCreateTrip } from '../hooks/useCreateTrip';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
-
-const CURRENCIES: { code: string; symbol: string }[] = [
-  { code: 'EUR', symbol: '€' },
-  { code: 'USD', symbol: '$' },
-  { code: 'GBP', symbol: '£' },
-  { code: 'JPY', symbol: '¥' },
-  { code: 'CAD', symbol: 'CA$' },
-  { code: 'AUD', symbol: 'A$' },
-  { code: 'CHF', symbol: 'Fr' },
-];
-
-function currencyLabel(code: string): string {
-  const entry = CURRENCIES.find(c => c.code === code);
-  return entry ? `${entry.symbol} ${entry.code}` : code;
-}
+import { CURRENCIES, currencyLabel } from '../../../core/constants/currencies';
 
 export function CreateTripScreen() {
   const router = useRouter();

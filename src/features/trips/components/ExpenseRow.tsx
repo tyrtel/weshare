@@ -65,9 +65,19 @@ export function ExpenseRow({ expense, members, index = 0, onPress, showDivider =
             </Text>
           </View>
         </View>
-        <Text variant="label" color={colors.primary.default}>
-          {formatCurrency(expense.totalAmountCents, expense.currency)}
-        </Text>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text variant="label" color={colors.primary.default}>
+            {formatCurrency(expense.totalAmountCents, expense.currency)}
+          </Text>
+          {expense.metadata.originalAmount && (
+            <Text variant="caption" color={colors.text.tertiary}>
+              {formatCurrency(
+                expense.metadata.originalAmount.amountCents,
+                expense.metadata.originalAmount.currency,
+              )}
+            </Text>
+          )}
+        </View>
       </View>
       {showDivider && <Divider style={{ marginTop: tokens.spacing.sm }} />}
     </Animated.View>

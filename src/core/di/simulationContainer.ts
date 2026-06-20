@@ -11,7 +11,7 @@ import Constants from 'expo-constants';
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, TRIP_STORE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import { InMemoryTripRepository } from '../../__mocks__/InMemoryTripRepository';
@@ -29,6 +29,7 @@ import { InMemoryAuditLogRepository } from '../../__mocks__/InMemoryAuditLogRepo
 import { MockBankListService } from '../../__mocks__/MockBankListService';
 import { MockReceiptParserService } from '../../__mocks__/MockReceiptParserService';
 import { MockReceiptStorage } from '../../__mocks__/MockReceiptStorage';
+import { MockExchangeRateService } from '../../__mocks__/MockExchangeRateService';
 
 import { restaurantScenario, RESTAURANT_CURRENT_USER, RESTAURANT_CURRENT_USER_EMAIL } from '../../__mocks__/fixtures/restaurantScenario';
 import { twoPersonScenario } from '../../__mocks__/fixtures/twoPersonScenario';
@@ -125,6 +126,7 @@ export async function createSimulationContainer(): Promise<ServiceContainer> {
     container.register(RECEIPT_PARSER, new MockReceiptParserService());
   }
   container.register(RECEIPT_STORAGE,  new MockReceiptStorage());
+  container.register(EXCHANGE_RATE,    new MockExchangeRateService());
   container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo }));
   return container;
 }

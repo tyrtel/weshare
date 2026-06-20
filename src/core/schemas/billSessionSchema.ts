@@ -53,11 +53,19 @@ export const expenseLineItemSchema = z.object({
   assignedUserIds: z.array(z.string()),
 });
 
+export const originalAmountSchema = z.object({
+  amountCents:  z.number().int(),
+  currency:     z.string(),
+  exchangeRate: z.number(),
+  source:       z.enum(['live', 'cached', 'approximate']),
+});
+
 export const expenseMetadataSchema = z.object({
   notes: z.string().optional(),
   receiptUrl: z.string().optional(),
   lineItems: z.array(expenseLineItemSchema).optional(),
   category: z.string().optional(),
+  originalAmount: originalAmountSchema.optional(),
 });
 
 export const expenseSchema = z.object({

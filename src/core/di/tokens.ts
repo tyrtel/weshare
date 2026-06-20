@@ -14,6 +14,7 @@ import type { IAuditLogRepository } from '../interfaces/IAuditLogRepository';
 import type { IBankListService } from '../interfaces/IBankListService';
 import type { IReceiptParser } from '../interfaces/IReceiptParser';
 import type { IReceiptStorage } from '../interfaces/IReceiptStorage';
+import type { IExchangeRateService } from '../interfaces/IExchangeRateService';
 import type { TripSessionStoreApi } from '../../store/tripSessionStore';
 
 export const TRIP_REPO          = createToken<ITripRepository>('ITripRepository');
@@ -31,4 +32,5 @@ export const AUDIT_LOG          = createToken<IAuditLogRepository>('IAuditLogRep
 export const BANK_LIST          = createToken<IBankListService>('IBankListService');
 export const RECEIPT_PARSER     = createToken<IReceiptParser>('IReceiptParser');
 export const RECEIPT_STORAGE    = createToken<IReceiptStorage>('IReceiptStorage');
+export const EXCHANGE_RATE      = createToken<IExchangeRateService>('IExchangeRateService');
 export const TRIP_STORE         = createToken<TripSessionStoreApi>('TripSessionStore');

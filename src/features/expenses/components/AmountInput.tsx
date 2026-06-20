@@ -32,22 +32,30 @@ export function AmountInput({
   compact = false,
 }: AmountInputProps) {
   const colors = useColors();
-  // Keep a local string while the user is editing; commit to cents on blur.
   const [displayValue, setDisplayValue] = useState(centsToDisplay(amountCents));
+  const [focused, setFocused] = useState(false);
 
-  // Sync when amountCents changes externally (e.g. equal-split recalculation).
+  // Only sync external amountCents changes (e.g. equal-split recalculation) when
+  // the field is not focused — otherwise we'd reformat the string mid-typing.
   useEffect(() => {
-    setDisplayValue(centsToDisplay(amountCents));
-  }, [amountCents]);
+    if (!focused) setDisplayValue(centsToDisplay(amountCents));
+  }, [amountCents, focused]);
 
   const handleFocus = () => {
+    setFocused(true);
     if (displayToCents(displayValue) === 0) setDisplayValue('');
   };
 
   const handleBlur = () => {
+    setFocused(false);
     const cents = displayToCents(displayValue);
     onChangeCents(cents);
     setDisplayValue(centsToDisplay(cents));
+  };
+
+  const handleChangeText = (text: string) => {
+    setDisplayValue(text);
+    onChangeCents(displayToCents(text));
   };
 
   if (compact) {
@@ -58,7 +66,7 @@ export function AmountInput({
         </RNText>
         <TextInput
           value={displayValue}
-          onChangeText={setDisplayValue}
+          onChangeText={handleChangeText}
           onFocus={handleFocus}
           onBlur={handleBlur}
           keyboardType="decimal-pad"
@@ -100,7 +108,7 @@ export function AmountInput({
         </RNText>
         <TextInput
           value={displayValue}
-          onChangeText={setDisplayValue}
+          onChangeText={handleChangeText}
           onFocus={handleFocus}
           onBlur={handleBlur}
           keyboardType="decimal-pad"

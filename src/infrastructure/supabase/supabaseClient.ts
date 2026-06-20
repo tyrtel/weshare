@@ -129,6 +129,24 @@ export type Database = {
           settled_at?: string | null;
         };
       };
+      exchange_rate_cache: {
+        Row: {
+          from_currency: string;
+          to_currency:   string;
+          rate:          number;
+          updated_at:    string;
+        };
+        Insert: {
+          from_currency: string;
+          to_currency:   string;
+          rate:          number;
+          updated_at?:   string;
+        };
+        Update: {
+          rate?:       number;
+          updated_at?: string;
+        };
+      };
       split_requests: {
         Row: {
           id: string;

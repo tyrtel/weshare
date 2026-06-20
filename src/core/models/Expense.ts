@@ -10,11 +10,21 @@ export interface ExpenseLineItem {
   assignedUserIds: string[];
 }
 
+export type RateSource = 'live' | 'cached' | 'approximate';
+
+export interface OriginalAmount {
+  amountCents:  number;
+  currency:     string;
+  exchangeRate: number;
+  source:       RateSource;
+}
+
 export interface ExpenseMetadata {
   notes?: string;
   receiptUrl?: string;
-  lineItems?: ExpenseLineItem[]; // future OCR output — stub for now
-  category?: string;             // free string — preset values enforced in UI only
+  lineItems?: ExpenseLineItem[];
+  category?: string;
+  originalAmount?: OriginalAmount;
 }
 
 export interface Expense {

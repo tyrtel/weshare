@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, TRIP_STORE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE,
 } from './tokens';
 import type { ITripRepository } from '../interfaces/ITripRepository';
 import type { IMemberRepository } from '../interfaces/IMemberRepository';
@@ -18,6 +18,7 @@ import type { IAuditLogRepository } from '../interfaces/IAuditLogRepository';
 import type { IBankListService } from '../interfaces/IBankListService';
 import type { IReceiptParser } from '../interfaces/IReceiptParser';
 import type { IReceiptStorage } from '../interfaces/IReceiptStorage';
+import type { IExchangeRateService } from '../interfaces/IExchangeRateService';
 import type { TripSessionStoreApi } from '../../store/tripSessionStore';
 
 export interface ContainerOverrides {
@@ -36,6 +37,7 @@ export interface ContainerOverrides {
   bankList?:         IBankListService;
   receiptParser?:    IReceiptParser;
   receiptStorage?:   IReceiptStorage;
+  exchangeRate?:     IExchangeRateService;
   tripStore?:        TripSessionStoreApi;
 }
 
@@ -97,6 +99,8 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   container.register(BANK_LIST,        overrides.bankList        ?? new MockBankListService());
   container.register(RECEIPT_PARSER,   overrides.receiptParser   ?? new MockReceiptParserService());
   container.register(RECEIPT_STORAGE,  overrides.receiptStorage  ?? new MockReceiptStorage());
+  const { MockExchangeRateService } = require('../../__mocks__/MockExchangeRateService');
+  container.register(EXCHANGE_RATE,    overrides.exchangeRate    ?? new MockExchangeRateService());
   container.register(
     TRIP_STORE,
     overrides.tripStore ?? createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo }),
