@@ -48,8 +48,10 @@ export function SettlementRow({
   const exiting = Platform.OS !== 'web'
     ? FadeOutUp.duration(200).springify()
     : undefined;
-  const fromColor = personColorFor(settlement.fromUserId, members);
-  const toColor   = personColorFor(settlement.toUserId, members);
+  const fromColor  = personColorFor(settlement.fromUserId, members);
+  const toColor    = personColorFor(settlement.toUserId, members);
+  const fromMember = members.find(m => m.userId === settlement.fromUserId);
+  const toMember   = members.find(m => m.userId === settlement.toUserId);
 
   const requestStatus       = settlement.latestRequest?.status ?? null;
   const isPaymentFlowStatus = requestStatus !== null && PAYMENT_FLOW_STATUSES.has(requestStatus);
@@ -95,6 +97,7 @@ export function SettlementRow({
             <Avatar
               initials={settlement.fromDisplayName}
               bg={fromColor.text}
+              url={fromMember?.avatarUrl}
               size="md"
             />
             <Text
@@ -124,6 +127,7 @@ export function SettlementRow({
             <Avatar
               initials={settlement.toDisplayName}
               bg={toColor.text}
+              url={toMember?.avatarUrl}
               size="md"
             />
             <Text

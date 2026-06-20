@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { View, TextInput, ScrollView, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, TextInput, ScrollView, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { ErrorBanner } from '../../../components/ui/ErrorBanner';
 import { Text } from '../../../components/ui/Text';
-import { Button } from '../../../components/ui/Button';
 import { useCreateTrip } from '../hooks/useCreateTrip';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
@@ -113,14 +112,38 @@ export function CreateTripScreen() {
           </Pressable>
 
           <ErrorBanner error={error} fallback="Could not create trip. Try again." style={{ marginBottom: tokens.spacing.md }} />
-
-          <Button
-            label={loading ? 'Creating…' : 'Create trip'}
-            onPress={handleSubmit}
-            disabled={loading || !name.trim()}
-          />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Floating confirm button */}
+      <Pressable
+        onPress={handleSubmit}
+        disabled={loading || !name.trim()}
+        accessibilityRole="button"
+        accessibilityLabel="Confirm new trip"
+        style={({ pressed }) => ({
+          position: 'absolute',
+          bottom: tokens.spacing.xl,
+          right: tokens.spacing.md,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: !loading && name.trim() ? colors.primary.default : colors.text.tertiary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: pressed ? 0.8 : 1,
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 4,
+          zIndex: 10,
+        })}
+      >
+        {loading
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Ionicons name="checkmark" size={28} color="#fff" />}
+      </Pressable>
 
       {/* Inline overlay — avoids Modal-inside-modal crash on Android (screen is
           already presented as a modal by expo-router presentation: 'modal'). */}

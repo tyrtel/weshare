@@ -8,6 +8,6 @@ interface Store {
 }
 
 export const useStandingsStyle = create<Store>(set => ({
-  style: 'tinted',
+  style: 'list',
   setStyle: style => set({ style }),
 }));

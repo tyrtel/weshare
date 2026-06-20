@@ -9,7 +9,7 @@ import { personColors, useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import type { TripMember } from '../../../core/models/TripMember';
 
-export type SplitMode = 'equal' | 'proportional' | 'custom';
+export type SplitMode = 'equal' | 'proportional' | 'custom' | 'itemized';
 
 interface SplitMemberRowProps {
   member: TripMember;

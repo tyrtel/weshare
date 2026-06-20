@@ -3,7 +3,7 @@ import { useService } from '../../../core/di/ServiceContext';
 import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
 import { generateId } from '../../../core/utils/generateId';
-import type { Expense } from '../../../core/models/Expense';
+import type { Expense, ExpenseLineItem } from '../../../core/models/Expense';
 import type { AppError } from '../../../core/types/AppError';
 
 export interface SplitInput {
@@ -19,6 +19,7 @@ export interface AddExpenseInput {
   splits: SplitInput[];
   category?: string;
   receiptUrl?: string;
+  lineItems?: ExpenseLineItem[];
 }
 
 // ── Pure helpers (exported for use in screen/components) ──────────────────────
@@ -100,7 +101,7 @@ export function useAddExpense(tripId: string) {
         paidByUserId: input.paidByUserId,
         createdAt: new Date(),
         splits: [],
-        metadata: { category: input.category, receiptUrl: input.receiptUrl },
+        metadata: { category: input.category, receiptUrl: input.receiptUrl, lineItems: input.lineItems },
       };
 
       const expResult = await expenseRepo.saveExpense(expense);

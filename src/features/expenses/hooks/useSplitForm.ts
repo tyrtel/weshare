@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
 import type { TripMember } from '../../../core/models/TripMember';
+import type { ExpenseLineItem } from '../../../core/models/Expense';
 import type { SplitMode } from '../components/SplitMemberRow';
+import type { ParsedReceiptLineItem } from '../../../core/models/ParsedReceipt';
+import { generateId } from '../../../core/utils/generateId';
 import {
   computeSplitInputs,
   computeProportionalSplits,
@@ -20,6 +23,7 @@ interface UseSplitFormArgs {
   totalAmountCents: number;
   initialEntries?: SplitFormEntry[];
   initialMode?: SplitMode;
+  initialLineItems?: ExpenseLineItem[];
   // Explicit ready gate. Defaults to members.length > 0 (sufficient for Add).
   // Pass ready={!!trip && !!expense} for Edit to delay init until both are loaded.
   ready?: boolean;
@@ -32,11 +36,32 @@ export interface UseSplitFormReturn {
   computedSplits: SplitResult[];
   remainder: number;
   splitIsValid: boolean;
+  lineItems: ExpenseLineItem[];
+  itemizedTotal: number;
   handleSetMode: (mode: SplitMode) => void;
   handleToggleMember: (userId: string) => void;
   handleChangeAmount: (userId: string, cents: number) => void;
   handleChangeWeight: (userId: string, bps: number) => void;
   getDisplayAmountFor: (userId: string) => number;
+  addLineItem: () => void;
+  updateLineItem: (id: string, changes: Partial<Pick<ExpenseLineItem, 'description' | 'amountCents'>>) => void;
+  removeLineItem: (id: string) => void;
+  toggleMemberInItem: (itemId: string, userId: string) => void;
+  initFromParsed: (parsedItems: ParsedReceiptLineItem[], allMembers: TripMember[]) => void;
+}
+
+function computeItemizedSplits(items: ExpenseLineItem[]): SplitResult[] {
+  const totals: Record<string, number> = {};
+  for (const item of items) {
+    const n = item.assignedUserIds.length;
+    if (n === 0) continue;
+    const perUser    = Math.floor(item.amountCents / n);
+    const remainder  = item.amountCents - perUser * n;
+    item.assignedUserIds.forEach((uid, i) => {
+      totals[uid] = (totals[uid] ?? 0) + perUser + (i === n - 1 ? remainder : 0);
+    });
+  }
+  return Object.entries(totals).map(([userId, amountOwedCents]) => ({ userId, amountOwedCents }));
 }
 
 export function useSplitForm({
@@ -44,6 +69,7 @@ export function useSplitForm({
   totalAmountCents,
   initialEntries,
   initialMode = 'equal',
+  initialLineItems,
   ready = members.length > 0,
 }: UseSplitFormArgs): UseSplitFormReturn {
   const [splitMode, setSplitMode] = useState<SplitMode>(initialMode);
@@ -51,6 +77,7 @@ export function useSplitForm({
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [dirtyWeights, setDirtyWeights] = useState<Set<string>>(new Set());
   const [initialised, setInitialised] = useState(false);
+  const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([]);
 
   // Render-phase init: fires once when data becomes available (same pattern as the screens).
   if (ready && !initialised) {
@@ -63,10 +90,19 @@ export function useSplitForm({
       setWeights(initialWeights(ids));
     }
     if (initialMode !== 'equal') setSplitMode(initialMode);
+    if (initialLineItems !== undefined) setLineItems(initialLineItems);
     setInitialised(true);
   }
 
+  const itemizedTotal = useMemo(
+    () => lineItems.reduce((sum, item) => sum + item.amountCents, 0),
+    [lineItems],
+  );
+
   const computedSplits = useMemo<SplitResult[]>(() => {
+    if (splitMode === 'itemized') {
+      return computeItemizedSplits(lineItems);
+    }
     const included = splitEntries.filter(e => e.included);
     if (splitMode === 'proportional') {
       return computeProportionalSplits(included.map(e => e.userId), weights, totalAmountCents);
@@ -75,15 +111,19 @@ export function useSplitForm({
       included.map(e => ({ userId: e.userId, customAmountCents: e.customAmountCents })),
       totalAmountCents,
     );
-  }, [splitMode, splitEntries, weights, totalAmountCents]);
+  }, [splitMode, lineItems, splitEntries, weights, totalAmountCents]);
 
-  const remainder = totalAmountCents - computedSplits.reduce((s, e) => s + e.amountOwedCents, 0);
+  const remainder = splitMode === 'itemized'
+    ? 0
+    : totalAmountCents - computedSplits.reduce((s, e) => s + e.amountOwedCents, 0);
 
-  const splitIsValid = computedSplits.length > 0 && remainder === 0;
+  const splitIsValid = splitMode === 'itemized'
+    ? lineItems.length > 0 && lineItems.every(item => item.assignedUserIds.length > 0)
+    : computedSplits.length > 0 && remainder === 0;
 
   const handleSetMode = (mode: SplitMode) => {
     setSplitMode(mode);
-    if (mode !== 'custom') {
+    if (mode !== 'custom' && mode !== 'itemized') {
       setSplitEntries(prev => prev.map(e => ({ ...e, customAmountCents: null })));
     }
     if (mode === 'proportional') {
@@ -133,6 +173,56 @@ export function useSplitForm({
         : (computed?.amountOwedCents ?? 0);
   };
 
+  // ── Line item management ────────────────────────────────────────────────────
+
+  const addLineItem = () => {
+    setLineItems(prev => [
+      ...prev,
+      {
+        id:              generateId(),
+        description:     '',
+        amountCents:     0,
+        assignedUserIds: members.map(m => m.userId),
+      },
+    ]);
+  };
+
+  const updateLineItem = (
+    id: string,
+    changes: Partial<Pick<ExpenseLineItem, 'description' | 'amountCents'>>,
+  ) => {
+    setLineItems(prev => prev.map(item => item.id === id ? { ...item, ...changes } : item));
+  };
+
+  const removeLineItem = (id: string) => {
+    setLineItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const toggleMemberInItem = (itemId: string, userId: string) => {
+    setLineItems(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      const has = item.assignedUserIds.includes(userId);
+      return {
+        ...item,
+        assignedUserIds: has
+          ? item.assignedUserIds.filter(id => id !== userId)
+          : [...item.assignedUserIds, userId],
+      };
+    }));
+  };
+
+  // Populates items from OCR output and switches to itemized mode.
+  const initFromParsed = (parsedItems: ParsedReceiptLineItem[], allMembers: TripMember[]) => {
+    const allIds = allMembers.map(m => m.userId);
+    setLineItems(parsedItems.map(p => ({
+      id:              generateId(),
+      description:     p.description,
+      amountCents:     p.amountCents,
+      assignedUserIds: allIds,
+    })));
+    setSplitMode('itemized');
+  };
+
   return {
     splitMode,
     splitEntries,
@@ -140,10 +230,17 @@ export function useSplitForm({
     computedSplits,
     remainder,
     splitIsValid,
+    lineItems,
+    itemizedTotal,
     handleSetMode,
     handleToggleMember,
     handleChangeAmount,
     handleChangeWeight,
     getDisplayAmountFor,
+    addLineItem,
+    updateLineItem,
+    removeLineItem,
+    toggleMemberInItem,
+    initFromParsed,
   };
 }

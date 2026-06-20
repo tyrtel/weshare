@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Image } from 'react-native';
 import { Text } from './Text';
 
@@ -17,6 +17,10 @@ interface AvatarProps {
 export function Avatar({ initials, bg, size = 'md', url }: AvatarProps) {
   const dimension = dimensionMap[size];
   const [imgError, setImgError] = useState(false);
+
+  // Reset error state when the URL changes so a new URL gets a fresh attempt.
+  useEffect(() => { setImgError(false); }, [url]);
+
   const showImage = !!url && !imgError;
 
   return (
@@ -35,7 +39,8 @@ export function Avatar({ initials, bg, size = 'md', url }: AvatarProps) {
         <Image
           source={{ uri: url }}
           style={{ width: dimension, height: dimension }}
-          onError={() => setImgError(true)}
+          onLoad={() => console.log('[Avatar] loaded', url)}
+          onError={(e) => { console.log('[Avatar] error', url, e.nativeEvent); setImgError(true); }}
         />
       ) : (
         <Text
