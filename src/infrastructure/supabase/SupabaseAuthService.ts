@@ -23,7 +23,14 @@ export class SupabaseAuthService implements IAuthService {
     // authenticated requests are made.
     pingSupabase();
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      // TOKEN_REFRESHED is a transient event during getInitialUser()'s getSession()
+      // call. Clearing _currentUser here would race with getInitialUser() setting it,
+      // causing load() to see null and bail with an empty trips screen.
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        this._expiresAt = session.expires_at ?? 0;
+        return;
+      }
       if (!session?.user) {
         this._currentUser = null;
         this._expiresAt   = 0;
@@ -275,7 +282,20 @@ export class SupabaseAuthService implements IAuthService {
 
   async getInitialUser(): Promise<User | null> {
     try {
-      const { data } = await supabase.auth.getSession();
+      // getSession() triggers a token refresh when the JWT is expired. On a
+      // paused free-tier Supabase project that refresh can hang indefinitely,
+      // keeping _readyResolve blocked and freezing the trips screen forever.
+      let sessionData: Awaited<ReturnType<typeof supabase.auth.getSession>>;
+      try {
+        sessionData = await SupabaseAuthService._withTimeout(
+          supabase.auth.getSession(),
+          10_000,
+          'Session restore timed out',
+        );
+      } catch {
+        return null;
+      }
+      const { data } = sessionData;
       if (!data.session?.user) return null;
 
       this._expiresAt = data.session.expires_at ?? 0;
