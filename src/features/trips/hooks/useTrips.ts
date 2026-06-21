@@ -7,6 +7,8 @@ import type { Trip } from '../../../core/models/Trip';
 import type { AppError } from '../../../core/types/AppError';
 import type { TripFinancialSummary } from '../../../core/logic/settlement';
 
+const RETRY_DELAY_MS = 1500;
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
@@ -31,24 +33,40 @@ export function useTrips() {
   const allExpenses = useTripSessionStore((s) => s.expenses);
 
   const load = useCallback(async () => {
+    // Wait longer than getInitialUser's own 10s getSession timeout so we never
+    // race it. If auth still isn't ready, treat as signed-out; AuthGate redirects.
     try {
-      await withTimeout(auth.awaitReady(), 8_000);
+      await withTimeout(auth.awaitReady(), 12_000);
     } catch {
-      setState({ loading: false, error: { kind: 'AuthError', message: 'Session restore timed out. Please restart the app.' } });
+      setState({ loading: false, error: null });
       return;
     }
+
     const user = auth.currentUser();
     if (!user) {
       setState({ loading: false, error: null });
       return;
     }
+
     setState((prev) => ({ ...prev, loading: true, error: null }));
+
     await storeApi.getState().loadTrips(user.id);
-    // Eagerly hydrate detail for every trip so BalanceSummaryScreen has expenses.
     const loadedTrips = storeApi.getState().trips;
     if (loadedTrips.length > 0) {
       await Promise.all(loadedTrips.map((t) => storeApi.getState().loadTripDetail(t.id)));
     }
+
+    // On transient network/Supabase errors, retry once silently before
+    // surfacing anything to the user.
+    if (storeApi.getState().hydrationError) {
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+      await storeApi.getState().loadTrips(user.id);
+      const retryTrips = storeApi.getState().trips;
+      if (retryTrips.length > 0) {
+        await Promise.all(retryTrips.map((t) => storeApi.getState().loadTripDetail(t.id)));
+      }
+    }
+
     setState({ loading: false, error: storeApi.getState().hydrationError });
   }, [auth, storeApi]);
 

@@ -82,14 +82,15 @@ describe('TripListScreen', () => {
     expect(screen.getByLabelText('New trip')).toBeTruthy();
   });
 
-  it('shows an error banner when error is set', () => {
+  it('shows a friendly error state when error is set and no trips are cached', () => {
     mockUseTrips.mockReturnValue({
       trips: [],
       loading: false,
       error: { kind: 'NetworkError', message: 'Connection failed' },
     });
     render(<TripListScreen />);
-    expect(screen.getByText('Connection failed')).toBeTruthy();
+    expect(screen.getByText("Couldn't load your trips.")).toBeTruthy();
+    expect(screen.getByText('Try again')).toBeTruthy();
   });
 
   it('does not show empty state when trips are present', () => {

@@ -142,7 +142,8 @@ describe('useTrips — NetworkError from storage', () => {
     tripRepo.getTripsForUser = async () => err({ kind: 'NetworkError', message: 'connection refused' });
 
     const { result } = renderHook(() => useTrips(), { wrapper: makeWrapper(container) });
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    // Timeout must exceed the 1.5 s silent-retry delay in useTrips.
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 5000 });
 
     expect(result.current.trips).toHaveLength(0);
     expect(result.current.error).toMatchObject({ kind: 'NetworkError', message: 'connection refused' });

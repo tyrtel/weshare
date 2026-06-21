@@ -10,7 +10,6 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
-import { ErrorBanner } from '../../../components/ui/ErrorBanner';
 import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
 import { TripListSkeleton } from '../../../components/skeletons/TripListSkeleton';
 import { Text } from '../../../components/ui/Text';
@@ -149,12 +148,29 @@ export function TripListScreen() {
         <Text variant="heading1">Trips</Text>
       </View>
 
-      {/* Error banner */}
-      <ErrorBanner error={error} style={{ marginHorizontal: tokens.spacing.md, marginBottom: tokens.spacing.sm }} />
-
-      {/* List / loading / empty */}
+      {/* List / loading / error / empty */}
       {loading && trips.length === 0 ? (
         <TripListSkeleton />
+      ) : error && trips.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: tokens.spacing.xl }}>
+          <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center', marginBottom: tokens.spacing.md }}>
+            Couldn't load your trips.
+          </Text>
+          <Pressable
+            onPress={refetch}
+            accessibilityRole="button"
+            style={({ pressed }) => ({
+              paddingHorizontal: tokens.spacing.lg,
+              paddingVertical: tokens.spacing.sm,
+              borderRadius: tokens.radius.pill,
+              borderWidth: 1,
+              borderColor: colors.primary.default,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text variant="label" color={colors.primary.default}>Try again</Text>
+          </Pressable>
+        </View>
       ) : (
         <FlatList
           data={trips}

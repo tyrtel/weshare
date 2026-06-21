@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import Constants from 'expo-constants';
+import { AppLoadingScreen } from '../../components/ui/AppLoadingScreen';
 import { useStore } from 'zustand';
 import { ServiceContainer } from './ServiceContainer';
 import type { ServiceToken } from './ServiceContainer';
@@ -26,9 +26,10 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const [container, setContainer] = useState<ServiceContainer | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check both the Expo config extra field AND the raw env var so the flag
-    // works whether the bundle was built with a config reload or not.
+  const init = useCallback(() => {
+    setInitError(null);
+    setContainer(null);
+
     const isSimulation =
       Constants.expoConfig?.extra?.simulation === true ||
       process.env.EXPO_PUBLIC_SIMULATE === 'true';
@@ -51,25 +52,22 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
+  useEffect(() => { init(); }, [init]);
+
   if (initError) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#1a1a2e' }}>
-        <Text style={{ color: '#f87171', fontSize: 14, textAlign: 'center' }}>
-          Failed to initialise app:{'\n\n'}{initError}
-        </Text>
-      </View>
+      <AppLoadingScreen
+        error="Something went wrong starting the app."
+        onRetry={init}
+      />
     );
   }
 
   if (!container) {
-    // Render a spinner rather than null — Expo Router SDK 51 keeps the native
-    // splash screen visible until the Stack navigator mounts. Returning null
-    // here prevents the Stack from ever mounting, so the splash never hides.
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a2e' }}>
-        <ActivityIndicator color="#1D9E75" size="large" />
-      </View>
-    );
+    // Render AppLoadingScreen rather than null — Expo Router SDK 51 keeps the
+    // native splash visible until the Stack navigator mounts. Returning null
+    // prevents the Stack from ever mounting so the splash never hides.
+    return <AppLoadingScreen />;
   }
 
   return (
