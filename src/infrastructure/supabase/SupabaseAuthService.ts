@@ -24,24 +24,28 @@ export class SupabaseAuthService implements IAuthService {
     pingSupabase();
 
     supabase.auth.onAuthStateChange(async (event, session) => {
-      // TOKEN_REFRESHED is a transient event during getInitialUser()'s getSession()
-      // call. Clearing _currentUser here would race with getInitialUser() setting it,
-      // causing load() to see null and bail with an empty trips screen.
-      if (event === 'TOKEN_REFRESHED' && session?.user) {
+      try {
+        // TOKEN_REFRESHED is a transient event during getInitialUser()'s getSession()
+        // call. Clearing _currentUser here would race with getInitialUser() setting it,
+        // causing load() to see null and bail with an empty trips screen.
+        if (event === 'TOKEN_REFRESHED' && session?.user) {
+          this._expiresAt = session.expires_at ?? 0;
+          return;
+        }
+        if (!session?.user) {
+          this._currentUser = null;
+          this._expiresAt   = 0;
+          return;
+        }
         this._expiresAt = session.expires_at ?? 0;
-        return;
+        // Only overwrite _currentUser when the row is actually found. The event
+        // may fire before _upsertUser completes on first sign-in, returning null
+        // and wiping out the value set by the sign-in method.
+        const user = await this._fetchUser(session.user.id, session.user.email);
+        if (user) this._currentUser = user;
+      } catch {
+        // Background user sync failed — session state is unchanged.
       }
-      if (!session?.user) {
-        this._currentUser = null;
-        this._expiresAt   = 0;
-        return;
-      }
-      this._expiresAt = session.expires_at ?? 0;
-      // Only overwrite _currentUser when the row is actually found. The event
-      // may fire before _upsertUser completes on first sign-in, returning null
-      // and wiping out the value set by the sign-in method.
-      const user = await this._fetchUser(session.user.id, session.user.email);
-      if (user) this._currentUser = user;
     });
   }
 
@@ -80,6 +84,25 @@ export class SupabaseAuthService implements IAuthService {
         setTimeout(() => reject(new Error(message ?? `Request timed out after ${ms / 1000}s`)), ms),
       ),
     ]);
+  }
+
+  // Retries fn up to maxAttempts times on thrown exceptions (e.g. timeouts).
+  // Supabase calls that return {data, error} never throw on auth errors, so
+  // wrong-password failures are instant — only genuine network timeouts retry.
+  private static async _withRetry<T>(
+    fn: () => Promise<T>,
+    maxAttempts: number,
+    retryDelayMs: number,
+  ): Promise<T> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, retryDelayMs));
+      try {
+        return await fn();
+      } catch (e) {
+        if (attempt === maxAttempts - 1) throw e;
+      }
+    }
+    throw new Error('unreachable');
   }
 
   private async _fetchUser(authId: string, email?: string): Promise<User | null> {
@@ -124,16 +147,29 @@ export class SupabaseAuthService implements IAuthService {
   // ── IAuthService ──────────────────────────────────────────────────────────
 
   async signIn(email: string, password: string): Promise<Result<User, AppError>> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return err({ kind: 'AuthError', message: error.message });
-    if (!data.user) return err({ kind: 'AuthError', message: 'No user returned from sign-in' });
+    try {
+      const { data, error } = await SupabaseAuthService._withRetry(
+        () => SupabaseAuthService._withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          20_000,
+          'Connection timed out — Supabase may be starting up, please try again',
+        ),
+        3,
+        5_000,
+      );
+      if (error) return err({ kind: 'AuthError', message: error.message });
+      if (!data.user) return err({ kind: 'AuthError', message: 'No user returned from sign-in' });
 
-    this._expiresAt = data.session?.expires_at ?? 0;
-    const user = await this._fetchUser(data.user.id, data.user.email);
-    if (!user) return err({ kind: 'AuthError', message: 'User profile not found' });
-    this._currentUser = user;
-    void this._writeUserCache(user);
-    return ok(user);
+      this._expiresAt = data.session?.expires_at ?? 0;
+      const user = await this._fetchUser(data.user.id, data.user.email);
+      if (!user) return err({ kind: 'AuthError', message: 'User profile not found' });
+      this._currentUser = user;
+      void this._writeUserCache(user);
+      return ok(user);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Sign-in failed';
+      return err({ kind: 'AuthError', message: msg });
+    }
   }
 
   async signUp(
@@ -205,10 +241,14 @@ export class SupabaseAuthService implements IAuthService {
 
       if (!idToken) return err({ kind: 'AuthError', message: 'No ID token returned from Google' });
 
-      const { data, error } = await SupabaseAuthService._withTimeout(
-        supabase.auth.signInWithIdToken({ provider: 'google', token: idToken }),
-        15_000,
-        'Connection timed out — Supabase may be starting up, please try again',
+      const { data, error } = await SupabaseAuthService._withRetry(
+        () => SupabaseAuthService._withTimeout(
+          supabase.auth.signInWithIdToken({ provider: 'google', token: idToken }),
+          20_000,
+          'Connection timed out — Supabase may be starting up, please try again',
+        ),
+        3,
+        5_000,
       );
       if (error) return err({ kind: 'AuthError', message: error.message });
       if (!data.user) return err({ kind: 'AuthError', message: 'No user returned from Google sign-in' });
@@ -249,10 +289,14 @@ export class SupabaseAuthService implements IAuthService {
 
       if (!credential.identityToken) return err({ kind: 'AuthError', message: 'No identity token from Apple' });
 
-      const { data, error } = await SupabaseAuthService._withTimeout(
-        supabase.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken }),
-        15_000,
-        'Connection timed out — Supabase may be starting up, please try again',
+      const { data, error } = await SupabaseAuthService._withRetry(
+        () => SupabaseAuthService._withTimeout(
+          supabase.auth.signInWithIdToken({ provider: 'apple', token: credential.identityToken }),
+          20_000,
+          'Connection timed out — Supabase may be starting up, please try again',
+        ),
+        3,
+        5_000,
       );
       if (error) return err({ kind: 'AuthError', message: error.message });
       if (!data.user) return err({ kind: 'AuthError', message: 'No user returned from Apple sign-in' });
@@ -346,12 +390,16 @@ export class SupabaseAuthService implements IAuthService {
 
   onAuthStateChange(listener: AuthStateListener): Unsubscribe {
     const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session?.user) { listener(null); return; }
-      const user = await this._fetchUser(session.user.id, session.user.email);
-      // Only notify listeners when the row is found. If null, the sign-in method
-      // will navigate directly, so we must not call listener(null) and send
-      // AuthGate back to the auth screen.
-      if (user) listener(user);
+      try {
+        if (!session?.user) { listener(null); return; }
+        const user = await this._fetchUser(session.user.id, session.user.email);
+        // Only notify listeners when the row is found. If null, the sign-in method
+        // will navigate directly, so we must not call listener(null) and send
+        // AuthGate back to the auth screen.
+        if (user) listener(user);
+      } catch {
+        // Background user fetch failed — listener not notified, session unchanged.
+      }
     });
     return () => data.subscription.unsubscribe();
   }

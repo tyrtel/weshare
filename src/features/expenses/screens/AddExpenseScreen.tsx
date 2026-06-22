@@ -503,7 +503,7 @@ export function AddExpenseScreen() {
                   {index > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
                   <Pressable
                     onPress={() => { setEntryCurrency(item.code); setCurrencyDropVisible(false); }}
-                    accessibilityRole="option"
+                    accessibilityRole="menuitem"
                     accessibilityState={{ selected }}
                     style={({ pressed }) => ({
                       flexDirection: 'row',

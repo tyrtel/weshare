@@ -151,7 +151,7 @@ export function CreateTripScreen() {
                   {index > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
                   <Pressable
                     onPress={() => { setCurrency(item.code); setDropdownVisible(false); }}
-                    accessibilityRole="option"
+                    accessibilityRole="menuitem"
                     accessibilityState={{ selected }}
                     style={({ pressed }) => ({
                       flexDirection: 'row',

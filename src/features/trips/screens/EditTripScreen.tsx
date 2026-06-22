@@ -153,7 +153,7 @@ export function EditTripScreen() {
                       return (
                         <Pressable
                           onPress={() => { setCurrency(item.code); setDropdownVisible(false); }}
-                          accessibilityRole="option"
+                          accessibilityRole="menuitem"
                           accessibilityState={{ selected }}
                           style={({ pressed }) => ({
                             flexDirection: 'row',
