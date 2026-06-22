@@ -36,7 +36,7 @@ export function useTrips() {
     // Wait longer than getInitialUser's own 10s getSession timeout so we never
     // race it. If auth still isn't ready, treat as signed-out; AuthGate redirects.
     try {
-      await withTimeout(auth.awaitReady(), 12_000);
+      await withTimeout(auth.awaitReady(), 65_000);
     } catch {
       setState({ loading: false, error: null });
       return;

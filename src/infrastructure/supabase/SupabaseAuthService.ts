@@ -329,12 +329,19 @@ export class SupabaseAuthService implements IAuthService {
       // getSession() triggers a token refresh when the JWT is expired. On a
       // paused free-tier Supabase project that refresh can hang indefinitely,
       // keeping _readyResolve blocked and freezing the trips screen forever.
+      // When saved credentials exist the JWT may be expired, requiring a network
+      // round-trip to refresh it. Three attempts × 15 s + 5 s gaps = ~55 s total,
+      // enough to survive a free-tier cold start without kicking the user to login.
       let sessionData: Awaited<ReturnType<typeof supabase.auth.getSession>>;
       try {
-        sessionData = await SupabaseAuthService._withTimeout(
-          supabase.auth.getSession(),
-          10_000,
-          'Session restore timed out',
+        sessionData = await SupabaseAuthService._withRetry(
+          () => SupabaseAuthService._withTimeout(
+            supabase.auth.getSession(),
+            15_000,
+            'Session restore timed out',
+          ),
+          3,
+          5_000,
         );
       } catch {
         return null;
