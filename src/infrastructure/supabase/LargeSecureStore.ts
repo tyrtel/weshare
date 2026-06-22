@@ -20,6 +20,10 @@ async function getItem(key: string): Promise<string | null> {
 }
 
 async function setItem(key: string, value: string): Promise<void> {
+  // Always remove any previous chunked layout before writing so stale _n /
+  // chunk keys can't shadow a subsequent single-key write (and vice versa).
+  await removeItem(key);
+
   if (value.length <= CHUNK_SIZE) {
     await SecureStore.setItemAsync(key, value);
     return;
