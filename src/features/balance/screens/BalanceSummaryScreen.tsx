@@ -112,6 +112,52 @@ function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
   );
 }
 
+function TotalsFooter({ rows }: { rows: TripBalance[] }) {
+  const colors = useColors();
+
+  // Sum net balance per currency across all visible trips.
+  const byCurrency = new Map<string, number>();
+  for (const { netCents, currency } of rows) {
+    byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + netCents);
+  }
+  const entries = [...byCurrency.entries()];
+
+  if (entries.length === 0) return null;
+
+  return (
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        marginTop: tokens.spacing.sm,
+        paddingTop: tokens.spacing.md,
+      }}
+    >
+      <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
+        Net total
+      </Text>
+      {entries.map(([currency, netCents]) => {
+        const isOwed = netCents > 0;
+        const isOwe  = netCents < 0;
+        const color  = isOwed ? colors.success.default : isOwe ? colors.error.default : colors.text.tertiary;
+        const label  = isOwed
+          ? `owed ${formatCents(netCents, currency)}`
+          : isOwe
+          ? `owe ${formatCents(Math.abs(netCents), currency)}`
+          : 'settled';
+        return (
+          <View key={currency} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: tokens.spacing.xs }}>
+            <Text variant="body" color={colors.text.primary}>{currency}</Text>
+            <Text variant="body" color={color} style={{ fontWeight: tokens.fontWeight.semibold }}>
+              {label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function EmptyState() {
   const colors = useColors();
   return (
@@ -174,6 +220,7 @@ export function BalanceSummaryScreen() {
           flexGrow: 1,
         }}
         ListEmptyComponent={<EmptyState />}
+        ListFooterComponent={rows.length > 0 ? <TotalsFooter rows={rows} /> : null}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           rows.length > 0 ? (
