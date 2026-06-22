@@ -7,7 +7,6 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
-import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
 import { Text } from '../../../components/ui/Text';
 import { Divider } from '../../../components/ui/Divider';
 import { ClosedTripGuard } from '../../../components/ui/ClosedTripGuard';
@@ -195,20 +194,51 @@ export function AddExpenseScreen() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
-  if (tripLoading || !trip) return <ScreenWrapper />;
+  if (tripLoading || !trip) {
+    return (
+      <ScreenWrapper>
+        <Stack.Screen options={{ title: 'Add Expense' }} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary.default} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   const rateSourceColor = rate.result?.source === 'live'
     ? colors.text.secondary
     : colors.warning?.default ?? colors.text.secondary;
 
+  const confirmButton = trip.status !== 'closed' ? () => (
+    <Pressable
+      onPress={handleSubmit}
+      disabled={!isValid || saving}
+      accessibilityRole="button"
+      accessibilityLabel="Confirm expense"
+      style={({ pressed }) => ({
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: isValid && !saving ? colors.primary.default : colors.text.tertiary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: tokens.spacing.xs,
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      {saving
+        ? <ActivityIndicator color="#fff" size="small" />
+        : <Ionicons name="checkmark" size={20} color="#fff" />}
+    </Pressable>
+  ) : undefined;
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Add Expense' }} />
+      <Stack.Screen options={{ title: 'Add Expense', headerRight: confirmButton }} />
       <ClosedTripGuard trip={trip} message="This trip is closed. No new expenses can be added.">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView
-            contentContainerStyle={{ padding: tokens.spacing.md, paddingBottom: tokens.spacing.xxl + TAB_BAR_HEIGHT }}
+            contentContainerStyle={{ padding: tokens.spacing.md, paddingBottom: tokens.spacing.xxl }}
             keyboardShouldPersistTaps="handled"
           >
             {/* Heading + receipt capture */}
@@ -450,38 +480,6 @@ export function AddExpenseScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </ClosedTripGuard>
-
-      {/* Floating confirm FAB */}
-      {trip?.status !== 'closed' && (
-        <Pressable
-          onPress={handleSubmit}
-          disabled={!isValid || saving}
-          accessibilityRole="button"
-          accessibilityLabel="Confirm expense"
-          style={({ pressed }) => ({
-            position: 'absolute',
-            bottom: TAB_BAR_HEIGHT + tokens.spacing.md,
-            right: tokens.spacing.md,
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: isValid && !saving ? colors.primary.default : colors.text.tertiary,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.8 : 1,
-            elevation: 4,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            zIndex: 10,
-          })}
-        >
-          {saving
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Ionicons name="checkmark" size={28} color="#fff" />}
-        </Pressable>
-      )}
 
       {/* Currency dropdown overlay */}
       {currencyDropVisible && (
