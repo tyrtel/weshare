@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import * as Sentry from '@sentry/react-native';
 import { ok, err } from '../../core/types/Result';
 import type { Result } from '../../core/types/Result';
 import type { AppError } from '../../core/types/AppError';
@@ -347,7 +348,12 @@ export class SupabaseAuthService implements IAuthService {
         return null;
       }
       const { data } = sessionData;
-      if (!data.session?.user) return null;
+      if (!data.session?.user) {
+        // No stored session — flush breadcrumbs (including SecureStore reads)
+        // so we can see exactly what the storage layer reported.
+        Sentry.captureMessage('session_restore_no_session', 'warning');
+        return null;
+      }
 
       this._expiresAt = data.session.expires_at ?? 0;
       const { id: userId, email } = data.session.user;

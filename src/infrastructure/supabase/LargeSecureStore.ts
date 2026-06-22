@@ -17,7 +17,9 @@ async function getItem(key: string): Promise<string | null> {
       for (let i = 0; i < count; i++) {
         const chunk = await SecureStore.getItemAsync(`${key}_${i}`);
         if (chunk === null) {
-          logger.log(`[SecureStore] getItem ${tag} missing chunk ${i}`);
+          // A missing chunk means a partial write — report as an error so
+          // Sentry flushes all preceding breadcrumbs and creates an event.
+          logger.error(new Error(`[SecureStore] getItem ${tag} missing chunk ${i} of ${count}`));
           return null;
         }
         parts.push(chunk);
