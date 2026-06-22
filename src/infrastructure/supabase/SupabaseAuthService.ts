@@ -49,6 +49,7 @@ export class SupabaseAuthService implements IAuthService {
         if (!session?.user) {
           this._currentUser = null;
           this._expiresAt   = 0;
+          void this._clearUserCache();
           return;
         }
         this._expiresAt = session.expires_at ?? 0;
