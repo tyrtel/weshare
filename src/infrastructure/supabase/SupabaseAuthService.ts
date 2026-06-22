@@ -278,6 +278,10 @@ export class SupabaseAuthService implements IAuthService {
       this._expiresAt   = data.session?.expires_at ?? 0;
       void this._writeUserCache(this._currentUser);
 
+      // Capture a breadcrumb flush point so the next session's Sentry event
+      // can confirm whether setItem was called and what size was written.
+      Sentry.captureMessage('signin_google_success', 'info');
+
       return ok(this._currentUser);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Google sign-in failed';
