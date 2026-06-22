@@ -9,11 +9,24 @@ import type { IAuthService, AuthStateListener, Unsubscribe } from '../../core/in
 import type { User } from '../../core/models/User';
 import { supabase, pingSupabase } from './supabaseClient';
 
+// Expo Router renders the root layout twice in concurrent mode, causing
+// ServiceProvider to create two DI containers. Both containers call
+// new SupabaseAuthService(), which would register duplicate onAuthStateChange
+// listeners and race concurrent getInitialUser() calls against the same
+// Supabase singleton — corrupting session state. A module-level singleton
+// ensures exactly one auth service instance exists per JS bundle lifetime.
+let _instance: SupabaseAuthService | null = null;
+export function getAuthService(): SupabaseAuthService {
+  if (!_instance) _instance = new SupabaseAuthService();
+  return _instance;
+}
+
 export class SupabaseAuthService implements IAuthService {
   private _currentUser: User | null = null;
   private _expiresAt: number = 0;
   private _readyPromise: Promise<void>;
   private _readyResolve: () => void = () => {};
+  private _initialUserPromise: Promise<User | null> | null = null;
 
   private static readonly USER_CACHE_KEY = 'weshare_user_v1';
 
@@ -326,6 +339,12 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async getInitialUser(): Promise<User | null> {
+    if (this._initialUserPromise) return this._initialUserPromise;
+    this._initialUserPromise = this._doGetInitialUser();
+    return this._initialUserPromise;
+  }
+
+  private async _doGetInitialUser(): Promise<User | null> {
     try {
       // getSession() triggers a token refresh when the JWT is expired. On a
       // paused free-tier Supabase project that refresh can hang indefinitely,

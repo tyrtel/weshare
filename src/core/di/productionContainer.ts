@@ -27,7 +27,7 @@ export async function createProductionContainer(): Promise<ServiceContainer> {
   const { SupabaseSplitRequestRepository } = await import(
     '../../infrastructure/supabase/SupabaseSplitRequestRepository'
   );
-  const { SupabaseAuthService } = await import(
+  const { getAuthService } = await import(
     '../../infrastructure/supabase/SupabaseAuthService'
   );
   const { DeepLinkPaymentService } = await import(
@@ -92,7 +92,7 @@ export async function createProductionContainer(): Promise<ServiceContainer> {
   container.register(EXPENSE_REPO,       expenseRepo);
   container.register(SPLIT_REPO,         splitRepo);
   container.register(SPLIT_REQUEST_REPO, splitRequestRepo);
-  container.register(AUTH,             new SupabaseAuthService());
+  container.register(AUTH,             getAuthService());
   container.register(PAYMENT,          paymentService);
   container.register(SHARE,            new NativeShareService());
   container.register(STRIPE,           stripeService);
