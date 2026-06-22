@@ -120,7 +120,6 @@ export default Sentry.wrap(function RootLayout() {
               >
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="auth/index" options={{ headerShown: false }} />
-                <Stack.Screen name="auth/guest" options={{ title: 'Guest', headerBackTitle: '' }} />
                 <Stack.Screen name="trip/create" options={{ presentation: 'modal', title: 'New Trip' }} />
                 <Stack.Screen name="+not-found" />
               </Stack>
