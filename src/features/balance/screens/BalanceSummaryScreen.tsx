@@ -39,11 +39,13 @@ function useBalanceSummary(): TripBalance[] {
 
   if (!currentUserId) return [];
 
-  return trips.map(trip => ({
-    trip,
-    netCents: computeNetBalance(currentUserId, allExpenses[trip.id] ?? []),
-    currency: trip.currency,
-  }));
+  return trips
+    .filter(trip => trip.status !== 'closed')
+    .map(trip => ({
+      trip,
+      netCents: computeNetBalance(currentUserId, allExpenses[trip.id] ?? []),
+      currency: trip.currency,
+    }));
 }
 
 function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
