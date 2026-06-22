@@ -16,6 +16,23 @@ import { logger } from '../utils/logger';
 
 export const ServiceContext = createContext<ServiceContainer | null>(null);
 
+// ── Shared container promise ──────────────────────────────────────────────────
+// Expo Router renders the root layout twice during initialisation (concurrent
+// rendering / hydration shell). Without this guard, ServiceProvider's useEffect
+// fires twice, creating two SupabaseAuthService instances that race through
+// getSession() and corrupt each other's auth state. The module-level promise
+// ensures the factory is called exactly once across all mounts.
+let _containerPromise: Promise<ServiceContainer> | null = null;
+
+function acquireContainer(isSimulation: boolean): Promise<ServiceContainer> {
+  if (!_containerPromise) {
+    const factory = isSimulation ? createSimulationContainer : createProductionContainer;
+    logger.log('[ServiceProvider] calling factory:', factory.name);
+    _containerPromise = factory();
+  }
+  return _containerPromise;
+}
+
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 /**
@@ -26,7 +43,8 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const [container, setContainer] = useState<ServiceContainer | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
 
-  const init = useCallback(() => {
+  const init = useCallback((retry = false) => {
+    if (retry) _containerPromise = null;
     setInitError(null);
     setContainer(null);
 
@@ -37,15 +55,13 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
     logger.log('[ServiceProvider] isSimulation =', isSimulation);
     logger.log('[ServiceProvider] extra =', JSON.stringify(Constants.expoConfig?.extra));
 
-    const factory = isSimulation ? createSimulationContainer : createProductionContainer;
-    logger.log('[ServiceProvider] calling factory:', factory.name);
-
-    factory()
+    acquireContainer(isSimulation)
       .then(c => {
         logger.log('[ServiceProvider] container ready');
         setContainer(c);
       })
       .catch((e: unknown) => {
+        _containerPromise = null;
         const msg = e instanceof Error ? e.message : String(e);
         logger.error('[ServiceProvider] init error:', msg);
         setInitError(msg);
@@ -58,7 +74,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
     return (
       <AppLoadingScreen
         error="Something went wrong starting the app."
-        onRetry={init}
+        onRetry={() => init(true)}
       />
     );
   }
