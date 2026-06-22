@@ -17,7 +17,7 @@ Sentry.init({
   enabled: !__DEV__,
   sendDefaultPii: true,
   enableLogs: true,
-  replaysSessionSampleRate: 0.1,
+  replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1,
   integrations: [Sentry.mobileReplayIntegration()],
 });
