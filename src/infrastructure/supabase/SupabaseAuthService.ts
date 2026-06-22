@@ -367,13 +367,15 @@ export class SupabaseAuthService implements IAuthService {
           3,
           5_000,
         );
-      } catch {
+      } catch (e) {
+        // All retries exhausted — network/timeout failure, not a missing session.
+        const msg = e instanceof Error ? e.message : String(e);
+        Sentry.captureMessage(`session_restore_error: ${msg}`, 'warning');
         return null;
       }
       const { data } = sessionData;
       if (!data.session?.user) {
-        // No stored session — flush breadcrumbs (including SecureStore reads)
-        // so we can see exactly what the storage layer reported.
+        // getSession() succeeded but returned no session — nothing stored.
         Sentry.captureMessage('session_restore_no_session', 'warning');
         return null;
       }
