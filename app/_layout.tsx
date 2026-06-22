@@ -10,6 +10,17 @@ import { AppLoadingScreen } from '../src/components/ui/AppLoadingScreen';
 import { SimulationBanner } from '../src/shared/components/SimulationBanner';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 import { UniversalTabBar } from '../src/components/ui/UniversalTabBar';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://5c63985ffb6bc5579bf90a309a290164@o4511608333664256.ingest.de.sentry.io/4511608346771536',
+  enabled: !__DEV__,
+  sendDefaultPii: true,
+  enableLogs: true,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration()],
+});
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -61,6 +72,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [auth]);
 
   useEffect(() => {
+    Sentry.setUser(user ? { id: user.id } : null);
+  }, [user]);
+
+  useEffect(() => {
     if (!navState?.key || !authReady) return;
     const inAuthGroup   = segments[0] === 'auth';
     const inPublicGroup = segments[0] === 'auth' || segments[0] === 'join';
@@ -78,7 +93,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -118,4 +133,4 @@ export default function RootLayout() {
       </GestureHandlerRootView>
     </ErrorBoundary>
   );
-}
+});

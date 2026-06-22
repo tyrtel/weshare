@@ -43,6 +43,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   scheme: 'ouishare',
   plugins: [
+    [
+      '@sentry/react-native/expo',
+      {
+        url: 'https://sentry.io/',
+        project: 'react-native',
+        organization: 'mccleery-enterprises',
+      },
+    ],
     'expo-router',
     'expo-sharing',
     'expo-sqlite',

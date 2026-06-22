@@ -10,6 +10,7 @@ module.exports = {
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|expo-contacts)',
   ],
   moduleNameMapper: {
+    '^@sentry/react-native$': '<rootDir>/src/__mocks__/sentryMock.ts',
     '^expo-contacts$': '<rootDir>/src/__mocks__/expo-contacts.ts',
     '^expo-secure-store$': '<rootDir>/src/__mocks__/expo-secure-store.ts',
     '^react-native-reanimated$': '<rootDir>/src/__mocks__/reanimatedMock.js',
