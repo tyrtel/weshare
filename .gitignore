@@ -47,3 +47,5 @@ supabase/.temp/
 
 # Windows/WSL Zone Identifier sidecar files
 *.Zone.Identifier
+
+.env.local
