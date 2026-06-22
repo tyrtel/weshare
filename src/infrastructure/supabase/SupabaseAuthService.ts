@@ -360,37 +360,37 @@ export class SupabaseAuthService implements IAuthService {
 
   private async _doGetInitialUser(): Promise<User | null> {
     try {
-      // getSession() triggers a token refresh when the JWT is expired. On a
-      // paused free-tier Supabase project that refresh can hang indefinitely,
-      // keeping _readyResolve blocked and freezing the trips screen forever.
-      // When saved credentials exist the JWT may be expired, requiring a network
-      // round-trip to refresh it. Three attempts × 15 s + 5 s gaps = ~55 s total,
-      // enough to survive a free-tier cold start without kicking the user to login.
+      // getSession() is called exactly once. Never retry it — Supabase rotates
+      // the refresh token on each use, so concurrent calls (one per retry)
+      // consume the token and subsequent calls get "Invalid Refresh Token",
+      // firing SIGNED_OUT and corrupting auth state.
+      const sessionPromise = supabase.auth.getSession();
+
       let sessionData: Awaited<ReturnType<typeof supabase.auth.getSession>>;
       try {
-        sessionData = await SupabaseAuthService._withRetry(
-          () => SupabaseAuthService._withTimeout(
-            supabase.auth.getSession(),
-            15_000,
-            'Session restore timed out',
-          ),
-          3,
-          5_000,
-        );
-      } catch (e) {
-        // All retries exhausted — likely the Supabase free-tier database is
-        // waking up and the refresh_token lookup is hanging. Don't boot the
-        // user to login: return the cached profile so the app opens normally.
-        // The real getSession() call is still running in the background; when
-        // it completes, onAuthStateChange fires and the session self-heals.
-        const msg = e instanceof Error ? e.message : String(e);
-        Sentry.captureMessage(`session_restore_error: ${msg}`, 'warning');
+        // Fast path: if the stored token is still valid, getSession() reads from
+        // storage and returns in milliseconds. 10 s is a generous ceiling.
+        sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 10_000, 'Session restore timed out');
+      } catch {
+        // Token is expired and the DB is waking up (free-tier). Return the
+        // cached user so the app opens immediately. sessionPromise keeps running;
+        // the Supabase SDK deduplicates the in-flight refresh so subsequent API
+        // calls wait for it rather than failing. TOKEN_REFRESHED fires when done.
         const cached = await this._readUserCache();
         if (cached) {
           this._currentUser = cached;
+          Sentry.captureMessage('session_restore_slow_path', 'info');
           return cached;
         }
-        return null;
+        // No cache (first install or post-sign-out). Wait for the full refresh;
+        // there is nothing to show until we know who the user is.
+        try {
+          sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 55_000, 'Session restore timed out');
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          Sentry.captureMessage(`session_restore_error: ${msg}`, 'warning');
+          return null;
+        }
       }
       const { data } = sessionData;
       if (!data.session?.user) {
