@@ -39,8 +39,7 @@ export function Avatar({ initials, bg, size = 'md', url }: AvatarProps) {
         <Image
           source={{ uri: url }}
           style={{ width: dimension, height: dimension }}
-          onLoad={() => console.log('[Avatar] loaded', url)}
-          onError={(e) => { console.log('[Avatar] error', url, e.nativeEvent); setImgError(true); }}
+          onError={() => setImgError(true)}
         />
       ) : (
         <Text

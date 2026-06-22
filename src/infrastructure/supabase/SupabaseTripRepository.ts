@@ -18,6 +18,7 @@ function rowToMember(raw: unknown): Result<TripMember, AppError> {
     displayName: row.display_name,
     isGuest:     row.is_guest,
     joinedAt:    new Date(row.joined_at),
+    avatarUrl:   row.avatar_url ?? undefined,
   });
 }
 
