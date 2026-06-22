@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { logger } from '../../core/utils/logger';
 
 // expo-secure-store caps each value at ~2 KB. Supabase session JSON (access
 // token + refresh token + user metadata) can exceed that, so we chunk long
@@ -6,32 +7,57 @@ import * as SecureStore from 'expo-secure-store';
 const CHUNK_SIZE = 1800; // bytes — well within the 2 048-byte limit
 
 async function getItem(key: string): Promise<string | null> {
-  const countStr = await SecureStore.getItemAsync(`${key}_n`);
-  if (!countStr) return SecureStore.getItemAsync(key);
-
-  const count = parseInt(countStr, 10);
-  const parts: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const chunk = await SecureStore.getItemAsync(`${key}_${i}`);
-    if (chunk === null) return null;
-    parts.push(chunk);
+  const tag = key.slice(-24); // last 24 chars of key — avoids logging the full key
+  try {
+    const countStr = await SecureStore.getItemAsync(`${key}_n`);
+    if (countStr) {
+      const count = parseInt(countStr, 10);
+      logger.log(`[SecureStore] getItem ${tag} chunked n=${count}`);
+      const parts: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const chunk = await SecureStore.getItemAsync(`${key}_${i}`);
+        if (chunk === null) {
+          logger.log(`[SecureStore] getItem ${tag} missing chunk ${i}`);
+          return null;
+        }
+        parts.push(chunk);
+      }
+      return parts.join('');
+    }
+    const value = await SecureStore.getItemAsync(key);
+    logger.log(`[SecureStore] getItem ${tag} single=${value !== null ? 'found' : 'null'}`);
+    return value;
+  } catch (e) {
+    logger.error(e instanceof Error ? e : new Error(String(e)));
+    return null;
   }
-  return parts.join('');
 }
 
 async function setItem(key: string, value: string): Promise<void> {
-  // Always remove any previous chunked layout before writing so stale _n /
-  // chunk keys can't shadow a subsequent single-key write (and vice versa).
-  await removeItem(key);
+  const tag = key.slice(-24);
+  try {
+    // Clear any previous layout (chunked or single) so stale keys can't
+    // shadow the new value. Wrapped in try/catch so a failed cleanup never
+    // prevents the write itself.
+    try {
+      await removeItem(key);
+    } catch {
+      logger.log(`[SecureStore] setItem ${tag} removeItem failed (ignored)`);
+    }
 
-  if (value.length <= CHUNK_SIZE) {
-    await SecureStore.setItemAsync(key, value);
-    return;
-  }
-  const count = Math.ceil(value.length / CHUNK_SIZE);
-  await SecureStore.setItemAsync(`${key}_n`, String(count));
-  for (let i = 0; i < count; i++) {
-    await SecureStore.setItemAsync(`${key}_${i}`, value.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE));
+    if (value.length <= CHUNK_SIZE) {
+      await SecureStore.setItemAsync(key, value);
+      logger.log(`[SecureStore] setItem ${tag} single len=${value.length}`);
+      return;
+    }
+    const count = Math.ceil(value.length / CHUNK_SIZE);
+    await SecureStore.setItemAsync(`${key}_n`, String(count));
+    for (let i = 0; i < count; i++) {
+      await SecureStore.setItemAsync(`${key}_${i}`, value.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE));
+    }
+    logger.log(`[SecureStore] setItem ${tag} chunked n=${count} len=${value.length}`);
+  } catch (e) {
+    logger.error(e instanceof Error ? e : new Error(String(e)));
   }
 }
 
