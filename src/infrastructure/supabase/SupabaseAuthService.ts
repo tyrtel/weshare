@@ -216,7 +216,17 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async verifyOtp(email: string, token: string, name: string): Promise<Result<User, AppError>> {
-    const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+    let data: Awaited<ReturnType<typeof supabase.auth.verifyOtp>>['data'];
+    let error: Awaited<ReturnType<typeof supabase.auth.verifyOtp>>['error'];
+    try {
+      ({ data, error } = await SupabaseAuthService._withTimeout(
+        supabase.auth.verifyOtp({ email, token, type: 'signup' }),
+        20_000,
+        'Connection timed out — please try again',
+      ));
+    } catch (e) {
+      return err({ kind: 'AuthError', message: e instanceof Error ? e.message : 'Verification failed' });
+    }
     if (error) return err({ kind: 'AuthError', message: error.message });
     if (!data.user) return err({ kind: 'AuthError', message: 'Verification failed' });
 
@@ -368,9 +378,18 @@ export class SupabaseAuthService implements IAuthService {
           5_000,
         );
       } catch (e) {
-        // All retries exhausted — network/timeout failure, not a missing session.
+        // All retries exhausted — likely the Supabase free-tier database is
+        // waking up and the refresh_token lookup is hanging. Don't boot the
+        // user to login: return the cached profile so the app opens normally.
+        // The real getSession() call is still running in the background; when
+        // it completes, onAuthStateChange fires and the session self-heals.
         const msg = e instanceof Error ? e.message : String(e);
         Sentry.captureMessage(`session_restore_error: ${msg}`, 'warning');
+        const cached = await this._readUserCache();
+        if (cached) {
+          this._currentUser = cached;
+          return cached;
+        }
         return null;
       }
       const { data } = sessionData;
