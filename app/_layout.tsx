@@ -87,7 +87,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Show branded loading screen while the session is being restored from
   // secure storage. Placed after all hooks so hook order is always stable.
-  if (!authReady) return <AppLoadingScreen message="Restoring your session…" />;
+  if (!authReady) return <AppLoadingScreen />;
 
   return <>{children}</>;
 }

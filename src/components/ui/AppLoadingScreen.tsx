@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator, Pressable } from 'react-native';
+import { View, Image, ActivityIndicator, Pressable } from 'react-native';
 import { Text } from './Text';
 import { tokens } from '../../theme/tokens';
 
@@ -17,12 +17,11 @@ interface AppLoadingScreenProps {
 export function AppLoadingScreen({ message, error, onRetry }: AppLoadingScreenProps) {
   return (
     <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
-      <Text
-        variant="heading1"
-        style={{ color: '#e8e8f5', marginBottom: tokens.spacing.xl, letterSpacing: -0.5 }}
-      >
-        ouiShare
-      </Text>
+      <Image
+        source={require('../../../assets/icon.png')}
+        style={{ width: 96, height: 96, borderRadius: 20, marginBottom: tokens.spacing.xl }}
+        resizeMode="contain"
+      />
 
       {error ? (
         <>
