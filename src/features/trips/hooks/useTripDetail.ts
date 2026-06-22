@@ -23,8 +23,11 @@ export function useTripDetail(tripId: string) {
     error: null,
   });
 
-  // Reactive — updated by store whenever mutations go through the store.
-  const expenses     = useTripSessionStore((s) => selectExpenses(s, tripId));
+  const rawExpenses  = useTripSessionStore((s) => selectExpenses(s, tripId));
+  const expenses     = useMemo(
+    () => [...rawExpenses].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    [rawExpenses],
+  );
   // undefined means loadTripDetail hasn't run yet; after that it's always a TripMember[].
   const storeMembers = useTripSessionStore((s) => s.members[tripId]);
 
