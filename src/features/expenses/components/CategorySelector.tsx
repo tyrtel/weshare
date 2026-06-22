@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Pressable, Modal, FlatList, SafeAreaView } from 'react-native';
+import { View, Pressable, Modal, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
 import { useColors } from '../../../theme/colors';

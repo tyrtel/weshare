@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, ActivityIndicator, Platform, Pressable, Image, Modal, StatusBar, SafeAreaView } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Platform, Pressable, Image, Modal, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
