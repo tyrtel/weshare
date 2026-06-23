@@ -38,7 +38,6 @@ type BalanceRow = {
 
 const STYLE_TABS: { key: StandingsStyle; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'tinted', icon: 'ellipse-outline' },
-  { key: 'person', icon: 'people-outline' },
   { key: 'list',   icon: 'list-outline' },
 ];
 
@@ -135,65 +134,7 @@ function TintedBubbles({ sorted, currency, members }: {
   );
 }
 
-// ── Mode B: person (each person's avatar color, white text) ──────────────────
-
-function PersonBubbles({ sorted, currency, members }: {
-  sorted: BalanceRow[];
-  currency: string;
-  members: TripMember[];
-}) {
-  const debtors   = sorted.filter(b => b.balanceCents < -THRESHOLD);
-  const credits   = sorted.filter(b => b.balanceCents >  THRESHOLD);
-  const maxDebt   = debtors.reduce((m, b) => Math.max(m, Math.abs(b.balanceCents)), 1);
-  const maxCredit = credits.reduce((m, b) => Math.max(m, b.balanceCents), 1);
-
-  function bubbleSize(cents: number) {
-    if (cents < -THRESHOLD) return DEBTOR_SIZE_MIN + (Math.abs(cents) / maxDebt)   * (DEBTOR_SIZE_MAX - DEBTOR_SIZE_MIN);
-    if (cents >  THRESHOLD) return CREDIT_SIZE_MIN + (cents           / maxCredit) * (CREDIT_SIZE_MAX - CREDIT_SIZE_MIN);
-    return 48;
-  }
-
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-end', gap: tokens.spacing.lg }}>
-      {sorted.map(({ userId, balanceCents, member }) => {
-        const isDebtor   = balanceCents < -THRESHOLD;
-        const isCreditor = balanceCents >  THRESHOLD;
-        const size = bubbleSize(balanceCents);
-        const palette = personColorFor(userId, members);
-
-        const nameFontSize   = Math.round(9  + (size - 48) / 60 * 5);
-        const amountFontSize = Math.round(8  + (size - 48) / 60 * 4);
-
-        const amountLabel = isDebtor
-          ? `−${formatCurrency(Math.abs(balanceCents), currency)}`
-          : isCreditor
-            ? `+${formatCurrency(balanceCents, currency)}`
-            : 'even';
-
-        return (
-          <View
-            key={userId}
-            style={{
-              width: size, height: size, borderRadius: size / 2,
-              backgroundColor: palette.text,
-              alignItems: 'center', justifyContent: 'center',
-              paddingHorizontal: tokens.spacing.xs, ...tokens.shadow.sm,
-            }}
-          >
-            <Text numberOfLines={1} style={{ fontSize: nameFontSize, fontWeight: '700', color: '#ffffff', lineHeight: nameFontSize + 2 }}>
-              {firstName(member.displayName)}
-            </Text>
-            <Text numberOfLines={1} style={{ fontSize: amountFontSize, fontWeight: '600', color: '#ffffff', lineHeight: amountFontSize + 2 }}>
-              {amountLabel}
-            </Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-// ── Mode C: list (avatar row, no bubbles) ─────────────────────────────────────
+// ── Mode B: list (avatar row, no bubbles) ─────────────────────────────────────
 
 function ListRows({ sorted, currency, members }: {
   sorted: BalanceRow[];
@@ -293,7 +234,6 @@ export function BalanceBubblesSection({ members, expenses, currency }: BalanceBu
       </View>
 
       {style === 'tinted' && <TintedBubbles sorted={sorted} currency={currency} members={members} />}
-      {style === 'person' && <PersonBubbles sorted={sorted} currency={currency} members={members} />}
       {style === 'list'   && <ListRows      sorted={sorted} currency={currency} members={members} />}
     </View>
   );
