@@ -97,6 +97,7 @@ export class SupabaseExpenseRepository implements IExpenseRepository {
       .update({
         description:        expense.description,
         total_amount_cents: expense.totalAmountCents,
+        paid_by_user_id:    expense.paidByUserId,
         metadata:           expense.metadata as Record<string, unknown>,
       })
       .eq('id', expense.id)

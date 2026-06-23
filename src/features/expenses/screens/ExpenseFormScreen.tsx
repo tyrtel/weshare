@@ -19,7 +19,10 @@ import { LineItemRow } from '../components/LineItemRow';
 import { ReceiptCapture } from '../components/ReceiptCapture';
 import type { SplitMode } from '../components/SplitMemberRow';
 import { useAddExpense } from '../hooks/useAddExpense';
+import { useEditExpense } from '../hooks/useEditExpense';
+import { useExpenseDetail } from '../hooks/useExpenseDetail';
 import { useSplitForm } from '../hooks/useSplitForm';
+import type { SplitFormEntry } from '../hooks/useSplitForm';
 import { useCurrencyRate } from '../hooks/useCurrencyRate';
 import { useTripDetail } from '../../trips/hooks/useTripDetail';
 import { useTripSessionStore } from '../../../core/di/ServiceContext';
@@ -43,7 +46,6 @@ const EMPTY_EXPENSES: never[] = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Strips trailing zeros beyond the first decimal digit: 1.0800→1.08, 2.0000→2.0
 function formatRate(r: number): string {
   const trimmed = r.toFixed(4).replace(/\.?0+$/, '');
   return trimmed.includes('.') ? trimmed : `${trimmed}.0`;
@@ -63,59 +65,90 @@ function scaleAndCorrect(splits: SplitResult[], rate: number, targetCents: numbe
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-export function AddExpenseScreen() {
-  const { tripId } = useLocalSearchParams<{ tripId: string }>();
-  const router     = useRouter();
-  const colors     = useColors();
+export function ExpenseFormScreen() {
+  const { tripId, id: expenseId } = useLocalSearchParams<{ tripId?: string; id?: string }>();
+  const router  = useRouter();
+  const colors  = useColors();
+  const mode    = expenseId ? 'edit' : 'add';
 
-  const { trip, loading: tripLoading } = useTripDetail(tripId);
-  const { addExpense, loading: saving, error } = useAddExpense(tripId);
+  // Edit mode: load the existing expense first.
+  const { expense, loading: expLoading } = useExpenseDetail(expenseId ?? '');
+
+  // Resolve trip from param (add) or from loaded expense (edit).
+  const resolvedTripId = tripId ?? expense?.tripId ?? '';
+  const { trip, loading: tripLoading } = useTripDetail(resolvedTripId);
+
+  // Both hooks are always called; only one fires on submit.
+  const { addExpense,  loading: addLoading,  error: addError  } = useAddExpense(resolvedTripId);
+  const { editExpense, loading: editLoading, error: editError  } = useEditExpense();
+  const saving = mode === 'add' ? addLoading  : editLoading;
+  const error  = mode === 'add' ? addError    : editError;
 
   // Read existing expenses to derive the last-used foreign currency default.
-  const tripExpenses = useTripSessionStore(s => (s.expenses as Record<string, typeof EMPTY_EXPENSES>)[tripId] ?? EMPTY_EXPENSES);
+  const tripExpenses = useTripSessionStore(
+    s => (s.expenses as Record<string, typeof EMPTY_EXPENSES>)[resolvedTripId] ?? EMPTY_EXPENSES,
+  );
 
-  const [description,          setDescription]          = useState('');
-  const [totalAmountCents,     setTotalAmountCents]      = useState(0);
-  const [category,             setCategory]             = useState<string | undefined>(undefined);
-  const [paidByUserId,         setPaidByUserId]          = useState('');
-  const [entryCurrency,        setEntryCurrency]        = useState('');
-  const [currencyDropVisible,  setCurrencyDropVisible]  = useState(false);
-  const [initialised,          setInitialised]          = useState(false);
-  const [dirty,                setDirty]                = useState(false);
-  const [receiptPath,          setReceiptPath]          = useState<string | undefined>(undefined);
+  const [description,         setDescription]         = useState('');
+  const [totalAmountCents,    setTotalAmountCents]     = useState(0);
+  const [category,            setCategory]            = useState<string | undefined>(undefined);
+  const [paidByUserId,        setPaidByUserId]         = useState('');
+  const [entryCurrency,       setEntryCurrency]       = useState('');
+  const [currencyDropVisible, setCurrencyDropVisible] = useState(false);
+  const [initialised,         setInitialised]         = useState(false);
+  const [dirty,               setDirty]               = useState(false);
+  const [receiptPath,         setReceiptPath]         = useState<string | undefined>(undefined);
 
-  // Render-phase init: fires once when trip data arrives.
-  if (trip && !initialised) {
-    if (trip.members.length > 0) setPaidByUserId(trip.members[0].userId);
-
-    // Default to last foreign currency used in this trip, else trip currency.
-    const lastForeign = [...tripExpenses]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .find(e => e.metadata?.originalAmount)
-      ?.metadata?.originalAmount?.currency ?? null;
-    setEntryCurrency(lastForeign ?? trip.currency);
-
-    setInitialised(true);
+  // Render-phase initialisation — fires once when the necessary data arrives.
+  if (!initialised) {
+    if (mode === 'add' && trip) {
+      if (trip.members.length > 0) setPaidByUserId(trip.members[0].userId);
+      const lastForeign = [...tripExpenses]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .find(e => e.metadata?.originalAmount)
+        ?.metadata?.originalAmount?.currency ?? null;
+      setEntryCurrency(lastForeign ?? trip.currency);
+      setInitialised(true);
+    } else if (mode === 'edit' && expense && trip) {
+      setDescription(expense.description);
+      setTotalAmountCents(expense.metadata.originalAmount?.amountCents ?? expense.totalAmountCents);
+      setEntryCurrency(expense.metadata.originalAmount?.currency ?? trip.currency);
+      setCategory(expense.metadata.category);
+      setPaidByUserId(expense.paidByUserId);
+      setReceiptPath(expense.metadata.receiptUrl);
+      setInitialised(true);
+    }
   }
 
   const tripCurrency   = trip?.currency ?? 'EUR';
   const isForeign      = entryCurrency !== '' && entryCurrency !== tripCurrency;
   const rate           = useCurrencyRate(entryCurrency || tripCurrency, tripCurrency);
 
-  // Converted total in trip currency (used for split computation and submission).
   const convertedCents = useMemo(() => {
     if (!isForeign || !rate.result) return totalAmountCents;
     return Math.round(totalAmountCents * rate.result.rate);
   }, [isForeign, totalAmountCents, rate.result]);
 
+  // Pre-fill splits from existing expense when in edit mode.
+  const initialEntries: SplitFormEntry[] | undefined = useMemo(() => {
+    if (mode !== 'edit' || !expense || !trip) return undefined;
+    return trip.members.map(m => {
+      const s = expense.splits.find(sp => sp.userId === m.userId);
+      return { userId: m.userId, included: !!s, customAmountCents: s ? s.amountOwedCents : null };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, expense?.id, trip?.id]);
+
   const split = useSplitForm({
-    members: trip?.members ?? [],
+    members:       trip?.members ?? [],
     totalAmountCents: convertedCents,
+    initialEntries,
+    initialMode:   mode === 'edit' ? 'custom' : undefined,
+    ready:         mode === 'edit' ? (!!expense && !!trip) : undefined,
   });
 
-  // For itemized mode items are in entry currency; convert the total.
-  const isItemized   = split.splitMode === 'itemized';
-  const enteredTotal = isItemized ? split.itemizedTotal : totalAmountCents;
+  const isItemized     = split.splitMode === 'itemized';
+  const enteredTotal   = isItemized ? split.itemizedTotal : totalAmountCents;
   const effectiveTotal = !isForeign || !rate.result
     ? enteredTotal
     : Math.round(enteredTotal * rate.result.rate);
@@ -147,32 +180,35 @@ export function AddExpenseScreen() {
   };
 
   const handleSubmit = async () => {
-    const rawSplits  = split.computedSplits;
+    const rawSplits   = split.computedSplits;
     const finalSplits = isForeign && rate.result
       ? scaleAndCorrect(rawSplits, rate.result.rate, effectiveTotal)
       : rawSplits;
 
     const originalAmount = isForeign && rate.result
-      ? {
-          amountCents:  enteredTotal,
-          currency:     entryCurrency,
-          exchangeRate: rate.result.rate,
-          source:       rate.result.source,
-        }
+      ? { amountCents: enteredTotal, currency: entryCurrency, exchangeRate: rate.result.rate, source: rate.result.source }
       : undefined;
 
-    const expense = await addExpense({
+    const input = {
       description,
       totalAmountCents: effectiveTotal,
-      currency: tripCurrency,
+      currency:         tripCurrency,
       paidByUserId,
-      splits: finalSplits,
+      splits:           finalSplits,
       category,
-      receiptUrl:     receiptPath,
-      lineItems:      isItemized ? split.lineItems : undefined,
+      receiptUrl:       receiptPath,
+      lineItems:        isItemized ? split.lineItems : undefined,
       originalAmount,
-    });
-    if (expense) {
+    };
+
+    let saved = null;
+    if (mode === 'add') {
+      saved = await addExpense(input);
+    } else if (expense) {
+      saved = await editExpense(expense, input);
+    }
+
+    if (saved) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (router.canGoBack()) router.back();
       else router.replace('/(tabs)');
@@ -183,21 +219,24 @@ export function AddExpenseScreen() {
 
   const inputBorder = {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: tokens.radius.md,
+    borderColor:     colors.border,
+    borderWidth:     1,
+    borderRadius:    tokens.radius.md,
     paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    color: colors.text.primary,
-    fontSize: tokens.fontSize.md,
+    paddingVertical:   tokens.spacing.sm,
+    color:           colors.text.primary,
+    fontSize:        tokens.fontSize.md,
   } as const;
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Loading state ────────────────────────────────────────────────────────────
 
-  if (tripLoading || !trip) {
+  const isLoading = tripLoading || (mode === 'edit' && expLoading) || !trip || (mode === 'edit' && !expense);
+  const title     = mode === 'add' ? 'Add Expense' : 'Edit Expense';
+
+  if (isLoading) {
     return (
       <ScreenWrapper>
-        <Stack.Screen options={{ title: 'Add Expense' }} />
+        <Stack.Screen options={{ title }} />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary.default} />
         </View>
@@ -209,12 +248,16 @@ export function AddExpenseScreen() {
     ? colors.text.secondary
     : colors.warning?.default ?? colors.text.secondary;
 
+  const closedMessage = mode === 'add'
+    ? 'This trip is closed. No new expenses can be added.'
+    : 'This trip is closed. Expenses can no longer be edited.';
+
   const confirmButton = trip.status !== 'closed' ? () => (
     <Pressable
       onPress={handleSubmit}
       disabled={!isValid || saving}
       accessibilityRole="button"
-      accessibilityLabel="Confirm expense"
+      accessibilityLabel={mode === 'add' ? 'Confirm expense' : 'Save changes'}
       style={({ pressed }) => ({
         width: 36,
         height: 36,
@@ -232,17 +275,19 @@ export function AddExpenseScreen() {
     </Pressable>
   ) : undefined;
 
+  // ── Render ───────────────────────────────────────────────────────────────────
+
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Add Expense', headerRight: confirmButton }} />
-      <ClosedTripGuard trip={trip} message="This trip is closed. No new expenses can be added.">
+      <Stack.Screen options={{ title, headerRight: confirmButton }} />
+      <ClosedTripGuard trip={trip} message={closedMessage}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView
             contentContainerStyle={{ padding: tokens.spacing.md, paddingBottom: tokens.spacing.xxl }}
             keyboardShouldPersistTaps="handled"
           >
             {/* Heading + receipt capture */}
-            <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm }}>Add Expense</Text>
+            <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm }}>{title}</Text>
             <ReceiptCapture onParsed={handleParsed} disabled={saving} style={{ marginBottom: tokens.spacing.md }} />
 
             {/* Description */}
@@ -255,7 +300,7 @@ export function AddExpenseScreen() {
               placeholder="e.g. Dinner at Chez Paul"
               placeholderTextColor={colors.text.tertiary}
               style={[inputBorder, { marginBottom: tokens.spacing.md }]}
-              autoFocus
+              autoFocus={mode === 'add'}
               returnKeyType="next"
               accessibilityLabel="Expense description"
             />
@@ -302,10 +347,7 @@ export function AddExpenseScreen() {
                   opacity: pressed ? 0.7 : 1,
                 })}
               >
-                <Text
-                  variant="caption"
-                  color={isForeign ? colors.primary.default : colors.text.secondary}
-                >
+                <Text variant="caption" color={isForeign ? colors.primary.default : colors.text.secondary}>
                   {entryCurrency || tripCurrency}
                 </Text>
                 <Ionicons
@@ -368,11 +410,11 @@ export function AddExpenseScreen() {
                       accessibilityState={{ checked: active }}
                       style={{
                         paddingHorizontal: tokens.spacing.sm,
-                        paddingVertical: tokens.spacing.xs,
-                        borderRadius: tokens.radius.pill,
-                        borderWidth: 1,
-                        borderColor: active ? colors.primary.default : colors.border,
-                        backgroundColor: active ? colors.primary.subtle : 'transparent',
+                        paddingVertical:   tokens.spacing.xs,
+                        borderRadius:      tokens.radius.pill,
+                        borderWidth:       1,
+                        borderColor:       active ? colors.primary.default : colors.border,
+                        backgroundColor:   active ? colors.primary.subtle : 'transparent',
                       }}
                     >
                       <Text variant="caption" color={active ? colors.primary.default : colors.text.secondary}>
@@ -494,7 +536,7 @@ export function AddExpenseScreen() {
               <Text variant="label" color={colors.text.secondary}>Entry currency</Text>
             </View>
             {CURRENCIES.map((item, index) => {
-              const selected = item.code === (entryCurrency || tripCurrency);
+              const selected  = item.code === (entryCurrency || tripCurrency);
               const isTripCcy = item.code === tripCurrency;
               return (
                 <View key={item.code}>
@@ -508,8 +550,8 @@ export function AddExpenseScreen() {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       paddingHorizontal: tokens.spacing.md,
-                      paddingVertical: tokens.spacing.md,
-                      backgroundColor: pressed ? colors.surfaceAlt : selected ? colors.primary.subtle : 'transparent',
+                      paddingVertical:   tokens.spacing.md,
+                      backgroundColor:   pressed ? colors.surfaceAlt : selected ? colors.primary.subtle : 'transparent',
                     })}
                   >
                     <View>

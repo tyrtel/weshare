@@ -103,6 +103,20 @@ describe('useEditExpense — success', () => {
     expect(updated?.totalAmountCents).toBe(12000);
   });
 
+  it('reflects the new paidByUserId in the returned expense', async () => {
+    const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
+
+    let updated: Expense | null = null;
+    await act(async () => {
+      updated = await result.current.editExpense(
+        expenseFactory({ paidByUserId: 'jay' }),
+        makeInput({ paidByUserId: 'marie' }),
+      );
+    });
+
+    expect(updated?.paidByUserId).toBe('marie');
+  });
+
   it('replaces splits with the new ones', async () => {
     const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
 

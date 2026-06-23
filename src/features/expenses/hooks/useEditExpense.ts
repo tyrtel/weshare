@@ -29,14 +29,18 @@ export function useEditExpense() {
 
       setLoading(true);
 
-      // Update the expense record.
       const updated: Expense = {
         ...existing,
         description:      input.description.trim(),
         totalAmountCents: input.totalAmountCents,
         currency:         input.currency,
         paidByUserId:     input.paidByUserId,
-        metadata:         { ...existing.metadata, category: input.category },
+        metadata: {
+          category:       input.category,
+          receiptUrl:     input.receiptUrl,
+          lineItems:      input.lineItems,
+          originalAmount: input.originalAmount,
+        },
       };
 
       const expResult = await expenseRepo.updateExpense(updated);
@@ -56,7 +60,7 @@ export function useEditExpense() {
         input.splits.map(s =>
           splitRepo.saveSplit({
             id: generateId(),
-            expenseId: expResult.value.id,
+            expenseId: existing.id,
             userId: s.userId,
             amountOwedCents: s.amountOwedCents,
             amountPaidCents: 0,
@@ -71,7 +75,10 @@ export function useEditExpense() {
         return null;
       }
 
-      const savedExpense = { ...expResult.value, splits: splitResults.filter(isOk).map(r => r.value) };
+      // Use `updated` (not the server response) as the store base so the new
+      // paidByUserId and metadata are reflected immediately, regardless of what
+      // the DB echoes back.
+      const savedExpense = { ...updated, splits: splitResults.filter(isOk).map(r => r.value) };
       storeApi.getState().replaceExpense(savedExpense);
       setLoading(false);
       return savedExpense;
