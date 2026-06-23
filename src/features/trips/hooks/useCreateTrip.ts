@@ -9,9 +9,10 @@ import type { AppError } from '../../../core/types/AppError';
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Request timed out after ${ms / 1000}s`)), ms),
-    ),
+    new Promise<T>((_, reject) => {
+      const t = setTimeout(() => reject(new Error(`Request timed out after ${ms / 1000}s`)), ms);
+      if (typeof t === 'object' && t !== null) t.unref();
+    }),
   ]);
 }
 

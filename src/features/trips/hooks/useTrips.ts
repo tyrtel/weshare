@@ -12,9 +12,12 @@ const RETRY_DELAY_MS = 1500;
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Request timed out after ${ms / 1000}s`)), ms),
-    ),
+    new Promise<T>((_, reject) => {
+      const t = setTimeout(() => reject(new Error(`Request timed out after ${ms / 1000}s`)), ms);
+      // Prevent this timer from keeping the Jest worker (or Node process) alive
+      // if the main promise resolves first and the timeout never fires.
+      if (typeof t === 'object' && t !== null) t.unref();
+    }),
   ]);
 }
 

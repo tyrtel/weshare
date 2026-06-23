@@ -95,9 +95,10 @@ export class SupabaseAuthService implements IAuthService {
   private static async _withTimeout<T>(promise: Promise<T>, ms: number, message?: string): Promise<T> {
     return Promise.race([
       promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(message ?? `Request timed out after ${ms / 1000}s`)), ms),
-      ),
+      new Promise<T>((_, reject) => {
+        const t = setTimeout(() => reject(new Error(message ?? `Request timed out after ${ms / 1000}s`)), ms);
+        if (typeof t === 'object' && t !== null) t.unref();
+      }),
     ]);
   }
 
