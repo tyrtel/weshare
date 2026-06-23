@@ -16,6 +16,13 @@
         "simulator": true
       }
     },
+    "debug-device": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SIMULATE": "false"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "env": {
