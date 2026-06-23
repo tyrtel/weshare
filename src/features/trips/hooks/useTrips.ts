@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useFocusEffect } from 'expo-router';
+import * as Sentry from '@sentry/react-native';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { AUTH, TRIP_STORE } from '../../../core/di/tokens';
 import { deriveTripFinancialSummary } from '../../../core/logic/settlement';
@@ -36,25 +37,34 @@ export function useTrips() {
   const allExpenses = useTripSessionStore((s) => s.expenses);
 
   const load = useCallback(async () => {
+    Sentry.addBreadcrumb({ category: 'trips', message: 'load_start', level: 'info' });
     // Wait longer than getInitialUser's own 10s getSession timeout so we never
     // race it. If auth still isn't ready, treat as signed-out; AuthGate redirects.
     try {
       await withTimeout(auth.awaitReady(), 65_000);
     } catch {
+      Sentry.addBreadcrumb({ category: 'trips', message: 'load_auth_not_ready', level: 'warning' });
       setState({ loading: false, error: null });
       return;
     }
 
     const user = auth.currentUser();
     if (!user) {
+      Sentry.addBreadcrumb({ category: 'trips', message: 'load_no_user', level: 'warning' });
       setState({ loading: false, error: null });
       return;
     }
 
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
+    Sentry.addBreadcrumb({ category: 'trips', message: 'load_calling_db', level: 'info' });
     await storeApi.getState().loadTrips(user.id);
     const loadedTrips = storeApi.getState().trips;
+    Sentry.addBreadcrumb({
+      category: 'trips',
+      message:  `load_db_returned: count=${loadedTrips.length} err=${!!storeApi.getState().hydrationError}`,
+      level:    storeApi.getState().hydrationError ? 'warning' : 'info',
+    });
     if (loadedTrips.length > 0) {
       await Promise.all(loadedTrips.map((t) => storeApi.getState().loadTripDetail(t.id)));
     }
@@ -62,9 +72,17 @@ export function useTrips() {
     // On transient network/Supabase errors, retry once silently before
     // surfacing anything to the user.
     if (storeApi.getState().hydrationError) {
+      const errDetail = JSON.stringify(storeApi.getState().hydrationError);
+      Sentry.captureMessage(`trips_hydration_error: ${errDetail}`, 'warning');
       await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+      Sentry.addBreadcrumb({ category: 'trips', message: 'load_retry', level: 'info' });
       await storeApi.getState().loadTrips(user.id);
       const retryTrips = storeApi.getState().trips;
+      Sentry.addBreadcrumb({
+        category: 'trips',
+        message:  `load_retry_returned: count=${retryTrips.length} err=${!!storeApi.getState().hydrationError}`,
+        level:    storeApi.getState().hydrationError ? 'warning' : 'info',
+      });
       if (retryTrips.length > 0) {
         await Promise.all(retryTrips.map((t) => storeApi.getState().loadTripDetail(t.id)));
       }

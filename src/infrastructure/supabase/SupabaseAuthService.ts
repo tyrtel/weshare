@@ -38,6 +38,12 @@ export class SupabaseAuthService implements IAuthService {
     pingSupabase();
 
     supabase.auth.onAuthStateChange(async (event, session) => {
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message:  `auth_state_change: ${event} has_session=${!!session?.user}`,
+        level:    'info',
+        data:     { expires_at: session?.expires_at },
+      });
       try {
         // TOKEN_REFRESHED is a transient event during getInitialUser()'s getSession()
         // call. Clearing _currentUser here would race with getInitialUser() setting it,
@@ -382,6 +388,20 @@ export class SupabaseAuthService implements IAuthService {
         if (cached) {
           this._currentUser = cached;
           Sentry.captureMessage('session_restore_slow_path', 'info');
+          // Track whether the background refresh eventually succeeds or fails.
+          // This tells us if TOKEN_REFRESHED will fire and trigger a trips reload.
+          void sessionPromise
+            .then(({ data, error }) => {
+              if (error) {
+                Sentry.captureMessage(`session_bg_error: ${error.message}`, 'warning');
+              } else if (!data.session) {
+                Sentry.captureMessage('session_bg_null', 'warning');
+              } else {
+                const expiresIn = (data.session.expires_at ?? 0) - Math.floor(Date.now() / 1000);
+                Sentry.captureMessage(`session_bg_ok: expires_in=${expiresIn}s`, 'info');
+              }
+            })
+            .catch(e => Sentry.captureMessage(`session_bg_threw: ${String(e)}`, 'warning'));
           return cached;
         }
         // No cache (first install or post-sign-out). Wait for the full refresh;
