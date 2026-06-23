@@ -1,5 +1,6 @@
 import { Linking } from 'react-native';
 import type { IPaymentService, PaymentProvider } from '../../core/interfaces/IPaymentService';
+import { getMinorUnitMultiplier } from '../../core/constants/currencies';
 
 // Custom schemes probed to determine if the native app is installed.
 // 'paypal' and 'other' are always shown: paypal.me is a plain web URL,
@@ -22,7 +23,10 @@ export class DeepLinkPaymentService implements IPaymentService {
     if (!Number.isFinite(amountCents) || amountCents <= 0) {
       throw new Error(`buildPaymentLink: amountCents must be a positive finite number (got ${amountCents})`);
     }
-    const amount = (amountCents / 100).toFixed(2);
+    const multiplier = getMinorUnitMultiplier(currency);
+    const amount = multiplier === 1
+      ? String(Math.round(amountCents))
+      : (amountCents / multiplier).toFixed(2);
     const handle = encodeURIComponent(recipientHandle);
 
     switch (provider) {

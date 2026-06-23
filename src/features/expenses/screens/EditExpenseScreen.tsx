@@ -18,6 +18,7 @@ import { useTripDetail } from '../../trips/hooks/useTripDetail';
 import { useSplitForm, type SplitFormEntry } from '../hooks/useSplitForm';
 import { ClosedTripGuard } from '../../../components/ui/ClosedTripGuard';
 import { ErrorBanner } from '../../../components/ui/ErrorBanner';
+import { formatCurrency } from '../../../core/utils/formatCurrency';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 
@@ -224,8 +225,8 @@ export function EditExpenseScreen() {
             >
               <Text variant="caption" color={split.remainder > 0 ? colors.warning.default : colors.error.default}>
                 {split.remainder > 0
-                  ? `${(split.remainder / 100).toFixed(2)} ${currency} still to assign`
-                  : `Over by ${(Math.abs(split.remainder) / 100).toFixed(2)} ${currency}`}
+                  ? `${formatCurrency(split.remainder, currency)} still to assign`
+                  : `Over by ${formatCurrency(Math.abs(split.remainder), currency)}`}
               </Text>
             </View>
           )}

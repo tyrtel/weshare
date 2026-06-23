@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TextInput, View, Text as RNText } from 'react-native';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
+import { getMinorUnitMultiplier } from '../../../core/constants/currencies';
 
 interface AmountInputProps {
   amountCents: number;
@@ -13,14 +14,15 @@ interface AmountInputProps {
   compact?: boolean;
 }
 
-function centsToDisplay(cents: number): string {
-  return (cents / 100).toFixed(2);
+function minorUnitsToDisplay(minorUnits: number, multiplier: number): string {
+  if (multiplier === 1) return minorUnits === 0 ? '0' : String(Math.round(minorUnits));
+  return (minorUnits / multiplier).toFixed(2);
 }
 
-function displayToCents(text: string): number {
+function displayToMinorUnits(text: string, multiplier: number): number {
   const parsed = parseFloat(text.replace(/[^0-9.]/g, ''));
   if (isNaN(parsed)) return 0;
-  return Math.round(parsed * 100);
+  return Math.round(parsed * multiplier);
 }
 
 export function AmountInput({
@@ -31,31 +33,32 @@ export function AmountInput({
   readOnly = false,
   compact = false,
 }: AmountInputProps) {
-  const colors = useColors();
-  const [displayValue, setDisplayValue] = useState(centsToDisplay(amountCents));
+  const colors     = useColors();
+  const multiplier = getMinorUnitMultiplier(currency);
+  const [displayValue, setDisplayValue] = useState(minorUnitsToDisplay(amountCents, multiplier));
   const [focused, setFocused] = useState(false);
 
   // Only sync external amountCents changes (e.g. equal-split recalculation) when
   // the field is not focused — otherwise we'd reformat the string mid-typing.
   useEffect(() => {
-    if (!focused) setDisplayValue(centsToDisplay(amountCents));
-  }, [amountCents, focused]);
+    if (!focused) setDisplayValue(minorUnitsToDisplay(amountCents, multiplier));
+  }, [amountCents, focused, multiplier]);
 
   const handleFocus = () => {
     setFocused(true);
-    if (displayToCents(displayValue) === 0) setDisplayValue('');
+    if (displayToMinorUnits(displayValue, multiplier) === 0) setDisplayValue('');
   };
 
   const handleBlur = () => {
     setFocused(false);
-    const cents = displayToCents(displayValue);
-    onChangeCents(cents);
-    setDisplayValue(centsToDisplay(cents));
+    const units = displayToMinorUnits(displayValue, multiplier);
+    onChangeCents(units);
+    setDisplayValue(minorUnitsToDisplay(units, multiplier));
   };
 
   const handleChangeText = (text: string) => {
     setDisplayValue(text);
-    onChangeCents(displayToCents(text));
+    onChangeCents(displayToMinorUnits(text, multiplier));
   };
 
   if (compact) {
@@ -69,7 +72,7 @@ export function AmountInput({
           onChangeText={handleChangeText}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          keyboardType="decimal-pad"
+          keyboardType={multiplier === 1 ? 'number-pad' : 'decimal-pad'}
           editable={!readOnly}
           accessibilityLabel={label ?? 'Amount'}
           style={{ color: colors.text.primary, fontSize: tokens.fontSize.md, padding: 0, minWidth: 50, textAlign: 'right' }}
@@ -111,7 +114,7 @@ export function AmountInput({
           onChangeText={handleChangeText}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          keyboardType="decimal-pad"
+          keyboardType={multiplier === 1 ? 'number-pad' : 'decimal-pad'}
           editable={!readOnly}
           accessibilityLabel={label ?? 'Amount'}
           style={{
