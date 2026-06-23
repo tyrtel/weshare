@@ -20,17 +20,28 @@ export const ServiceContext = createContext<ServiceContainer | null>(null);
 // Expo Router renders the root layout twice during initialisation (concurrent
 // rendering / hydration shell). Without this guard, ServiceProvider's useEffect
 // fires twice, creating two SupabaseAuthService instances that race through
-// getSession() and corrupt each other's auth state. The module-level promise
-// ensures the factory is called exactly once across all mounts.
-let _containerPromise: Promise<ServiceContainer> | null = null;
+// getSession() and corrupt each other's auth state.
+//
+// The promise is stored on globalThis so it is shared even when Metro evaluates
+// this module more than once (which can happen when the same file is required
+// from two differently-resolved paths — a known Metro quirk). A module-level
+// variable alone is not sufficient because each evaluation gets its own closure.
+declare global {
+  // eslint-disable-next-line no-var
+  var __weShareContainerPromise: Promise<ServiceContainer> | undefined;
+}
 
 function acquireContainer(isSimulation: boolean): Promise<ServiceContainer> {
-  if (!_containerPromise) {
+  if (!globalThis.__weShareContainerPromise) {
     const factory = isSimulation ? createSimulationContainer : createProductionContainer;
     logger.log('[ServiceProvider] calling factory:', factory.name);
-    _containerPromise = factory();
+    globalThis.__weShareContainerPromise = factory();
   }
-  return _containerPromise;
+  return globalThis.__weShareContainerPromise;
+}
+
+function resetContainerPromise() {
+  globalThis.__weShareContainerPromise = undefined;
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────────
@@ -44,7 +55,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const [initError, setInitError] = useState<string | null>(null);
 
   const init = useCallback((retry = false) => {
-    if (retry) _containerPromise = null;
+    if (retry) resetContainerPromise();
     setInitError(null);
     setContainer(null);
 
@@ -61,7 +72,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         setContainer(c);
       })
       .catch((e: unknown) => {
-        _containerPromise = null;
+        resetContainerPromise();
         const msg = e instanceof Error ? e.message : String(e);
         logger.error('[ServiceProvider] init error:', msg);
         setInitError(msg);
