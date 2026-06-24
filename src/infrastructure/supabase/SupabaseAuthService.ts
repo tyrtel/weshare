@@ -21,6 +21,17 @@ export function getAuthService(): SupabaseAuthService {
   return _instance;
 }
 
+// GoTrue returns non-JSON (plain text or HTML) during cold-start, causing the
+// native HTTP stack to throw a JSON parse error before the Supabase SDK can
+// normalise it. Detect that pattern and surface a human-readable message.
+function coldStartMessage(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  if (raw.includes('JSON Parse error') || raw.includes('Unexpected character')) {
+    return 'Server is starting up — please try again in a moment.';
+  }
+  return raw;
+}
+
 export class SupabaseAuthService implements IAuthService {
   private _currentUser: User | null = null;
   private _expiresAt: number = 0;
@@ -326,8 +337,7 @@ export class SupabaseAuthService implements IAuthService {
 
       return ok(this._currentUser);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Google sign-in failed';
-      return err({ kind: 'AuthError', message: msg });
+      return err({ kind: 'AuthError', message: coldStartMessage(e) });
     }
   }
 
@@ -379,8 +389,7 @@ export class SupabaseAuthService implements IAuthService {
 
       return ok(this._currentUser);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Apple sign-in failed';
-      return err({ kind: 'AuthError', message: msg });
+      return err({ kind: 'AuthError', message: coldStartMessage(e) });
     }
   }
 
@@ -544,15 +553,34 @@ export class SupabaseAuthService implements IAuthService {
       try {
         if (!session?.user) { listener(null); return; }
 
-        // TOKEN_REFRESHED means the session was silently renewed — user identity
-        // is unchanged. Calling _fetchUser() here would fail while the DB is still
-        // waking up (the very window when this event fires on cold start), silently
-        // dropping the listener call and leaving the trips screen permanently empty.
-        // Reuse _currentUser (set from cache on the fast path) instead.
-        if (event === 'TOKEN_REFRESHED' && this._currentUser?.id === session.user.id) {
-          Sentry.addBreadcrumb({ category: 'auth', message: 'token_refreshed_reuse_current_user', level: 'info' });
-          listener(this._currentUser!);
-          return;
+        if (event === 'TOKEN_REFRESHED') {
+          // Fast case: _currentUser already populated (warm restart or later refresh).
+          if (this._currentUser?.id === session.user.id) {
+            Sentry.addBreadcrumb({ category: 'auth', message: 'token_refreshed_reuse_current_user', level: 'info' });
+            listener(this._currentUser!);
+            return;
+          }
+          // TOKEN_REFRESHED fired while getInitialUser() is still in flight —
+          // the token refresh races with the initial getSession() call, meaning
+          // _currentUser has not been set from cache yet. Awaiting _initialUserPromise
+          // gives us the cached user without hitting the possibly-sleeping DB.
+          if (this._initialUserPromise) {
+            Sentry.addBreadcrumb({ category: 'auth', message: 'token_refreshed_awaiting_initial_promise', level: 'info' });
+            const initialUser = await this._initialUserPromise;
+            if (initialUser?.id === session.user.id) {
+              Sentry.addBreadcrumb({ category: 'auth', message: 'token_refreshed_got_from_initial_promise', level: 'info' });
+              listener(initialUser);
+            } else {
+              Sentry.addBreadcrumb({
+                category: 'auth',
+                message:  `token_refreshed_id_mismatch: initial=${initialUser?.id?.slice(0, 8) ?? 'null'}`,
+                level:    'warning',
+              });
+            }
+            return;
+          }
+          // No initial promise yet — extremely early event, fall through to _fetchUser.
+          Sentry.addBreadcrumb({ category: 'auth', message: 'token_refreshed_no_promise_fallthrough', level: 'warning' });
         }
 
         const user = await this._fetchUser(session.user.id, session.user.email);

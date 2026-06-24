@@ -23,9 +23,10 @@ interface SettlementRowProps {
   members: TripMember[];
   isCurrentUserDebtor: boolean;
   index?: number;
-  onPay?: () => void;       // debtor only: open payment sheet
-  onMarkPaid?: () => void;  // any participant: manually mark debt paid
-  onMarkOwed?: () => void;  // any participant: revert 'paid' -> 'owed'
+  onPay?: () => void;
+  onMarkPaid?: () => void;
+  markPaidBusy?: boolean;
+  onMarkOwed?: () => void;
   onHistory?: () => void;
   showDivider?: boolean;
 }
@@ -37,6 +38,7 @@ export function SettlementRow({
   index = 0,
   onPay,
   onMarkPaid,
+  markPaidBusy = false,
   onMarkOwed,
   onHistory,
   showDivider = true,
@@ -185,7 +187,7 @@ export function SettlementRow({
               )}
               {onMarkPaid && (
                 <Pressable
-                  onPress={handleMarkPaid}
+                  onPress={markPaidBusy ? undefined : handleMarkPaid}
                   accessibilityRole="button"
                   accessibilityLabel="Mark as paid"
                   style={({ pressed }) => ({
@@ -194,10 +196,15 @@ export function SettlementRow({
                     paddingHorizontal: tokens.spacing.sm,
                     borderWidth: 1,
                     borderColor: colors.border,
-                    opacity: pressed ? 0.7 : 1,
+                    opacity: markPaidBusy || pressed ? 0.5 : 1,
+                    minWidth: 72,
+                    alignItems: 'center',
                   })}
                 >
-                  <Text variant="caption" color={colors.text.secondary}>Mark Paid</Text>
+                  {markPaidBusy
+                    ? <ActivityIndicator size="small" color={colors.text.secondary} />
+                    : <Text variant="caption" color={colors.text.secondary}>Mark Paid</Text>
+                  }
                 </Pressable>
               )}
             </>

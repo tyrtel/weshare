@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   FlatList,
@@ -88,18 +88,18 @@ function RolloverScreenContent({ tripId }: { tripId: string }) {
 
   const stepIndex = { 'pick-trip': 1, 'match-participants': 2, 'review-debts': 3, 'confirm': 4 }[step];
 
+  const screenOptions = useMemo(() => ({
+    title:      'Roll Over Debts',
+    headerLeft: () => (
+      <Pressable onPress={handleBack} hitSlop={8}>
+        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+      </Pressable>
+    ),
+  }), [handleBack, colors.text.primary]);
+
   return (
     <ScreenWrapper>
-      <Stack.Screen
-        options={{
-          title:           'Roll Over Debts',
-          headerLeft:      () => (
-            <Pressable onPress={handleBack} hitSlop={8}>
-              <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-            </Pressable>
-          ),
-        }}
-      />
+      <Stack.Screen options={screenOptions} />
 
       {/* Step indicator */}
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: tokens.spacing.sm }}>

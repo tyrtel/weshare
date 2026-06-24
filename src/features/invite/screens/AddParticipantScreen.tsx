@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import * as Linking from 'expo-linking';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { ClosedTripGuard } from '../../../components/ui/ClosedTripGuard';
@@ -531,6 +531,7 @@ function CurrentMembersSection({ members }: CurrentMembersSectionProps) {
 export function AddParticipantScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const colors     = useColors();
+  const router     = useRouter();
   const share      = useService(SHARE);
   const memberRepo = useService(MEMBER_REPO);
   const store      = useService(TRIP_STORE);
@@ -619,9 +620,29 @@ export function AddParticipantScreen() {
     );
   }
 
+  const doneButton = () => (
+    <Pressable
+      onPress={() => router.replace(`/trip/${tripId}` as Parameters<typeof router.replace>[0])}
+      accessibilityRole="button"
+      accessibilityLabel="Done"
+      style={({ pressed }) => ({
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.primary.default,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: tokens.spacing.xs,
+        opacity: pressed ? 0.8 : 1,
+      })}
+    >
+      <Ionicons name="checkmark" size={20} color="#fff" />
+    </Pressable>
+  );
+
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Add Participants' }} />
+      <Stack.Screen options={{ title: 'Add Participants', headerRight: doneButton }} />
       <ClosedTripGuard trip={trip} message="This trip is closed. No new participants can be added.">
       <KeyboardAvoidingView
         style={{ flex: 1 }}

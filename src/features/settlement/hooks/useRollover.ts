@@ -37,7 +37,8 @@ export interface UseRolloverResult {
   confirm: () => Promise<boolean>;
 }
 
-const EMPTY_TRIPS: Trip[] = [];
+const EMPTY_TRIPS:   Trip[]       = [];
+const EMPTY_MEMBERS: TripMember[] = [];
 
 export function useRollover(
   sourceTripId: string,
@@ -57,7 +58,7 @@ export function useRollover(
   const [error,            setError]            = useState<AppError | null>(null);
 
   const targetMembers = useTripSessionStore(
-    (s) => targetTripId ? selectMembers(s, targetTripId) : [],
+    (s) => targetTripId ? selectMembers(s, targetTripId) : EMPTY_MEMBERS,
   );
 
   const availableTrips = useMemo(

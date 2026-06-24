@@ -157,35 +157,40 @@ export function useSettlement(tripId: string) {
 
   const markDebtPaid = useCallback(
     async (fromUserId: string, toUserId: string): Promise<void> => {
-      const existing = requestMap.get(`${fromUserId}:${toUserId}`);
-      if (existing) {
-        const updated = { ...existing, status: 'paid' as const, updatedAt: new Date() };
-        await storeApi.getState().updateSplitRequest(updated);
-      } else {
-        const settlement = settlements.find(
-          s => s.fromUserId === fromUserId && s.toUserId === toUserId,
-        );
-        if (!settlement) return;
-        const newReq: SplitRequest = {
-          id:                  `sr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-          tripId,
-          requesterUserId:     toUserId,
-          payerUserId:         fromUserId,
-          amountCents:         settlement.amountCents,
-          currency:            settlement.currency,
-          note:                '',
-          status:              'paid',
-          preferredWallet:     'other',
-          externalRefId:       null,
-          stripePaymentLinkId: null,
-          stripeSessionId:     null,
-          obPaymentId:         null,
-          obProvider:          null,
-          rolledOverFromTripId: null,
-          createdAt:           new Date(),
-          updatedAt:           new Date(),
-        };
-        await storeApi.getState().saveSplitRequest(newReq);
+      setSettling(true);
+      try {
+        const existing = requestMap.get(`${fromUserId}:${toUserId}`);
+        if (existing) {
+          const updated = { ...existing, status: 'paid' as const, updatedAt: new Date() };
+          await storeApi.getState().updateSplitRequest(updated);
+        } else {
+          const settlement = settlements.find(
+            s => s.fromUserId === fromUserId && s.toUserId === toUserId,
+          );
+          if (!settlement) return;
+          const newReq: SplitRequest = {
+            id:                  `sr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+            tripId,
+            requesterUserId:     toUserId,
+            payerUserId:         fromUserId,
+            amountCents:         settlement.amountCents,
+            currency:            settlement.currency,
+            note:                '',
+            status:              'paid',
+            preferredWallet:     'other',
+            externalRefId:       null,
+            stripePaymentLinkId: null,
+            stripeSessionId:     null,
+            obPaymentId:         null,
+            obProvider:          null,
+            rolledOverFromTripId: null,
+            createdAt:           new Date(),
+            updatedAt:           new Date(),
+          };
+          await storeApi.getState().saveSplitRequest(newReq);
+        }
+      } finally {
+        setSettling(false);
       }
     },
     [tripId, storeApi, requestMap, settlements],

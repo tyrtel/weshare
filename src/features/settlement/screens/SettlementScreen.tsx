@@ -55,6 +55,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
     splitRequests,
     loading,
     error,
+    settling,
     currentUserId,
     tripStatus,
     allSettled,
@@ -201,6 +202,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
                   : undefined
               }
               onMarkPaid={() => void markDebtPaid(item.fromUserId, item.toUserId)}
+              markPaidBusy={settling}
               onMarkOwed={() => void markDebtOwed(item.fromUserId, item.toUserId)}
               onHistory={() =>
                 router.push({

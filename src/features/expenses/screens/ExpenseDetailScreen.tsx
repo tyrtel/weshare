@@ -64,8 +64,9 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   const tripClosed = useTripSessionStore(
     s => s.trips.find(t => t.id === expense?.tripId)?.status === 'closed',
   );
-  const [members,         setMembers]         = useState<TripMember[]>([]);
-  const [receiptUrl,      setReceiptUrl]      = useState<string | null>(null);
+  const [members,           setMembers]           = useState<TripMember[]>([]);
+  const [receiptUrl,        setReceiptUrl]        = useState<string | null>(null);
+  const [receiptImgLoaded,  setReceiptImgLoaded]  = useState(false);
   const [receiptFullscreen, setReceiptFullscreen] = useState(false);
 
   useEffect(() => {
@@ -160,40 +161,72 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
         </Animated.View>
 
         {/* Receipt image — tap to view fullscreen */}
-        {receiptUrl && (
+        {!!expense.metadata?.receiptUrl && (
           <View style={{ marginBottom: tokens.spacing.md }}>
             <Text variant="caption" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
               Receipt
             </Text>
-            <Pressable
-              onPress={() => setReceiptFullscreen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="View receipt fullscreen"
-            >
-              <Image
-                source={{ uri: receiptUrl }}
+            {!receiptUrl ? (
+              <View
                 style={{
                   width: '100%',
                   height: 220,
                   borderRadius: tokens.radius.card,
                   backgroundColor: colors.surface,
-                }}
-                resizeMode="contain"
-                accessibilityLabel="Receipt image"
-              />
-              <View
-                style={{
-                  position: 'absolute',
-                  bottom: tokens.spacing.xs,
-                  right: tokens.spacing.xs,
-                  backgroundColor: 'rgba(0,0,0,0.55)',
-                  borderRadius: 999,
-                  padding: 6,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <Ionicons name="expand-outline" size={16} color="#fff" />
+                <ActivityIndicator color={colors.primary.default} />
               </View>
-            </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => setReceiptFullscreen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="View receipt fullscreen"
+              >
+                <Image
+                  source={{ uri: receiptUrl }}
+                  style={{
+                    width: '100%',
+                    height: 220,
+                    borderRadius: tokens.radius.card,
+                    backgroundColor: colors.surface,
+                  }}
+                  resizeMode="contain"
+                  accessibilityLabel="Receipt image"
+                  onLoad={() => setReceiptImgLoaded(true)}
+                />
+                {!receiptImgLoaded && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      borderRadius: tokens.radius.card,
+                      backgroundColor: colors.surface,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <ActivityIndicator color={colors.primary.default} />
+                  </View>
+                )}
+                {receiptImgLoaded && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      bottom: tokens.spacing.xs,
+                      right: tokens.spacing.xs,
+                      backgroundColor: 'rgba(0,0,0,0.55)',
+                      borderRadius: 999,
+                      padding: 6,
+                    }}
+                  >
+                    <Ionicons name="expand-outline" size={16} color="#fff" />
+                  </View>
+                )}
+              </Pressable>
+            )}
           </View>
         )}
 
