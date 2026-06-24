@@ -32,9 +32,8 @@ export class SupabaseAuthService implements IAuthService {
 
   constructor() {
     this._readyPromise = new Promise(resolve => { this._readyResolve = resolve; });
+    Sentry.addBreadcrumb({ category: 'auth', message: 'auth_service_constructed', level: 'info' });
 
-    // Wake up a potentially paused free-tier Supabase project before any
-    // authenticated requests are made.
     pingSupabase();
 
     supabase.auth.onAuthStateChange(async (event, session) => {
@@ -75,16 +74,26 @@ export class SupabaseAuthService implements IAuthService {
   private async _readUserCache(): Promise<User | null> {
     try {
       const json = await SecureStore.getItemAsync(SupabaseAuthService.USER_CACHE_KEY);
-      if (!json) return null;
+      if (!json) {
+        Sentry.addBreadcrumb({ category: 'auth', message: 'user_cache_read: empty', level: 'info' });
+        return null;
+      }
       const parsed = JSON.parse(json);
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message:  `user_cache_read: id=${String(parsed?.id ?? 'unknown').slice(0, 8)}`,
+        level:    'info',
+      });
       return { ...parsed, createdAt: new Date(parsed.createdAt) };
     } catch {
+      Sentry.addBreadcrumb({ category: 'auth', message: 'user_cache_read: parse_error', level: 'warning' });
       return null;
     }
   }
 
   private async _writeUserCache(user: User): Promise<void> {
     try {
+      Sentry.addBreadcrumb({ category: 'auth', message: `user_cache_write: id=${user.id.slice(0, 8)}`, level: 'info' });
       await SecureStore.setItemAsync(
         SupabaseAuthService.USER_CACHE_KEY,
         JSON.stringify({ ...user, createdAt: user.createdAt.toISOString() }),
@@ -93,6 +102,7 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   private async _clearUserCache(): Promise<void> {
+    Sentry.addBreadcrumb({ category: 'auth', message: 'user_cache_clear', level: 'warning' });
     try { await SecureStore.deleteItemAsync(SupabaseAuthService.USER_CACHE_KEY); } catch {}
   }
 
@@ -128,11 +138,19 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   private async _fetchUser(authId: string, email?: string): Promise<User | null> {
+    const t0 = Date.now();
+    Sentry.addBreadcrumb({ category: 'auth', message: `fetch_user: id=${authId.slice(0, 8)}`, level: 'info' });
     const { data, error } = await supabase
       .from('users')
       .select()
       .eq('id', authId)
       .single();
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      message:  `fetch_user_done: found=${!!data && !error} ms=${Date.now() - t0}`,
+      level:    error ? 'warning' : 'info',
+      data:     error ? { code: error.code } : undefined,
+    });
     if (error || !data) return null;
     return {
       id:        data.id,
@@ -262,6 +280,15 @@ export class SupabaseAuthService implements IAuthService {
     return ok(undefined);
   }
 
+  async debugSignOut(): Promise<void> {
+    // Local-only signout avoids a network round-trip to a sleeping DB.
+    try { await supabase.auth.signOut({ scope: 'local' }); } catch {}
+    this._currentUser        = null;
+    this._expiresAt          = 0;
+    this._initialUserPromise = null;
+    await this._clearUserCache();
+  }
+
   async signInWithGoogle(): Promise<Result<User, AppError>> {
     try {
       const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
@@ -295,9 +322,6 @@ export class SupabaseAuthService implements IAuthService {
       this._currentUser = { ...user, email: data.user.email };
       this._expiresAt   = data.session?.expires_at ?? 0;
       void this._writeUserCache(this._currentUser);
-
-      // Capture a breadcrumb flush point so the next session's Sentry event
-      // can confirm whether setItem was called and what size was written.
       Sentry.captureMessage('signin_google_success', 'info');
 
       return ok(this._currentUser);
@@ -361,33 +385,53 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async getInitialUser(): Promise<User | null> {
-    if (this._initialUserPromise) return this._initialUserPromise;
+    const deduped = !!this._initialUserPromise;
+    Sentry.addBreadcrumb({ category: 'auth', message: `get_initial_user: deduped=${deduped}`, level: 'info' });
+    if (deduped) return this._initialUserPromise!;
     this._initialUserPromise = this._doGetInitialUser();
     return this._initialUserPromise;
   }
 
   private async _doGetInitialUser(): Promise<User | null> {
+    const t0 = Date.now();
+    Sentry.addBreadcrumb({ category: 'auth', message: 'do_get_initial_user_start', level: 'info' });
     try {
       // getSession() is called exactly once. Never retry it — Supabase rotates
       // the refresh token on each use, so concurrent calls (one per retry)
       // consume the token and subsequent calls get "Invalid Refresh Token",
       // firing SIGNED_OUT and corrupting auth state.
       const sessionPromise = supabase.auth.getSession();
+      Sentry.addBreadcrumb({ category: 'auth', message: 'get_session_called', level: 'info' });
 
       let sessionData: Awaited<ReturnType<typeof supabase.auth.getSession>>;
       try {
         // Fast path: if the stored token is still valid, getSession() reads from
         // storage and returns in milliseconds. 10 s is a generous ceiling.
         sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 10_000, 'Session restore timed out');
+        Sentry.addBreadcrumb({
+          category: 'auth',
+          message:  `get_session_fast: ms=${Date.now() - t0} has_session=${!!sessionData.data.session}`,
+          level:    'info',
+        });
       } catch {
         // Token is expired and the DB is waking up (free-tier). Return the
         // cached user so the app opens immediately. sessionPromise keeps running;
         // the Supabase SDK deduplicates the in-flight refresh so subsequent API
         // calls wait for it rather than failing. TOKEN_REFRESHED fires when done.
+        Sentry.addBreadcrumb({
+          category: 'auth',
+          message:  `get_session_timed_out: ms=${Date.now() - t0}`,
+          level:    'warning',
+        });
         const cached = await this._readUserCache();
         if (cached) {
           this._currentUser = cached;
           Sentry.captureMessage('session_restore_slow_path', 'info');
+          Sentry.addBreadcrumb({
+            category: 'auth',
+            message:  `returning_cached_user: id=${cached.id.slice(0, 8)}`,
+            level:    'info',
+          });
           // Track whether the background refresh eventually succeeds or fails.
           // This tells us if TOKEN_REFRESHED will fire and trigger a trips reload.
           void sessionPromise
@@ -406,8 +450,14 @@ export class SupabaseAuthService implements IAuthService {
         }
         // No cache (first install or post-sign-out). Wait for the full refresh;
         // there is nothing to show until we know who the user is.
+        Sentry.addBreadcrumb({ category: 'auth', message: 'no_cache_waiting_55s', level: 'warning' });
         try {
           sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 55_000, 'Session restore timed out');
+          Sentry.addBreadcrumb({
+            category: 'auth',
+            message:  `get_session_55s: ms=${Date.now() - t0} has_session=${!!sessionData.data.session}`,
+            level:    'info',
+          });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           Sentry.captureMessage(`session_restore_error: ${msg}`, 'warning');
@@ -423,11 +473,17 @@ export class SupabaseAuthService implements IAuthService {
 
       this._expiresAt = data.session.expires_at ?? 0;
       const { id: userId, email } = data.session.user;
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message:  `session_found: user=${userId.slice(0, 8)} expires_in=${(data.session.expires_at ?? 0) - Math.floor(Date.now() / 1000)}s`,
+        level:    'info',
+      });
 
       // Fast path: return cached profile immediately, refresh DB in background.
       // Eliminates the DB round-trip on every warm restart so the app opens instantly.
       const cached = await this._readUserCache();
       if (cached?.id === userId) {
+        Sentry.addBreadcrumb({ category: 'auth', message: `profile_cache_hit: id=${cached.id.slice(0, 8)}`, level: 'info' });
         this._currentUser = cached;
         this._fetchUser(userId, email)
           .then(fresh => {
@@ -442,16 +498,27 @@ export class SupabaseAuthService implements IAuthService {
 
       // Cache miss (first install or after sign-out): fetch with a timeout so a
       // cold-start Supabase pause never blocks the app indefinitely.
+      Sentry.addBreadcrumb({ category: 'auth', message: 'profile_cache_miss', level: 'info' });
       const user = await Promise.race([
         this._fetchUser(userId, email),
         new Promise<null>(resolve => setTimeout(() => resolve(null), 8_000)),
       ]);
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message:  `profile_fetch_done: found=${!!user} ms=${Date.now() - t0}`,
+        level:    user ? 'info' : 'warning',
+      });
       if (user) {
         this._currentUser = user;
         void this._writeUserCache(user);
       }
       return user;
     } finally {
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message:  `auth_ready_resolved: total_ms=${Date.now() - t0}`,
+        level:    'info',
+      });
       this._readyResolve();
     }
   }
@@ -468,16 +535,39 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   onAuthStateChange(listener: AuthStateListener): Unsubscribe {
-    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message:  `public_auth_change: ${event} session_user=${session?.user?.id?.slice(0, 8) ?? 'null'} current=${this._currentUser?.id?.slice(0, 8) ?? 'null'}`,
+        level:    'info',
+      });
       try {
         if (!session?.user) { listener(null); return; }
+
+        // TOKEN_REFRESHED means the session was silently renewed — user identity
+        // is unchanged. Calling _fetchUser() here would fail while the DB is still
+        // waking up (the very window when this event fires on cold start), silently
+        // dropping the listener call and leaving the trips screen permanently empty.
+        // Reuse _currentUser (set from cache on the fast path) instead.
+        if (event === 'TOKEN_REFRESHED' && this._currentUser?.id === session.user.id) {
+          Sentry.addBreadcrumb({ category: 'auth', message: 'token_refreshed_reuse_current_user', level: 'info' });
+          listener(this._currentUser!);
+          return;
+        }
+
         const user = await this._fetchUser(session.user.id, session.user.email);
-        // Only notify listeners when the row is found. If null, the sign-in method
-        // will navigate directly, so we must not call listener(null) and send
-        // AuthGate back to the auth screen.
-        if (user) listener(user);
-      } catch {
-        // Background user fetch failed — listener not notified, session unchanged.
+        if (user) {
+          Sentry.addBreadcrumb({ category: 'auth', message: `listener_called: id=${user.id.slice(0, 8)}`, level: 'info' });
+          listener(user);
+        } else {
+          Sentry.addBreadcrumb({ category: 'auth', message: 'listener_skipped: fetch_returned_null', level: 'warning' });
+        }
+      } catch (e) {
+        Sentry.addBreadcrumb({
+          category: 'auth',
+          message:  `listener_skipped: fetch_threw ${e instanceof Error ? e.message : String(e)}`,
+          level:    'warning',
+        });
       }
     });
     return () => data.subscription.unsubscribe();

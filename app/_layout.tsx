@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, Alert } from 'react-native';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -61,13 +61,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const segments  = useSegments();
   const router    = useRouter();
   const navState  = useRootNavigationState();
+  const didResetRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
     auth.getInitialUser().then(initialUser => {
+      if (cancelled || didResetRef.current) return;
       setUser(initialUser);
       setAuthReady(true);
     });
-    return auth.onAuthStateChange(newUser => setUser(newUser));
+    const unsub = auth.onAuthStateChange(newUser => setUser(newUser));
+    return () => { cancelled = true; unsub(); };
   }, [auth]);
 
   useEffect(() => {
@@ -85,9 +89,30 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [user, authReady, segments, router, navState?.key]);
 
+  const handleDebugReset = useCallback(() => {
+    Alert.alert(
+      'Reset Auth',
+      'Clear all stored credentials and sign out. Useful for simulating a fresh cold start. You will need to sign in again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear & Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            Sentry.captureMessage('debug_reset_auth_triggered', 'info');
+            didResetRef.current = true;
+            await auth.debugSignOut().catch(() => {});
+            setUser(null);
+            setAuthReady(true);
+          },
+        },
+      ],
+    );
+  }, [auth]);
+
   // Show branded loading screen while the session is being restored from
   // secure storage. Placed after all hooks so hook order is always stable.
-  if (!authReady) return <AppLoadingScreen />;
+  if (!authReady) return <AppLoadingScreen onDebugReset={handleDebugReset} />;
 
   return <>{children}</>;
 }

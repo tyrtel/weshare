@@ -9,12 +9,13 @@ const BG      = '#1a1a2e';
 const PRIMARY = '#1D9E75';
 
 interface AppLoadingScreenProps {
-  message?: string;
-  error?:   string;
-  onRetry?: () => void;
+  message?:       string;
+  error?:         string;
+  onRetry?:       () => void;
+  onDebugReset?:  () => void;
 }
 
-export function AppLoadingScreen({ message, error, onRetry }: AppLoadingScreenProps) {
+export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppLoadingScreenProps) {
   return (
     <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
       <Image
@@ -58,6 +59,23 @@ export function AppLoadingScreen({ message, error, onRetry }: AppLoadingScreenPr
             </Text>
           )}
         </>
+      )}
+
+      {onDebugReset && (
+        <Pressable
+          onPress={onDebugReset}
+          accessibilityRole="button"
+          accessibilityLabel="Reset authentication state"
+          style={({ pressed }) => ({
+            position: 'absolute',
+            bottom: 36,
+            alignSelf: 'center',
+            padding: tokens.spacing.sm,
+            opacity: pressed ? 0.7 : 0.35,
+          })}
+        >
+          <Text variant="caption" style={{ color: '#9a9ab8' }}>Reset auth</Text>
+        </Pressable>
       )}
     </View>
   );

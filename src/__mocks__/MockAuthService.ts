@@ -111,4 +111,9 @@ export class MockAuthService implements IAuthService {
       this._listeners.delete(listener);
     };
   }
+
+  async debugSignOut(): Promise<void> {
+    this._currentUser = null;
+    this._notify(null);
+  }
 }

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import * as Sentry from '@sentry/react-native';
 import { LargeSecureStore } from './LargeSecureStore';
 
 // In simulation mode the real Supabase client is never used for auth, but the
@@ -217,13 +218,24 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'placeholde
 // In simulation mode use no storage so the client never touches SecureStore.
 const storage = (isSimulation || Platform.OS === 'web') ? undefined : LargeSecureStore;
 
-// Fire-and-forget ping that wakes a paused free-tier Supabase project before
-// any authenticated requests are made. Safe to call multiple times — the
-// response is intentionally ignored.
 export function pingSupabase(): void {
-  fetch(`${supabaseUrl}/rest/v1/`, {
-    headers: { apikey: supabaseAnonKey },
-  }).catch(() => {});
+  const t0 = Date.now();
+  Sentry.addBreadcrumb({ category: 'auth', message: 'ping_supabase_start', level: 'info' });
+  fetch(`${supabaseUrl}/rest/v1/`, { headers: { apikey: supabaseAnonKey } })
+    .then(r => {
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message:  `ping_supabase_done: http=${r.status} ms=${Date.now() - t0}`,
+        level:    r.status < 400 ? 'info' : 'warning',
+      });
+    })
+    .catch(e => {
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message:  `ping_supabase_fail: ${e instanceof Error ? e.message : String(e)} ms=${Date.now() - t0}`,
+        level:    'warning',
+      });
+    });
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {

@@ -26,4 +26,7 @@ export interface IAuthService {
   awaitReady(): Promise<void>;
   // Subscribe to auth state changes. Returns an unsubscribe function.
   onAuthStateChange(listener: AuthStateListener): Unsubscribe;
+  // Debug only: clears all local auth state and the profile cache without a
+  // network call. Safe to call while the session is still being restored.
+  debugSignOut(): Promise<void>;
 }

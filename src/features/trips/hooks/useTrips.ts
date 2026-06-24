@@ -94,7 +94,10 @@ export function useTrips() {
   useFocusEffect(
     useCallback(() => {
       load();
-      const unsubscribe = auth.onAuthStateChange(() => { load(); });
+      const unsubscribe = auth.onAuthStateChange(() => {
+        Sentry.addBreadcrumb({ category: 'trips', message: 'auth_change_triggering_reload', level: 'info' });
+        load();
+      });
       return unsubscribe;
     }, [load, auth]),
   );
