@@ -56,8 +56,9 @@ class ErrorBoundary extends React.Component<
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const auth = useService(AUTH);
-  const [user, setUser]           = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [user, setUser]             = useState<User | null>(null);
+  const [authReady, setAuthReady]   = useState(false);
+  const [slowStartup, setSlowStart] = useState(false);
   const segments  = useSegments();
   const router    = useRouter();
   const navState  = useRootNavigationState();
@@ -73,6 +74,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const unsub = auth.onAuthStateChange(newUser => setUser(newUser));
     return () => { cancelled = true; unsub(); };
   }, [auth]);
+
+  // Show a status line if auth is still pending after 8 s — most cache-hit
+  // restores finish in <100 ms; this only fires on first install or cold GoTrue.
+  useEffect(() => {
+    if (authReady) return;
+    const t = setTimeout(() => setSlowStart(true), 8_000);
+    return () => clearTimeout(t);
+  }, [authReady]);
 
   useEffect(() => {
     Sentry.setUser(user ? { id: user.id } : null);
@@ -112,7 +121,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Show branded loading screen while the session is being restored from
   // secure storage. Placed after all hooks so hook order is always stable.
-  if (!authReady) return <AppLoadingScreen onDebugReset={handleDebugReset} />;
+  if (!authReady) return (
+    <AppLoadingScreen
+      onDebugReset={handleDebugReset}
+      message={slowStartup ? 'Connecting to server…' : undefined}
+    />
+  );
 
   return <>{children}</>;
 }
@@ -145,6 +159,7 @@ export default Sentry.wrap(function RootLayout() {
               >
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="auth/index" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/reset-password" options={{ headerShown: false }} />
                 <Stack.Screen name="trip/create" options={{ presentation: 'modal', title: 'New Trip' }} />
                 <Stack.Screen name="+not-found" />
               </Stack>

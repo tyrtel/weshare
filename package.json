@@ -8,7 +8,6 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "simulate": "EXPO_PUBLIC_SIMULATE=true expo start --lan --clear",
-    "simulate:ocr": "EXPO_PUBLIC_SIMULATE=true EXPO_PUBLIC_OCR_LIVE=true expo start --lan --clear",
     "forward": "WIN_PATH=$(wslpath -w \"$PWD/scripts/wsl2-expo-forward.ps1\") && powershell.exe -Command \"Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\"$WIN_PATH\\\"'\"",
     "test": "jest",
     "test:watch": "jest --watch",

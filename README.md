@@ -164,6 +164,17 @@ const myService = useContainer().resolve('myService');
 
 ---
 
+## Further reading
+
+| Document | Contents |
+|---|---|
+| [docs/auth-design.md](docs/auth-design.md) | Supabase auth data model, token lifecycles, SecureStore strategy, rehydration flow, Android Google Sign-In setup |
+| [docs/auth-gap-report.md](docs/auth-gap-report.md) | Deep comparison of auth design doc vs. actual implementation — gaps, deviations, missing tests |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System-level architecture |
+| [docs/openbanking-setup.md](docs/openbanking-setup.md) | Tink open-banking integration |
+
+---
+
 ## Architecture notes
 
 - **No concrete imports in business logic.** Hooks and components only import from

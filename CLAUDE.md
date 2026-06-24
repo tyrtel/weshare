@@ -29,11 +29,6 @@ npx expo start
 npm run simulate
 # or: EXPO_PUBLIC_SIMULATE=true npx expo start
 
-# Simulation mode with live OCR — uses the real Supabase Edge Function (parse-receipt)
-# instead of the hardcoded mock. Requires SUPABASE env vars to be set.
-npm run simulate:ocr
-# or: EXPO_PUBLIC_SIMULATE=true EXPO_PUBLIC_OCR_LIVE=true npx expo start
-
 # Run tests
 npm test                   # run all tests once
 npm run test:watch         # re-run on file change

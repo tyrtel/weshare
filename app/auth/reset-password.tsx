@@ -19,25 +19,27 @@ import { darkColors as C } from '../../src/theme/colors';
 
 const CODE_LENGTH = 6;
 
-export default function VerifyScreen() {
+export default function ResetPasswordScreen() {
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { email = '', name = '' } = useLocalSearchParams<{ email: string; name: string }>();
+  const { email = '' } = useLocalSearchParams<{ email: string }>();
 
-  const [digits, setDigits]   = useState<string[]>(Array(CODE_LENGTH).fill(''));
-  const [busy, setBusy]       = useState(false);
-  const [error, setError]     = useState<string | null>(null);
-  const [resent, setResent]   = useState(false);
+  const [digits, setDigits]       = useState<string[]>(Array(CODE_LENGTH).fill(''));
+  const [password, setPassword]   = useState('');
+  const [confirm, setConfirm]     = useState('');
+  const [busy, setBusy]           = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [resentDone, setResentDone] = useState(false);
 
-  const inputRefs = useRef<(TextInput | null)[]>(Array(CODE_LENGTH).fill(null));
+  const inputRefs   = useRef<(TextInput | null)[]>(Array(CODE_LENGTH).fill(null));
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef  = useRef<TextInput>(null);
 
-  // Auto-focus first box on mount
   useEffect(() => { inputRefs.current[0]?.focus(); }, []);
 
   function handleDigit(index: number, value: string) {
-    // Strip anything that isn't a digit; take only the last character typed
     const digit = value.replace(/\D/g, '').slice(-1);
     const next = [...digits];
     next[index] = digit;
@@ -46,11 +48,8 @@ export default function VerifyScreen() {
 
     if (digit && index < CODE_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-submit when all digits filled
-    if (digit && next.every(d => d !== '')) {
-      void submit(next.join(''));
+    } else if (digit && next.every(d => d !== '')) {
+      passwordRef.current?.focus();
     }
   }
 
@@ -63,23 +62,31 @@ export default function VerifyScreen() {
     }
   }
 
-  // Handle paste: if user pastes a 6-digit string into any box
   function handlePaste(index: number, value: string) {
     const pasted = value.replace(/\D/g, '').slice(0, CODE_LENGTH);
     if (pasted.length === CODE_LENGTH) {
-      const next = pasted.split('');
-      setDigits(next);
+      setDigits(pasted.split(''));
       inputRefs.current[CODE_LENGTH - 1]?.focus();
-      void submit(pasted);
     } else {
       handleDigit(index, value);
     }
   }
 
-  async function submit(code: string) {
+  function validate(): string | null {
+    if (digits.some(d => d === ''))  return 'Please enter the 6-digit code.';
+    if (!password)                   return 'Please enter a new password.';
+    if (password.length < 6)         return 'Password must be at least 6 characters.';
+    if (password !== confirm)        return 'Passwords do not match.';
+    return null;
+  }
+
+  async function handleSubmit() {
+    const validationError = validate();
+    if (validationError) { setError(validationError); return; }
+
     setBusy(true);
     setError(null);
-    const result = await auth.verifyOtp(email, code, name);
+    const result = await auth.confirmPasswordReset(email, digits.join(''), password);
     setBusy(false);
 
     if (!isOk(result)) {
@@ -94,17 +101,16 @@ export default function VerifyScreen() {
   async function handleResend() {
     setBusy(true);
     setError(null);
-    const result = await auth.resendOtp(email);
+    const result = await auth.sendPasswordReset(email);
     setBusy(false);
     if (isOk(result)) {
-      setResent(true);
+      setResentDone(true);
     } else {
       setError(result.error.message);
     }
   }
 
-  const code = digits.join('');
-  const isComplete = code.length === CODE_LENGTH;
+  const codeComplete = digits.every(d => d !== '');
 
   return (
     <KeyboardAvoidingView
@@ -127,9 +133,9 @@ export default function VerifyScreen() {
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>Check your email</Text>
+          <Text variant="heading" style={styles.title}>Set new password</Text>
           <Text variant="body" color={C.text.secondary} style={styles.subtitle}>
-            We sent a 6-digit code to{'\n'}
+            Enter the 6-digit code sent to{'\n'}
             <Text variant="body" color={C.text.primary}>{email}</Text>
           </Text>
         </View>
@@ -152,6 +158,35 @@ export default function VerifyScreen() {
           ))}
         </View>
 
+        <View style={styles.passwordSection}>
+          <TextInput
+            ref={passwordRef}
+            value={password}
+            onChangeText={t => { setPassword(t); setError(null); }}
+            placeholder="New password (6+ characters)"
+            placeholderTextColor={C.text.tertiary}
+            secureTextEntry
+            returnKeyType="next"
+            onSubmitEditing={() => confirmRef.current?.focus()}
+            editable={!busy}
+            style={styles.input}
+            accessibilityLabel="New password"
+          />
+          <TextInput
+            ref={confirmRef}
+            value={confirm}
+            onChangeText={t => { setConfirm(t); setError(null); }}
+            placeholder="Confirm new password"
+            placeholderTextColor={C.text.tertiary}
+            secureTextEntry
+            returnKeyType="go"
+            onSubmitEditing={handleSubmit}
+            editable={!busy}
+            style={styles.input}
+            accessibilityLabel="Confirm new password"
+          />
+        </View>
+
         {error ? (
           <View style={styles.errorBanner}>
             <Text variant="caption" color={C.error.default}>{error}</Text>
@@ -159,30 +194,30 @@ export default function VerifyScreen() {
         ) : null}
 
         <Pressable
-          onPress={() => isComplete && submit(code)}
-          disabled={busy || !isComplete}
+          onPress={handleSubmit}
+          disabled={busy || !codeComplete}
           style={({ pressed }) => [
             styles.primaryButton,
-            (!isComplete || busy) && styles.disabledButton,
+            (!codeComplete || busy) && styles.disabledButton,
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Verify code"
+          accessibilityLabel="Set new password"
         >
           {busy
             ? <ActivityIndicator color={C.text.inverse} size="small" />
-            : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>Verify</Text>
+            : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>Set new password</Text>
           }
         </Pressable>
 
         <Pressable
           onPress={handleResend}
-          disabled={busy || resent}
+          disabled={busy || resentDone}
           style={({ pressed }) => [styles.resendButton, pressed && { opacity: 0.6 }]}
           accessibilityRole="button"
         >
-          <Text variant="caption" color={resent ? C.text.tertiary : C.text.secondary}>
-            {resent ? 'Code sent!' : "Didn't receive it? Go back and try again"}
+          <Text variant="caption" color={resentDone ? C.text.tertiary : C.text.secondary}>
+            {resentDone ? 'Code resent!' : "Didn't receive a code? Send again"}
           </Text>
         </Pressable>
       </ScrollView>
@@ -195,7 +230,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: C.background,
     paddingHorizontal: 24,
-    gap: 28,
+    gap: 24,
   },
   backButton: {
     alignSelf: 'flex-start',
@@ -231,6 +266,19 @@ const styles = StyleSheet.create({
   },
   digitBoxFilled: {
     borderColor: C.primary.default,
+  },
+  passwordSection: {
+    gap: 12,
+  },
+  input: {
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: C.text.primary,
   },
   errorBanner: {
     backgroundColor: C.error.bg,

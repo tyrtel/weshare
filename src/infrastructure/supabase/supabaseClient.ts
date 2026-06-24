@@ -4,10 +4,9 @@ import Constants from 'expo-constants';
 import * as Sentry from '@sentry/react-native';
 import { LargeSecureStore } from './LargeSecureStore';
 
-// In simulation mode the real Supabase client is never used for auth, but the
-// module may still be imported (e.g. for live OCR). Disabling storage and
-// autoRefreshToken prevents the client from reading a stale production session
-// out of SecureStore and firing a token-refresh that logs a spurious error.
+// In simulation mode the real Supabase client is never used. Disabling storage
+// and autoRefreshToken prevents it from reading a stale production session out
+// of SecureStore and firing a token-refresh that logs a spurious error.
 const isSimulation =
   Constants.expoConfig?.extra?.simulation === true ||
   process.env.EXPO_PUBLIC_SIMULATE === 'true';

@@ -1,7 +1,6 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
 const isSimulation = process.env.EXPO_PUBLIC_SIMULATE === 'true';
-const isOcrLive    = process.env.EXPO_PUBLIC_OCR_LIVE    === 'true';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -79,11 +78,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     // Consumed by ServiceProvider to swap in mock implementations.
     simulation: isSimulation,
-    ocrLive: isOcrLive,
     privacyPolicyUrl: 'https://tyrtel.github.io/ouishare-legal/',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID ?? '',
+    googleWebClientId:   process.env.GOOGLE_WEB_CLIENT_ID   ?? '',
+    googleIosUrlScheme:  process.env.GOOGLE_IOS_URL_SCHEME  ?? 'com.googleusercontent.apps.placeholder',
     eas: {
       projectId: 'a1b9adb5-735f-46c6-9457-e4161f0eee99',
     },

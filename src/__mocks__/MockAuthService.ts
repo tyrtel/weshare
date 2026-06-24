@@ -63,6 +63,26 @@ export class MockAuthService implements IAuthService {
     return ok(user);
   }
 
+  async resendOtp(_email: string): Promise<Result<void, AppError>> {
+    return ok(undefined);
+  }
+
+  async sendPasswordReset(_email: string): Promise<Result<void, AppError>> {
+    return ok(undefined);
+  }
+
+  async confirmPasswordReset(email: string, _token: string, _newPassword: string): Promise<Result<User, AppError>> {
+    const user: User = {
+      id: `user_${email}`,
+      name: email.split('@')[0] ?? 'User',
+      email,
+      createdAt: new Date(),
+    };
+    this._currentUser = user;
+    this._notify(user);
+    return ok(user);
+  }
+
   async signOut(): Promise<Result<void, AppError>> {
     this._currentUser = null;
     this._notify(null);

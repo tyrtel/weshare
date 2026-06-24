@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import * as Sentry from '@sentry/react-native';
@@ -46,6 +46,16 @@ export class SupabaseAuthService implements IAuthService {
     Sentry.addBreadcrumb({ category: 'auth', message: 'auth_service_constructed', level: 'info' });
 
     pingSupabase();
+
+    // Resume token auto-refresh when the app comes to the foreground and pause
+    // it while backgrounded so we don't hit rate limits or drain battery.
+    AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') {
+        void supabase.auth.startAutoRefresh();
+      } else {
+        void supabase.auth.stopAutoRefresh();
+      }
+    });
 
     supabase.auth.onAuthStateChange(async (event, session) => {
       Sentry.addBreadcrumb({
@@ -218,8 +228,7 @@ export class SupabaseAuthService implements IAuthService {
       void this._writeUserCache(user);
       return ok(user);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Sign-in failed';
-      return err({ kind: 'AuthError', message: msg });
+      return err({ kind: 'AuthError', message: coldStartMessage(e) });
     }
   }
 
@@ -282,6 +291,72 @@ export class SupabaseAuthService implements IAuthService {
     }
   }
 
+  async resendOtp(email: string): Promise<Result<void, AppError>> {
+    try {
+      const { error } = await SupabaseAuthService._withTimeout(
+        supabase.auth.resend({ type: 'signup', email }),
+        20_000,
+        'Connection timed out — please try again',
+      );
+      if (error) return err({ kind: 'AuthError', message: error.message });
+      return ok(undefined);
+    } catch (e) {
+      return err({ kind: 'AuthError', message: e instanceof Error ? e.message : 'Resend failed' });
+    }
+  }
+
+  async sendPasswordReset(email: string): Promise<Result<void, AppError>> {
+    try {
+      const { error } = await SupabaseAuthService._withTimeout(
+        supabase.auth.resetPasswordForEmail(email),
+        20_000,
+        'Connection timed out — please try again',
+      );
+      if (error) return err({ kind: 'AuthError', message: error.message });
+      return ok(undefined);
+    } catch (e) {
+      return err({ kind: 'AuthError', message: e instanceof Error ? e.message : 'Request failed' });
+    }
+  }
+
+  async confirmPasswordReset(
+    email: string,
+    token: string,
+    newPassword: string,
+  ): Promise<Result<User, AppError>> {
+    try {
+      const { data: otpData, error: otpError } = await SupabaseAuthService._withTimeout(
+        supabase.auth.verifyOtp({ email, token, type: 'recovery' }),
+        20_000,
+        'Connection timed out — please try again',
+      );
+      if (otpError) return err({ kind: 'AuthError', message: otpError.message });
+      if (!otpData.user) return err({ kind: 'AuthError', message: 'Verification failed' });
+
+      this._expiresAt = otpData.session?.expires_at ?? 0;
+
+      const { data: updateData, error: updateError } = await SupabaseAuthService._withTimeout(
+        supabase.auth.updateUser({ password: newPassword }),
+        10_000,
+        'Password update timed out — please try again',
+      );
+      if (updateError) return err({ kind: 'AuthError', message: updateError.message });
+      if (!updateData.user) return err({ kind: 'AuthError', message: 'Password update failed' });
+
+      const user = await Promise.race([
+        this._fetchUser(updateData.user.id, updateData.user.email),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 8_000)),
+      ]);
+      if (!user) return err({ kind: 'AuthError', message: 'User profile not found — please try again' });
+
+      this._currentUser = user;
+      void this._writeUserCache(user);
+      return ok(user);
+    } catch (e) {
+      return err({ kind: 'AuthError', message: coldStartMessage(e) });
+    }
+  }
+
   async signOut(): Promise<Result<void, AppError>> {
     const { error } = await supabase.auth.signOut();
     if (error) return err({ kind: 'AuthError', message: error.message });
@@ -301,8 +376,15 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async signInWithGoogle(): Promise<Result<User, AppError>> {
+    if (Platform.OS === 'ios') {
+      const iosScheme = Constants.expoConfig?.extra?.googleIosUrlScheme as string | undefined;
+      if (!iosScheme || iosScheme.includes('placeholder')) {
+        return err({ kind: 'AuthError', message: 'Google Sign-In is not configured for this iOS build — contact support.' });
+      }
+    }
     try {
-      const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { GoogleSignin } = require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin');
       GoogleSignin.configure({ webClientId: Constants.expoConfig?.extra?.googleWebClientId ?? '' });
 
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -346,7 +428,8 @@ export class SupabaseAuthService implements IAuthService {
       return err({ kind: 'AuthError', message: 'Apple Sign-In is only available on iOS' });
     }
     try {
-      const AppleAuth = await import('expo-apple-authentication');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const AppleAuth = require('expo-apple-authentication') as typeof import('expo-apple-authentication');
       const available = await AppleAuth.isAvailableAsync();
       if (!available) return err({ kind: 'AuthError', message: 'Apple Sign-In is not available on this device' });
 
@@ -426,7 +509,16 @@ export class SupabaseAuthService implements IAuthService {
               return;
             }
             if (!data.session) {
-              Sentry.captureMessage('session_bg_null', 'warning');
+              // Session was revoked or refresh token expired while the app was
+              // closed. Clear all local auth state immediately so currentUser()
+              // returns null, then fire a local signOut to trigger the
+              // SIGNED_OUT event — AuthGate's onAuthStateChange listener will
+              // receive null and redirect to the sign-in screen.
+              Sentry.captureMessage('session_bg_null: revoking cached session', 'warning');
+              this._currentUser = null;
+              this._expiresAt   = 0;
+              void this._clearUserCache();
+              void supabase.auth.signOut({ scope: 'local' });
               return;
             }
             this._expiresAt = data.session.expires_at ?? 0;
@@ -452,7 +544,7 @@ export class SupabaseAuthService implements IAuthService {
 
       let sessionData: Awaited<ReturnType<typeof supabase.auth.getSession>>;
       try {
-        sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 65_000, 'Session restore timed out');
+        sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 20_000, 'Server is taking too long to respond — please try again');
         Sentry.addBreadcrumb({
           category: 'auth',
           message:  `get_session_done: ms=${Date.now() - t0} has_session=${!!sessionData.data.session}`,

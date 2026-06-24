@@ -13,9 +13,17 @@ export interface IAuthService {
   // Verify the OTP code that was emailed after signUp. `name` is required to
   // create the user profile row on first activation.
   verifyOtp(email: string, token: string, name: string): Promise<Result<User, AppError>>;
+  // Re-sends the signup OTP to the given email address.
+  resendOtp(email: string): Promise<Result<void, AppError>>;
   signOut(): Promise<Result<void, AppError>>;
   signInWithGoogle(): Promise<Result<User, AppError>>;
   signInWithApple(): Promise<Result<User, AppError>>;
+  // Sends a password-reset OTP to the given email. Supabase returns ok
+  // regardless of whether the address is registered (prevents enumeration).
+  sendPasswordReset(email: string): Promise<Result<void, AppError>>;
+  // Verifies the recovery OTP and sets a new password in one step. Signs
+  // the user in on success.
+  confirmPasswordReset(email: string, token: string, newPassword: string): Promise<Result<User, AppError>>;
   // Returns the currently authenticated user synchronously, or null.
   currentUser(): User | null;
   // Resolves once the initial session has been restored from storage.
