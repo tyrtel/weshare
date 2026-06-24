@@ -405,77 +405,67 @@ export class SupabaseAuthService implements IAuthService {
     const t0 = Date.now();
     Sentry.addBreadcrumb({ category: 'auth', message: 'do_get_initial_user_start', level: 'info' });
     try {
-      // getSession() is called exactly once. Never retry it — Supabase rotates
-      // the refresh token on each use, so concurrent calls (one per retry)
-      // consume the token and subsequent calls get "Invalid Refresh Token",
-      // firing SIGNED_OUT and corrupting auth state.
+      // Cache-first: read the stored user profile before touching the network.
+      // For every returning user this resolves in ~5 ms. getSession() (which may
+      // need a GoTrue round-trip) runs in the background. The Supabase client
+      // serialises refresh calls behind an internal lock, so subsequent DB queries
+      // automatically wait for the same in-flight refresh rather than racing it.
+      // TOKEN_REFRESHED / SIGNED_OUT via onAuthStateChange handles any state change.
+      const cached = await this._readUserCache();
+      if (cached) {
+        this._currentUser = cached;
+        Sentry.addBreadcrumb({
+          category: 'auth',
+          message:  `cache_first_return: id=${cached.id.slice(0, 8)} ms=${Date.now() - t0}`,
+          level:    'info',
+        });
+        void supabase.auth.getSession()
+          .then(({ data, error }) => {
+            if (error) {
+              Sentry.captureMessage(`session_bg_error: ${error.message}`, 'warning');
+              return;
+            }
+            if (!data.session) {
+              Sentry.captureMessage('session_bg_null', 'warning');
+              return;
+            }
+            this._expiresAt = data.session.expires_at ?? 0;
+            const expiresIn = this._expiresAt - Math.floor(Date.now() / 1000);
+            Sentry.captureMessage(`session_bg_ok: expires_in=${expiresIn}s ms=${Date.now() - t0}`, 'info');
+            if (data.session.user.id === cached.id) {
+              void this._fetchUser(data.session.user.id, data.session.user.email)
+                .then(fresh => {
+                  if (fresh) { this._currentUser = fresh; void this._writeUserCache(fresh); }
+                })
+                .catch(() => {});
+            }
+          })
+          .catch(e => Sentry.captureMessage(`session_bg_threw: ${String(e)}`, 'warning'));
+        return cached;
+      }
+
+      // No cache: first install or post-sign-out.
+      // Must wait for a live session before we know who the user is.
+      Sentry.addBreadcrumb({ category: 'auth', message: 'no_cache_waiting_session', level: 'info' });
       const sessionPromise = supabase.auth.getSession();
       Sentry.addBreadcrumb({ category: 'auth', message: 'get_session_called', level: 'info' });
 
       let sessionData: Awaited<ReturnType<typeof supabase.auth.getSession>>;
       try {
-        // Fast path: if the stored token is still valid, getSession() reads from
-        // storage and returns in milliseconds. 10 s is a generous ceiling.
-        sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 10_000, 'Session restore timed out');
+        sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 65_000, 'Session restore timed out');
         Sentry.addBreadcrumb({
           category: 'auth',
-          message:  `get_session_fast: ms=${Date.now() - t0} has_session=${!!sessionData.data.session}`,
+          message:  `get_session_done: ms=${Date.now() - t0} has_session=${!!sessionData.data.session}`,
           level:    'info',
         });
-      } catch {
-        // Token is expired and the DB is waking up (free-tier). Return the
-        // cached user so the app opens immediately. sessionPromise keeps running;
-        // the Supabase SDK deduplicates the in-flight refresh so subsequent API
-        // calls wait for it rather than failing. TOKEN_REFRESHED fires when done.
-        Sentry.addBreadcrumb({
-          category: 'auth',
-          message:  `get_session_timed_out: ms=${Date.now() - t0}`,
-          level:    'warning',
-        });
-        const cached = await this._readUserCache();
-        if (cached) {
-          this._currentUser = cached;
-          Sentry.captureMessage('session_restore_slow_path', 'info');
-          Sentry.addBreadcrumb({
-            category: 'auth',
-            message:  `returning_cached_user: id=${cached.id.slice(0, 8)}`,
-            level:    'info',
-          });
-          // Track whether the background refresh eventually succeeds or fails.
-          // This tells us if TOKEN_REFRESHED will fire and trigger a trips reload.
-          void sessionPromise
-            .then(({ data, error }) => {
-              if (error) {
-                Sentry.captureMessage(`session_bg_error: ${error.message}`, 'warning');
-              } else if (!data.session) {
-                Sentry.captureMessage('session_bg_null', 'warning');
-              } else {
-                const expiresIn = (data.session.expires_at ?? 0) - Math.floor(Date.now() / 1000);
-                Sentry.captureMessage(`session_bg_ok: expires_in=${expiresIn}s`, 'info');
-              }
-            })
-            .catch(e => Sentry.captureMessage(`session_bg_threw: ${String(e)}`, 'warning'));
-          return cached;
-        }
-        // No cache (first install or post-sign-out). Wait for the full refresh;
-        // there is nothing to show until we know who the user is.
-        Sentry.addBreadcrumb({ category: 'auth', message: 'no_cache_waiting_55s', level: 'warning' });
-        try {
-          sessionData = await SupabaseAuthService._withTimeout(sessionPromise, 55_000, 'Session restore timed out');
-          Sentry.addBreadcrumb({
-            category: 'auth',
-            message:  `get_session_55s: ms=${Date.now() - t0} has_session=${!!sessionData.data.session}`,
-            level:    'info',
-          });
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          Sentry.captureMessage(`session_restore_error: ${msg}`, 'warning');
-          return null;
-        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        Sentry.captureMessage(`session_restore_error: ${msg}`, 'warning');
+        return null;
       }
+
       const { data } = sessionData;
       if (!data.session?.user) {
-        // getSession() succeeded but returned no session — nothing stored.
         Sentry.captureMessage('session_restore_no_session', 'warning');
         return null;
       }
@@ -484,30 +474,10 @@ export class SupabaseAuthService implements IAuthService {
       const { id: userId, email } = data.session.user;
       Sentry.addBreadcrumb({
         category: 'auth',
-        message:  `session_found: user=${userId.slice(0, 8)} expires_in=${(data.session.expires_at ?? 0) - Math.floor(Date.now() / 1000)}s`,
+        message:  `session_found: user=${userId.slice(0, 8)} expires_in=${this._expiresAt - Math.floor(Date.now() / 1000)}s`,
         level:    'info',
       });
 
-      // Fast path: return cached profile immediately, refresh DB in background.
-      // Eliminates the DB round-trip on every warm restart so the app opens instantly.
-      const cached = await this._readUserCache();
-      if (cached?.id === userId) {
-        Sentry.addBreadcrumb({ category: 'auth', message: `profile_cache_hit: id=${cached.id.slice(0, 8)}`, level: 'info' });
-        this._currentUser = cached;
-        this._fetchUser(userId, email)
-          .then(fresh => {
-            if (fresh) {
-              this._currentUser = fresh;
-              void this._writeUserCache(fresh);
-            }
-          })
-          .catch(() => {});
-        return cached;
-      }
-
-      // Cache miss (first install or after sign-out): fetch with a timeout so a
-      // cold-start Supabase pause never blocks the app indefinitely.
-      Sentry.addBreadcrumb({ category: 'auth', message: 'profile_cache_miss', level: 'info' });
       const user = await Promise.race([
         this._fetchUser(userId, email),
         new Promise<null>(resolve => setTimeout(() => resolve(null), 8_000)),
