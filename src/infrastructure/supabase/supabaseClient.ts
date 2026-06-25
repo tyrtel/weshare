@@ -203,7 +203,7 @@ export type Database = {
 // Fall back to a syntactically valid placeholder so createClient() does not
 // throw "supabaseUrl is required." when the env vars are absent (e.g. in
 // simulation mode where this client is never actually used).
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+export const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 
 // EXPO_PUBLIC_SUPABASE_ANON_KEY is intentionally public. Supabase anon keys are
 // designed to be embedded in client apps — they identify the project but grant no

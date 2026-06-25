@@ -7,7 +7,8 @@ import type { Result } from '../../core/types/Result';
 import type { AppError } from '../../core/types/AppError';
 import type { IAuthService, AuthStateListener, Unsubscribe } from '../../core/interfaces/IAuthService';
 import type { User } from '../../core/models/User';
-import { supabase, pingSupabase } from './supabaseClient';
+import { supabase, supabaseUrl, pingSupabase } from './supabaseClient';
+import { LargeSecureStore } from './LargeSecureStore';
 
 // Expo Router renders the root layout twice in concurrent mode, and Metro can
 // evaluate the same module file from two differently-resolved import paths,
@@ -390,12 +391,19 @@ export class SupabaseAuthService implements IAuthService {
   }
 
   async debugSignOut(): Promise<void> {
-    // Local-only signout avoids a network round-trip to a sleeping DB.
-    try { await supabase.auth.signOut({ scope: 'local' }); } catch {}
+    // supabase.auth.signOut() can hang indefinitely if the SDK's internal lock
+    // is held by an in-flight token refresh (e.g. during the startup sequence).
+    // Directly wipe SecureStore so the session is gone regardless of SDK state,
+    // then fire signOut best-effort so subscribers receive SIGNED_OUT.
+    const projectRef = new URL(supabaseUrl).hostname.split('.')[0];
+    await Promise.all([
+      LargeSecureStore.removeItem(`sb-${projectRef}-auth-token`),
+      SecureStore.deleteItemAsync(SupabaseAuthService.USER_CACHE_KEY),
+    ]).catch(() => {});
     this._currentUser        = null;
     this._expiresAt          = 0;
     this._initialUserPromise = null;
-    await this._clearUserCache();
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
   }
 
   async signInWithGoogle(): Promise<Result<User, AppError>> {

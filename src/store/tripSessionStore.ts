@@ -72,20 +72,30 @@ function parseMany<T>(
 // ---------------------------------------------------------------------------
 
 export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreApi {
+  // Expo Router renders the root layout twice, giving two AuthGate instances
+  // that both call loadTrips concurrently. Without dedup each gets its own
+  // cold-PostgREST connection; they queue behind each other and breach the
+  // 15-second timeout. All concurrent callers share one in-flight query.
+  let _loadTripsPromise: Promise<void> | null = null;
+
   return createStore<ITripSessionStore>()((set, get) => ({
     ...INITIAL_STATE,
 
     // ── Trips ───────────────────────────────────────────────────────────────
 
     async loadTrips(userId: string): Promise<void> {
-      const result = await repos.trips.getTripsForUser(userId);
-      if (isErr(result)) {
-        set({ hydrationError: result.error, isHydrated: true });
-        return;
-      }
-      // Items that fail Zod are silently dropped — bad data must not block the UI.
-      const trips = parseMany<Trip>(result.value, tripSchema);
-      set({ trips, isHydrated: true, hydrationError: null });
+      if (_loadTripsPromise) return _loadTripsPromise;
+      _loadTripsPromise = repos.trips.getTripsForUser(userId)
+        .then(result => {
+          if (isErr(result)) {
+            set({ hydrationError: result.error, isHydrated: true });
+            return;
+          }
+          const trips = parseMany<Trip>(result.value, tripSchema);
+          set({ trips, isHydrated: true, hydrationError: null });
+        })
+        .finally(() => { _loadTripsPromise = null; });
+      return _loadTripsPromise;
     },
 
     // ── Trip detail ─────────────────────────────────────────────────────────
