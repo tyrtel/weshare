@@ -36,6 +36,8 @@ function acquireContainer(isSimulation: boolean): Promise<ServiceContainer> {
     const factory = isSimulation ? createSimulationContainer : createProductionContainer;
     logger.log('[ServiceProvider] calling factory:', factory.name);
     globalThis.__weShareContainerPromise = factory();
+  } else {
+    logger.log('[ServiceProvider] acquireContainer: cache hit — reusing existing container');
   }
   return globalThis.__weShareContainerPromise;
 }

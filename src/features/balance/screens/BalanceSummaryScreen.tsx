@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, FlatList, Pressable, Platform } from 'react-native';
+import { View, FlatList, Pressable, Platform, ActivityIndicator } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -195,8 +195,9 @@ function EmptyState() {
 }
 
 export function BalanceSummaryScreen() {
-  const rows = useBalanceSummary();
-  const colors = useColors();
+  const rows       = useBalanceSummary();
+  const isHydrated = useTripSessionStore(s => s.isHydrated);
+  const colors     = useColors();
 
   return (
     <ScreenWrapper>
@@ -210,6 +211,11 @@ export function BalanceSummaryScreen() {
         <Text variant="heading1">Balance</Text>
       </View>
 
+      {!isHydrated ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary.default} size="large" />
+        </View>
+      ) : (
       <FlatList
         data={rows}
         keyExtractor={item => item.trip.id}
@@ -234,6 +240,7 @@ export function BalanceSummaryScreen() {
           ) : null
         }
       />
+      )}
     </ScreenWrapper>
   );
 }

@@ -38,10 +38,10 @@ export function useTrips() {
 
   const load = useCallback(async () => {
     Sentry.addBreadcrumb({ category: 'trips', message: 'load_start', level: 'info' });
-    // Wait longer than getInitialUser's own 10s getSession timeout so we never
-    // race it. If auth still isn't ready, treat as signed-out; AuthGate redirects.
+    // 5 s buffer over getInitialUser's 20 s session-restore timeout.
+    // If auth still isn't ready by then, treat as signed-out; AuthGate redirects.
     try {
-      await withTimeout(auth.awaitReady(), 65_000);
+      await withTimeout(auth.awaitReady(), 25_000);
     } catch {
       Sentry.addBreadcrumb({ category: 'trips', message: 'load_auth_not_ready', level: 'warning' });
       setState({ loading: false, error: null });
@@ -94,7 +94,13 @@ export function useTrips() {
   useFocusEffect(
     useCallback(() => {
       load();
-      const unsubscribe = auth.onAuthStateChange(() => {
+      // Track the user ID at focus time so TOKEN_REFRESHED events (same user,
+      // new token) don't trigger an unnecessary trip reload and cause a stutter.
+      let prevUserId = auth.currentUser()?.id ?? null;
+      const unsubscribe = auth.onAuthStateChange((newUser) => {
+        const newId = newUser?.id ?? null;
+        if (newId === prevUserId) return;
+        prevUserId = newId;
         Sentry.addBreadcrumb({ category: 'trips', message: 'auth_change_triggering_reload', level: 'info' });
         load();
       });

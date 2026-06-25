@@ -9,16 +9,29 @@ import type { IAuthService, AuthStateListener, Unsubscribe } from '../../core/in
 import type { User } from '../../core/models/User';
 import { supabase, pingSupabase } from './supabaseClient';
 
-// Expo Router renders the root layout twice in concurrent mode, causing
-// ServiceProvider to create two DI containers. Both containers call
-// new SupabaseAuthService(), which would register duplicate onAuthStateChange
-// listeners and race concurrent getInitialUser() calls against the same
-// Supabase singleton — corrupting session state. A module-level singleton
-// ensures exactly one auth service instance exists per JS bundle lifetime.
-let _instance: SupabaseAuthService | null = null;
+// Expo Router renders the root layout twice in concurrent mode, and Metro can
+// evaluate the same module file from two differently-resolved import paths,
+// giving each evaluation its own module-level closure. A module-level variable
+// alone is not sufficient — both evaluations start with null. Storing the
+// instance on globalThis (same technique as __weShareContainerPromise in
+// ServiceContext.tsx) ensures there is exactly one SupabaseAuthService per JS
+// runtime regardless of how many times this module is evaluated.
+declare global {
+  // eslint-disable-next-line no-var
+  var __weShareAuthService: SupabaseAuthService | undefined;
+}
+
 export function getAuthService(): SupabaseAuthService {
-  if (!_instance) _instance = new SupabaseAuthService();
-  return _instance;
+  const existed = !!globalThis.__weShareAuthService;
+  if (!existed) {
+    globalThis.__weShareAuthService = new SupabaseAuthService();
+  }
+  Sentry.addBreadcrumb({
+    category: 'auth',
+    message:  `get_auth_service: ${existed ? 'reused_singleton' : 'created_new_instance'}`,
+    level:    existed ? 'info' : 'warning',
+  });
+  return globalThis.__weShareAuthService;
 }
 
 // GoTrue returns non-JSON (plain text or HTML) during cold-start, causing the
@@ -415,7 +428,7 @@ export class SupabaseAuthService implements IAuthService {
       this._currentUser = { ...user, email: data.user.email };
       this._expiresAt   = data.session?.expires_at ?? 0;
       void this._writeUserCache(this._currentUser);
-      Sentry.captureMessage('signin_google_success', 'info');
+      Sentry.addBreadcrumb({ category: 'auth', message: 'signin_google_success', level: 'info' });
 
       return ok(this._currentUser);
     } catch (e) {
@@ -523,7 +536,7 @@ export class SupabaseAuthService implements IAuthService {
             }
             this._expiresAt = data.session.expires_at ?? 0;
             const expiresIn = this._expiresAt - Math.floor(Date.now() / 1000);
-            Sentry.captureMessage(`session_bg_ok: expires_in=${expiresIn}s ms=${Date.now() - t0}`, 'info');
+            Sentry.addBreadcrumb({ category: 'auth', message: `session_bg_ok: expires_in=${expiresIn}s ms=${Date.now() - t0}`, level: 'info' });
             if (data.session.user.id === cached.id) {
               void this._fetchUser(data.session.user.id, data.session.user.email)
                 .then(fresh => {
