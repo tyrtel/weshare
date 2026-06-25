@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useFocusEffect } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
@@ -31,7 +31,13 @@ export function useTrips() {
   const storeApi = useService(TRIP_STORE);
   const auth     = useService(AUTH);
 
-  const [state, setState] = useState<UseTripsState>({ loading: true, error: null });
+  // If AuthGate's startup sequence already loaded trips, skip the initial
+  // loading state and the first DB fetch — show data immediately on mount.
+  const [state, setState] = useState<UseTripsState>(() => ({
+    loading: !storeApi.getState().isHydrated,
+    error:   storeApi.getState().hydrationError,
+  }));
+  const skipInitialLoad = useRef(storeApi.getState().isHydrated);
 
   const trips       = useTripSessionStore((s) => s.trips);
   const allExpenses = useTripSessionStore((s) => s.expenses);
@@ -62,9 +68,20 @@ export function useTrips() {
     try {
       await withTimeout(storeApi.getState().loadTrips(user.id), 15_000);
     } catch {
-      Sentry.captureMessage('trips_load_timeout', 'warning');
-      setState({ loading: false, error: { kind: 'NetworkError', message: 'Loading trips timed out — pull down to retry' } });
-      return;
+      // On Supabase free tier, the first authenticated query after a cold
+      // PostgREST start takes 10–20 s to establish the PostgreSQL connection.
+      // The abandoned request warms the server-side connection, so an immediate
+      // retry almost always succeeds in < 2 s. Only surface an error if the
+      // retry also fails — that indicates a genuine outage, not cold-start lag.
+      Sentry.captureMessage('trips_load_timeout_retrying', 'warning');
+      Sentry.addBreadcrumb({ category: 'trips', message: 'load_cold_start_retry', level: 'warning' });
+      try {
+        await withTimeout(storeApi.getState().loadTrips(user.id), 20_000);
+      } catch {
+        Sentry.captureMessage('trips_load_timeout', 'warning');
+        setState({ loading: false, error: { kind: 'NetworkError', message: 'Loading trips timed out — pull down to retry' } });
+        return;
+      }
     }
     const loadedTrips = storeApi.getState().trips;
     Sentry.addBreadcrumb({
@@ -106,7 +123,15 @@ export function useTrips() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      // Skip the first DB fetch if AuthGate's startup sequence already loaded
+      // trips — avoids a redundant round-trip and a skeleton flash on launch.
+      // The ref resets to false after the first focus so subsequent focuses
+      // (return from trip detail, app foreground) reload normally.
+      if (!skipInitialLoad.current) {
+        load();
+      }
+      skipInitialLoad.current = false;
+
       // Track the user ID at focus time so TOKEN_REFRESHED events (same user,
       // new token) don't trigger an unnecessary trip reload and cause a stutter.
       let prevUserId = auth.currentUser()?.id ?? null;

@@ -4,13 +4,22 @@ import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-rout
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ServiceProvider, useService } from '../src/core/di/ServiceContext';
-import { AUTH } from '../src/core/di/tokens';
+import { AUTH, TRIP_STORE } from '../src/core/di/tokens';
 import type { User } from '../src/core/models/User';
 import { AppLoadingScreen } from '../src/components/ui/AppLoadingScreen';
 import { SimulationBanner } from '../src/shared/components/SimulationBanner';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 import { UniversalTabBar } from '../src/components/ui/UniversalTabBar';
 import * as Sentry from '@sentry/react-native';
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms)),
+  ]);
+}
+
+type StartupPhase = 'auth' | 'trips' | 'ready';
 
 Sentry.init({
   dsn: 'https://5c63985ffb6bc5579bf90a309a290164@o4511608333664256.ingest.de.sentry.io/4511608346771536',
@@ -55,40 +64,91 @@ class ErrorBoundary extends React.Component<
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const auth = useService(AUTH);
-  const [user, setUser]             = useState<User | null>(null);
-  const [authReady, setAuthReady]   = useState(false);
-  const [slowStartup, setSlowStart] = useState(false);
-  const segments  = useSegments();
-  const router    = useRouter();
-  const navState  = useRootNavigationState();
+  const auth     = useService(AUTH);
+  const storeApi = useService(TRIP_STORE);
+
+  const [user, setUser]       = useState<User | null>(null);
+  const [phase, setPhase]     = useState<StartupPhase>('auth');
+  const [slowAuth, setSlowAuth] = useState(false);
+  const segments    = useSegments();
+  const router      = useRouter();
+  const navState    = useRootNavigationState();
   const didResetRef = useRef(false);
 
+  // Sequential startup: auth rehydration first, then initial trips load.
+  // Nothing in the app renders until both phases complete — PostgREST only
+  // ever receives one request at a time, preventing the cold-start starvation
+  // that caused the restart hang.
   useEffect(() => {
     let cancelled = false;
-    auth.getInitialUser().then(initialUser => {
+
+    async function startup() {
+      // ── Phase 1: auth rehydration ──────────────────────────────────────────
+      const initialUser = await auth.getInitialUser();
       if (cancelled || didResetRef.current) return;
       setUser(initialUser);
-      setAuthReady(true);
-    });
+
+      if (!initialUser) {
+        setPhase('ready');
+        return;
+      }
+
+      // ── Phase 2: initial trips load ────────────────────────────────────────
+      setPhase('trips');
+      Sentry.addBreadcrumb({ category: 'startup', message: 'startup_trips_start', level: 'info' });
+      try {
+        await withTimeout(storeApi.getState().loadTrips(initialUser.id), 15_000);
+      } catch {
+        // The abandoned first request warms the cold PostgREST connection on
+        // the server side. An immediate retry almost always succeeds in < 2 s.
+        Sentry.captureMessage('startup_trips_timeout_retrying', 'warning');
+        try {
+          await withTimeout(storeApi.getState().loadTrips(initialUser.id), 20_000);
+        } catch {
+          Sentry.captureMessage('startup_trips_timeout', 'warning');
+          // Both timed out — proceed; TripListScreen will show the error state.
+        }
+      }
+
+      if (!cancelled && !didResetRef.current) {
+        const trips = storeApi.getState().trips;
+        if (trips.length > 0) {
+          await Promise.all(
+            trips.map(t => storeApi.getState().loadTripDetail(t.id))
+          ).catch(() => {});
+        }
+        Sentry.addBreadcrumb({
+          category: 'startup',
+          message:  `startup_trips_done: count=${storeApi.getState().trips.length} err=${!!storeApi.getState().hydrationError}`,
+          level:    'info',
+        });
+        setPhase('ready');
+      }
+    }
+
+    startup();
+    return () => { cancelled = true; };
+  }, [auth, storeApi]);
+
+  // Post-startup auth changes: sign-out, new sign-in from auth screen, token refresh
+  useEffect(() => {
     const unsub = auth.onAuthStateChange(newUser => setUser(newUser));
-    return () => { cancelled = true; unsub(); };
+    return unsub;
   }, [auth]);
 
-  // Show a status line if auth is still pending after 8 s — most cache-hit
-  // restores finish in <100 ms; this only fires on first install or cold GoTrue.
+  // Show "Connecting to server…" if auth phase takes unusually long (cold GoTrue)
   useEffect(() => {
-    if (authReady) return;
-    const t = setTimeout(() => setSlowStart(true), 8_000);
+    if (phase !== 'auth') return;
+    const t = setTimeout(() => setSlowAuth(true), 8_000);
     return () => clearTimeout(t);
-  }, [authReady]);
+  }, [phase]);
 
   useEffect(() => {
     Sentry.setUser(user ? { id: user.id } : null);
   }, [user]);
 
   useEffect(() => {
-    if (!navState?.key || !authReady) return;
+    if (phase !== 'ready' || !navState?.key) return;
     const inAuthGroup   = segments[0] === 'auth';
     const inPublicGroup = segments[0] === 'auth' || segments[0] === 'join';
     if (!user && !inPublicGroup) {
@@ -96,7 +156,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     } else if (user && inAuthGroup) {
       router.replace('/' as Parameters<typeof router.replace>[0]);
     }
-  }, [user, authReady, segments, router, navState?.key]);
+  }, [user, phase, segments, router, navState?.key]);
 
   const handleDebugReset = useCallback(() => {
     Alert.alert(
@@ -112,21 +172,24 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             didResetRef.current = true;
             await auth.debugSignOut().catch(() => {});
             setUser(null);
-            setAuthReady(true);
+            setPhase('ready');
           },
         },
       ],
     );
   }, [auth]);
 
-  // Show branded loading screen while the session is being restored from
-  // secure storage. Placed after all hooks so hook order is always stable.
-  if (!authReady) return (
-    <AppLoadingScreen
-      onDebugReset={handleDebugReset}
-      message={slowStartup ? 'Connecting to server…' : undefined}
-    />
-  );
+  if (phase !== 'ready') {
+    const message = phase === 'trips'
+      ? 'Loading trips…'
+      : slowAuth ? 'Connecting to server…' : undefined;
+    return (
+      <AppLoadingScreen
+        message={message}
+        onDebugReset={handleDebugReset}
+      />
+    );
+  }
 
   return <>{children}</>;
 }

@@ -556,12 +556,19 @@ export class SupabaseAuthService implements IAuthService {
             this._expiresAt = data.session.expires_at ?? 0;
             const expiresIn = this._expiresAt - Math.floor(Date.now() / 1000);
             Sentry.addBreadcrumb({ category: 'auth', message: `session_bg_ok: expires_in=${expiresIn}s ms=${Date.now() - t0}`, level: 'info' });
+            // Defer the profile refresh so it doesn't race with loadTrips on a
+            // cold PostgREST connection. Both queries hitting simultaneously caused
+            // all startup DB calls to queue behind each other and breach the
+            // 15-second loadTrips timeout. The profile fetch is cosmetic
+            // (display name / avatar) — a 5-second delay is invisible to the user.
             if (data.session.user.id === cached.id) {
-              void this._fetchUser(data.session.user.id, data.session.user.email)
-                .then(fresh => {
-                  if (fresh) { this._currentUser = fresh; void this._writeUserCache(fresh); }
-                })
-                .catch(() => {});
+              setTimeout(() => {
+                void this._fetchUser(data.session.user.id, data.session.user.email)
+                  .then(fresh => {
+                    if (fresh) { this._currentUser = fresh; void this._writeUserCache(fresh); }
+                  })
+                  .catch(() => {});
+              }, 5_000);
             }
           })
           .catch(e => Sentry.captureMessage(`session_bg_threw: ${String(e)}`, 'warning'));
@@ -646,6 +653,20 @@ export class SupabaseAuthService implements IAuthService {
       });
       try {
         if (!session?.user) { listener(null); return; }
+
+        // INITIAL_SESSION fires when the SDK replays the stored session to a
+        // newly registered listener (AuthGate, useTrips, etc.). _doGetInitialUser
+        // already handles profile loading, so calling _fetchUser here fires a
+        // redundant DB query for every subscriber, concurrent with loadTrips.
+        // Use the in-memory user if available; if not yet set (race on first
+        // install), getInitialUser() will deliver the user via its own path.
+        if (event === 'INITIAL_SESSION') {
+          if (this._currentUser?.id === session.user.id) {
+            Sentry.addBreadcrumb({ category: 'auth', message: `listener_initial_session_reuse: id=${session.user.id.slice(0, 8)}`, level: 'info' });
+            listener(this._currentUser!);
+          }
+          return;
+        }
 
         if (event === 'TOKEN_REFRESHED') {
           // Fast case: _currentUser already populated (warm restart or later refresh).
