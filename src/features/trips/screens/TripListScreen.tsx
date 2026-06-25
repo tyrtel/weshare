@@ -206,7 +206,7 @@ export function TripListScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
+              refreshing={refreshing || loading}
               onRefresh={handleRefresh}
               tintColor={colors.primary.default}
               colors={[colors.primary.default]}

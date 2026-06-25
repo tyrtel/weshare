@@ -37,6 +37,9 @@ export function useTrips() {
   const allExpenses = useTripSessionStore((s) => s.expenses);
 
   const load = useCallback(async () => {
+    // Set loading immediately so the UI shows a spinner on every call, even
+    // when trips are already in the store (e.g. return from background).
+    setState(prev => ({ ...prev, loading: true, error: null }));
     Sentry.addBreadcrumb({ category: 'trips', message: 'load_start', level: 'info' });
     // 5 s buffer over getInitialUser's 20 s session-restore timeout.
     // If auth still isn't ready by then, treat as signed-out; AuthGate redirects.
@@ -55,10 +58,14 @@ export function useTrips() {
       return;
     }
 
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-
     Sentry.addBreadcrumb({ category: 'trips', message: 'load_calling_db', level: 'info' });
-    await storeApi.getState().loadTrips(user.id);
+    try {
+      await withTimeout(storeApi.getState().loadTrips(user.id), 15_000);
+    } catch {
+      Sentry.captureMessage('trips_load_timeout', 'warning');
+      setState({ loading: false, error: { kind: 'NetworkError', message: 'Loading trips timed out — pull down to retry' } });
+      return;
+    }
     const loadedTrips = storeApi.getState().trips;
     Sentry.addBreadcrumb({
       category: 'trips',
@@ -76,7 +83,13 @@ export function useTrips() {
       Sentry.captureMessage(`trips_hydration_error: ${errDetail}`, 'warning');
       await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
       Sentry.addBreadcrumb({ category: 'trips', message: 'load_retry', level: 'info' });
-      await storeApi.getState().loadTrips(user.id);
+      try {
+        await withTimeout(storeApi.getState().loadTrips(user.id), 15_000);
+      } catch {
+        Sentry.captureMessage('trips_retry_timeout', 'warning');
+        setState({ loading: false, error: { kind: 'NetworkError', message: 'Loading trips timed out — pull down to retry' } });
+        return;
+      }
       const retryTrips = storeApi.getState().trips;
       Sentry.addBreadcrumb({
         category: 'trips',
