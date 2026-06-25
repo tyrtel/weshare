@@ -92,9 +92,13 @@ export class SupabaseAuthService implements IAuthService {
           return;
         }
         this._expiresAt = session.expires_at ?? 0;
-        // Only overwrite _currentUser when the row is actually found. The event
-        // may fire before _upsertUser completes on first sign-in, returning null
-        // and wiping out the value set by the sign-in method.
+        // INITIAL_SESSION fires when the SDK replays the stored session to a
+        // newly-registered listener. _doGetInitialUser already handles profile
+        // loading for that case (cache read or getSession no-cache path), so
+        // calling _fetchUser here would fire a redundant DB query concurrently
+        // with loadTrips — causing 4 simultaneous cold PostgREST connections at
+        // startup. Post-init events (SIGNED_IN, USER_UPDATED) still need this.
+        if (event === 'INITIAL_SESSION') return;
         const user = await this._fetchUser(session.user.id, session.user.email);
         if (user) this._currentUser = user;
       } catch {
