@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import * as Sentry from '@sentry/react-native';
 import { logger } from '../../core/utils/logger';
 
 // expo-secure-store caps each value at ~2 KB. Supabase session JSON (access
@@ -66,7 +67,9 @@ async function setItem(key: string, value: string): Promise<void> {
     }
     logger.log(`[store:write] ${lbl} chunked n=${count} len=${value.length}`);
   } catch (e) {
-    logger.error(e instanceof Error ? e : new Error(String(e)));
+    const err = e instanceof Error ? e : new Error(String(e));
+    logger.error(err);
+    Sentry.captureException(err, { tags: { storage_label: lbl } });
   }
 }
 

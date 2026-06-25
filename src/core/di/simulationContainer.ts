@@ -46,7 +46,19 @@ function mergeFixtures(...scenarios: StorageFixtures[]): StorageFixtures {
   };
 }
 
-export async function createSimulationContainer(): Promise<ServiceContainer> {
+let _singleton: Promise<ServiceContainer> | undefined;
+
+export function createSimulationContainer(): Promise<ServiceContainer> {
+  if (!_singleton) {
+    _singleton = _create().catch(e => {
+      _singleton = undefined;
+      throw e;
+    });
+  }
+  return _singleton;
+}
+
+async function _create(): Promise<ServiceContainer> {
   logger.log('[simulationContainer] start');
   const merged = mergeFixtures(restaurantScenario, twoPersonScenario, settlingScenario);
 

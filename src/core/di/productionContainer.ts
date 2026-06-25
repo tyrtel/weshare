@@ -6,12 +6,22 @@ import {
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import type { PaymentProvider } from '../interfaces/IPaymentService';
 
-/**
- * Builds the container used in production.
- * Uses dynamic imports so infrastructure code is loaded lazily and mock modules
- * are never bundled into the production app.
- */
-export async function createProductionContainer(): Promise<ServiceContainer> {
+// Module-level singleton: prevents the factory from running more than once even
+// when Expo Router renders the root layout twice (concurrent hydration) or when
+// Metro evaluates this file from two differently-resolved paths.
+let _singleton: Promise<ServiceContainer> | undefined;
+
+export function createProductionContainer(): Promise<ServiceContainer> {
+  if (!_singleton) {
+    _singleton = _create().catch(e => {
+      _singleton = undefined; // allow retry if the factory rejects
+      throw e;
+    });
+  }
+  return _singleton;
+}
+
+async function _create(): Promise<ServiceContainer> {
   const { SupabaseTripRepository } = await import(
     '../../infrastructure/supabase/SupabaseTripRepository'
   );

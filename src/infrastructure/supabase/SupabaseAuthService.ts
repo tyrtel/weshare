@@ -107,6 +107,7 @@ export class SupabaseAuthService implements IAuthService {
 
   private async _readUserCache(): Promise<User | null> {
     try {
+      Sentry.addBreadcrumb({ category: 'auth', message: 'user_cache_read_start', level: 'info' });
       const json = await SecureStore.getItemAsync(SupabaseAuthService.USER_CACHE_KEY);
       if (!json) {
         Sentry.addBreadcrumb({ category: 'auth', message: 'user_cache_read: empty', level: 'info' });
@@ -132,7 +133,12 @@ export class SupabaseAuthService implements IAuthService {
         SupabaseAuthService.USER_CACHE_KEY,
         JSON.stringify({ ...user, createdAt: user.createdAt.toISOString() }),
       );
-    } catch {}
+    } catch (e) {
+      Sentry.captureMessage(
+        `user_cache_write_failed: ${e instanceof Error ? e.message : String(e)}`,
+        'warning',
+      );
+    }
   }
 
   private async _clearUserCache(): Promise<void> {
@@ -507,7 +513,16 @@ export class SupabaseAuthService implements IAuthService {
       // serialises refresh calls behind an internal lock, so subsequent DB queries
       // automatically wait for the same in-flight refresh rather than racing it.
       // TOKEN_REFRESHED / SIGNED_OUT via onAuthStateChange handles any state change.
-      const cached = await this._readUserCache();
+      //
+      // 5 s ceiling on the SecureStore read — Android Keystore re-initialisation
+      // after a process kill can occasionally stall the native call indefinitely.
+      // On timeout we fall through to the live getSession() path below.
+      let cached: User | null = null;
+      try {
+        cached = await SupabaseAuthService._withTimeout(this._readUserCache(), 5_000);
+      } catch {
+        Sentry.captureMessage('user_cache_read_timeout: SecureStore stalled on startup', 'warning');
+      }
       if (cached) {
         this._currentUser = cached;
         Sentry.addBreadcrumb({
