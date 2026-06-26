@@ -97,7 +97,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       setPhase('trips');
       Sentry.addBreadcrumb({ category: 'startup', message: 'startup_trips_start', level: 'info' });
       try {
-        await withTimeout(storeApi.getState().loadTrips(initialUser.id), 15_000);
+        await withTimeout(storeApi.getState().loadTrips(initialUser.id), 20_000);
       } catch {
         // The abandoned first request warms the cold PostgREST connection on
         // the server side. An immediate retry almost always succeeds in < 2 s.

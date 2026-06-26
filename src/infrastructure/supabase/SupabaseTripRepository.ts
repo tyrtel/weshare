@@ -58,18 +58,17 @@ export class SupabaseTripRepository implements ITripRepository {
   }
 
   async getTripsForUser(userId: string): Promise<Result<Trip[], AppError>> {
-    const { data: owned, error: e1 } = await supabase
-      .from('trips')
-      .select('*, trip_members(*)')
-      .eq('owner_id', userId);
-    if (e1) return err(toAppError(e1, 'Trip'));
-
-    const { data: membered, error: e2 } = await supabase
-      .from('trips')
-      .select('*, trip_members!inner(*)')
-      .eq('trip_members.user_id', userId)
-      .neq('owner_id', userId);
-    if (e2) return err(toAppError(e2, 'Trip'));
+    // Run both queries in parallel — on a cold Supabase free-tier instance the
+    // first authenticated query takes 15–20 s to warm PostgreSQL; sequential
+    // queries would burn that cost twice. Parallel halves the wall-clock time.
+    const [ownedRes, memberedRes] = await Promise.all([
+      supabase.from('trips').select('*, trip_members(*)').eq('owner_id', userId),
+      supabase.from('trips').select('*, trip_members!inner(*)').eq('trip_members.user_id', userId).neq('owner_id', userId),
+    ]);
+    if (ownedRes.error)    return err(toAppError(ownedRes.error,    'Trip'));
+    if (memberedRes.error) return err(toAppError(memberedRes.error, 'Trip'));
+    const { data: owned }    = ownedRes;
+    const { data: membered } = memberedRes;
 
     const seen = new Set<string>();
     const trips: Trip[] = [];

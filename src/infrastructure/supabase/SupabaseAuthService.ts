@@ -100,6 +100,12 @@ export class SupabaseAuthService implements IAuthService {
         // with loadTrips — causing 4 simultaneous cold PostgREST connections at
         // startup. Post-init events (SIGNED_IN, USER_UPDATED) still need this.
         if (event === 'INITIAL_SESSION') return;
+        // SIGNED_IN fires on session restore even when the user is already in
+        // memory from cache. Calling _fetchUser here would add an extra cold
+        // PostgREST connection competing with loadTrips during startup.
+        // The deferred _fetchUser in _doGetInitialUser handles the profile
+        // refresh; nothing is lost by skipping redundant calls here.
+        if (this._currentUser?.id === session.user.id) return;
         const user = await this._fetchUser(session.user.id, session.user.email);
         if (user) this._currentUser = user;
       } catch {
@@ -706,6 +712,13 @@ export class SupabaseAuthService implements IAuthService {
           Sentry.addBreadcrumb({ category: 'auth', message: 'token_refreshed_no_promise_fallthrough', level: 'warning' });
         }
 
+        // Same as the private handler: skip the DB round-trip if the user is
+        // already in memory. Prevents redundant cold-start connections.
+        if (this._currentUser?.id === session.user.id) {
+          Sentry.addBreadcrumb({ category: 'auth', message: `listener_reuse_current: id=${session.user.id.slice(0, 8)}`, level: 'info' });
+          listener(this._currentUser!);
+          return;
+        }
         const user = await this._fetchUser(session.user.id, session.user.email);
         if (user) {
           Sentry.addBreadcrumb({ category: 'auth', message: `listener_called: id=${user.id.slice(0, 8)}`, level: 'info' });

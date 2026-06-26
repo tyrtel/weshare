@@ -66,7 +66,7 @@ export function useTrips() {
 
     Sentry.addBreadcrumb({ category: 'trips', message: 'load_calling_db', level: 'info' });
     try {
-      await withTimeout(storeApi.getState().loadTrips(user.id), 15_000);
+      await withTimeout(storeApi.getState().loadTrips(user.id), 20_000);
     } catch {
       // On Supabase free tier, the first authenticated query after a cold
       // PostgREST start takes 10–20 s to establish the PostgreSQL connection.
