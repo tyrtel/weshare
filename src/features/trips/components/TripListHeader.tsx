@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Pressable, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
@@ -34,6 +35,7 @@ export function TripListHeader({
   onSettleUp,
   onToggleShowAll,
 }: TripListHeaderProps) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   return (
@@ -47,7 +49,7 @@ export function TripListHeader({
           <Pressable
             onPress={onBack}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={t('common.back')}
             style={{ marginRight: tokens.spacing.sm, padding: tokens.spacing.xs }}
             hitSlop={8}
           >
@@ -60,7 +62,7 @@ export function TripListHeader({
             <Pressable
               onPress={onEdit}
               accessibilityRole="button"
-              accessibilityLabel="Edit trip"
+              accessibilityLabel={t('trips.detail.edit_label')}
               style={{ padding: tokens.spacing.xs, marginRight: tokens.spacing.xs }}
               hitSlop={8}
             >
@@ -72,7 +74,7 @@ export function TripListHeader({
               testID="close-trip-button"
               onPress={onCloseTrip}
               accessibilityRole="button"
-              accessibilityLabel="Close trip"
+              accessibilityLabel={t('trips.detail.close_label')}
               style={{ padding: tokens.spacing.xs, marginRight: tokens.spacing.xs }}
               hitSlop={8}
             >
@@ -105,7 +107,7 @@ export function TripListHeader({
         <Pressable
           onPress={onSettleUp}
           accessibilityRole="button"
-          accessibilityLabel={trip.status === 'settling' ? 'Continue settling' : 'Settle up'}
+          accessibilityLabel={trip.status === 'settling' ? t('trips.detail.settle_continuing_label') : t('trips.detail.settle_label')}
           style={({ pressed }) => ({
             flexDirection: 'row',
             alignItems: 'center',
@@ -123,7 +125,7 @@ export function TripListHeader({
             variant="label"
             color={trip.status === 'settling' ? colors.warning.default : colors.primary.default}
           >
-            {trip.status === 'settling' ? 'Settling in progress' : 'Settle Up'}
+            {trip.status === 'settling' ? t('trips.detail.settling_in_progress') : t('trips.detail.settle_up')}
           </Text>
           <Ionicons
             name={trip.status === 'settling' ? 'time-outline' : 'calculator-outline'}

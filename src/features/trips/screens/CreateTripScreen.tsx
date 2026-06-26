@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, ScrollView, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -11,6 +12,7 @@ import { tokens } from '../../../theme/tokens';
 import { CURRENCIES, currencyLabel } from '../../../core/constants/currencies';
 
 export function CreateTripScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useColors();
   const { createTrip, loading, error } = useCreateTrip();
@@ -45,7 +47,7 @@ export function CreateTripScreen() {
       onPress={handleSubmit}
       disabled={!isValid}
       accessibilityRole="button"
-      accessibilityLabel="Confirm new trip"
+      accessibilityLabel={t('trips.create.confirm_label')}
       style={({ pressed }) => ({
         width: 36,
         height: 36,
@@ -65,7 +67,7 @@ export function CreateTripScreen() {
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'New Trip', headerRight: confirmButton }} />
+      <Stack.Screen options={{ title: t('trips.create.title'), headerRight: confirmButton }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -75,22 +77,22 @@ export function CreateTripScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Text variant="heading2" style={{ marginBottom: tokens.spacing.lg }}>
-            New Trip
+            {t('trips.create.heading')}
           </Text>
 
           <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-            Trip name
+            {t('trips.form.name_label')}
           </Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="e.g. Chez Paul dinner"
+            placeholder={t('trips.form.name_placeholder')}
             placeholderTextColor={colors.text.tertiary}
             style={inputStyle}
             autoFocus
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
-            accessibilityLabel="Trip name"
+            accessibilityLabel={t('trips.form.name_accessibility')}
           />
 
           <Text
@@ -98,12 +100,12 @@ export function CreateTripScreen() {
             color={colors.text.secondary}
             style={{ marginBottom: tokens.spacing.xs }}
           >
-            Currency
+            {t('trips.form.currency_label')}
           </Text>
           <Pressable
             onPress={() => setDropdownVisible(true)}
             accessibilityRole="combobox"
-            accessibilityLabel="Select currency"
+            accessibilityLabel={t('trips.form.currency_select_label')}
             accessibilityState={{ expanded: dropdownVisible }}
             style={({ pressed }) => ({
               flexDirection: 'row',
@@ -123,7 +125,7 @@ export function CreateTripScreen() {
             <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
           </Pressable>
 
-          <ErrorBanner error={error} fallback="Could not create trip. Try again." style={{ marginBottom: tokens.spacing.md }} />
+          <ErrorBanner error={error} fallback={t('trips.create.error_fallback')} style={{ marginBottom: tokens.spacing.md }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -133,12 +135,12 @@ export function CreateTripScreen() {
         <Pressable
           style={[styles.backdrop, { padding: tokens.spacing.xl }]}
           onPress={() => setDropdownVisible(false)}
-          accessibilityLabel="Close currency picker"
+          accessibilityLabel={t('trips.form.currency_close_label')}
           accessibilityRole="button"
         >
           <View style={[styles.sheet, { backgroundColor: colors.surface, borderRadius: tokens.radius.card }]}>
             <View style={{ paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-              <Text variant="label" color={colors.text.secondary}>Select currency</Text>
+              <Text variant="label" color={colors.text.secondary}>{t('trips.form.currency_select_heading')}</Text>
             </View>
             {CURRENCIES.map((item, index) => {
               const selected = item.code === currency;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Pressable, Clipboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
@@ -12,6 +13,7 @@ interface InviteLinkCardProps {
 }
 
 export function InviteLinkCard({ inviteUrl, onShare }: InviteLinkCardProps) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   const handleCopy = () => {
@@ -25,13 +27,13 @@ export function InviteLinkCard({ inviteUrl, onShare }: InviteLinkCardProps) {
         color={colors.text.secondary}
         style={{ marginBottom: tokens.spacing.sm }}
       >
-        Or share a link
+        {t('invite.link_card.title')}
       </Text>
 
       <Pressable
         onPress={handleCopy}
         accessibilityRole="button"
-        accessibilityLabel="Copy invite link"
+        accessibilityLabel={t('invite.link_card.copy_label')}
         style={{
           backgroundColor: colors.surface,
           borderRadius: tokens.radius.pill,
@@ -60,7 +62,7 @@ export function InviteLinkCard({ inviteUrl, onShare }: InviteLinkCardProps) {
         />
       </Pressable>
 
-      <Button label="Share invite" onPress={onShare} />
+      <Button label={t('invite.link_card.share_button')} onPress={onShare} />
     </View>
   );
 }

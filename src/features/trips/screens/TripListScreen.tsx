@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { FlatList, View, Pressable, Platform, RefreshControl } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   ZoomIn,
   useSharedValue,
@@ -70,6 +71,7 @@ function ReceiptIllustration() {
 }
 
 function EmptyState() {
+  const { t } = useTranslation();
   const colors = useColors();
   return (
     <View
@@ -85,20 +87,21 @@ function EmptyState() {
         variant="heading2"
         style={{ marginBottom: tokens.spacing.sm, textAlign: 'center' }}
       >
-        No trips yet
+        {t('trips.list.empty_title')}
       </Text>
       <Text
         variant="body"
         color={colors.text.secondary}
         style={{ textAlign: 'center' }}
       >
-        Tap New trip to start a shared trip with friends.
+        {t('trips.list.empty_body')}
       </Text>
     </View>
   );
 }
 
 export function TripListScreen() {
+  const { t } = useTranslation();
   const router  = useRouter();
   const colors  = useColors();
   const auth    = useService(AUTH);
@@ -145,7 +148,7 @@ export function TripListScreen() {
           justifyContent: 'space-between',
         }}
       >
-        <Text variant="heading1">Trips</Text>
+        <Text variant="heading1">{t('trips.list.title')}</Text>
       </View>
 
       {/* List / loading / error / empty */}
@@ -154,7 +157,7 @@ export function TripListScreen() {
       ) : error && trips.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: tokens.spacing.xl }}>
           <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center', marginBottom: tokens.spacing.md }}>
-            Couldn't load your trips.
+            {t('trips.list.error_load')}
           </Text>
           <Pressable
             onPress={refetch}
@@ -168,7 +171,7 @@ export function TripListScreen() {
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <Text variant="label" color={colors.primary.default}>Try again</Text>
+            <Text variant="label" color={colors.primary.default}>{t('common.try_again')}</Text>
           </Pressable>
         </View>
       ) : (
@@ -200,7 +203,7 @@ export function TripListScreen() {
                 opacity: pressed ? 0.6 : 1,
               })}
             >
-              <Text variant="caption" color={colors.text.tertiary}>Past Trips</Text>
+              <Text variant="caption" color={colors.text.tertiary}>{t('trips.list.past_trips_link')}</Text>
             </Pressable>
           ) : null}
           showsVerticalScrollIndicator={false}
@@ -234,7 +237,7 @@ export function TripListScreen() {
           <Pressable
             onPress={handleCreate}
             accessibilityRole="button"
-            accessibilityLabel={isExtended ? 'New trip' : 'Create trip'}
+            accessibilityLabel={isExtended ? t('trips.list.fab_label') : t('trips.list.fab_label_compact')}
             style={({ pressed }) => ({
               flex: 1,
               flexDirection: 'row',
@@ -246,7 +249,7 @@ export function TripListScreen() {
           >
             <Ionicons name="add" size={24} color="#ffffff" />
             <Animated.View style={[animatedLabelStyle, { marginLeft: tokens.spacing.xs }]}>
-              <Text variant="label" color="#ffffff">New trip</Text>
+              <Text variant="label" color="#ffffff">{t('trips.list.fab_label')}</Text>
             </Animated.View>
           </Pressable>
         </Animated.View>

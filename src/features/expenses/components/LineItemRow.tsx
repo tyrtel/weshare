@@ -7,6 +7,7 @@ import { personColors, useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import type { ExpenseLineItem } from '../../../core/models/Expense';
 import type { TripMember } from '../../../core/models/TripMember';
+import { useTranslation } from 'react-i18next';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -33,6 +34,7 @@ export function LineItemRow({
   onToggleMember,
   onRemove,
 }: LineItemRowProps) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   return (
@@ -51,7 +53,7 @@ export function LineItemRow({
         <TextInput
           value={item.description}
           onChangeText={onUpdateDescription}
-          placeholder="Item"
+          placeholder={t('expenses.line_item.placeholder')}
           placeholderTextColor={colors.text.tertiary}
           style={{
             flex: 1,
@@ -59,7 +61,7 @@ export function LineItemRow({
             fontSize: tokens.fontSize.md,
           }}
           returnKeyType="done"
-          accessibilityLabel="Item description"
+          accessibilityLabel={t('expenses.line_item.description_label')}
         />
         <Pressable onPress={e => e.stopPropagation?.()}>
           <AmountInput
@@ -73,7 +75,7 @@ export function LineItemRow({
           onPress={onRemove}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Remove item"
+          accessibilityLabel={t('expenses.line_item.remove_label')}
         >
           <Ionicons name="close-circle-outline" size={20} color={colors.text.tertiary} />
         </Pressable>

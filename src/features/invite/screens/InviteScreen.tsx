@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
@@ -13,6 +14,7 @@ import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 
 export function InviteScreen() {
+  const { t } = useTranslation();
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const colors     = useColors();
   const share      = useService(SHARE);
@@ -42,14 +44,14 @@ export function InviteScreen() {
       <View style={{ flex: 1, padding: tokens.spacing.md, paddingBottom: tokens.spacing.md + TAB_BAR_HEIGHT }}>
 
         <Text variant="heading2" style={{ marginBottom: tokens.spacing.xs }}>
-          Invite to {trip.name}
+          {t('invite.screen.title', { trip_name: trip.name })}
         </Text>
         <Text
           variant="body"
           color={colors.text.secondary}
           style={{ marginBottom: tokens.spacing.xl }}
         >
-          Share this link with friends so they can join.
+          {t('invite.screen.subtitle')}
         </Text>
 
         {inviteUrl ? (
@@ -57,7 +59,7 @@ export function InviteScreen() {
             {/* Link pill */}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Copy invite link"
+              accessibilityLabel={t('invite.screen.copy_label')}
               style={{
                 backgroundColor: colors.surface,
                 borderRadius: tokens.radius.pill,
@@ -79,11 +81,11 @@ export function InviteScreen() {
                 {inviteUrl}
               </Text>
               <Text variant="caption" color={colors.text.tertiary} style={{ marginLeft: tokens.spacing.sm }}>
-                copy
+                {t('invite.screen.copy_button')}
               </Text>
             </Pressable>
 
-            <Button label="Share invite" onPress={handleShare} />
+            <Button label={t('invite.screen.share_button')} onPress={handleShare} />
           </>
         ) : (
           <View
@@ -94,7 +96,7 @@ export function InviteScreen() {
             }}
           >
             <Text variant="body" color={colors.warning.default}>
-              No invite link yet. Re-open this screen after the trip is fully saved.
+              {t('invite.screen.no_link_warning')}
             </Text>
           </View>
         )}

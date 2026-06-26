@@ -1,3 +1,4 @@
+import '../src/i18n'; // initialise i18next before any component renders
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, Alert } from 'react-native';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
@@ -11,6 +12,7 @@ import { SimulationBanner } from '../src/shared/components/SimulationBanner';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 import { UniversalTabBar } from '../src/components/ui/UniversalTabBar';
 import * as Sentry from '@sentry/react-native';
+import { useTranslation } from 'react-i18next';
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -64,6 +66,7 @@ class ErrorBoundary extends React.Component<
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const auth     = useService(AUTH);
   const storeApi = useService(TRIP_STORE);
 
@@ -160,12 +163,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   const handleDebugReset = useCallback(() => {
     Alert.alert(
-      'Reset Auth',
-      'Clear all stored credentials and sign out. Useful for simulating a fresh cold start. You will need to sign in again.',
+      t('common.debug.reset_auth_title'),
+      t('common.debug.reset_auth_message'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Clear & Sign Out',
+          text: t('common.debug.clear_and_sign_out'),
           style: 'destructive',
           onPress: async () => {
             Sentry.captureMessage('debug_reset_auth_triggered', 'info');
@@ -181,8 +184,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (phase !== 'ready') {
     const message = phase === 'trips'
-      ? 'Loading trips…'
-      : slowAuth ? 'Connecting to server…' : undefined;
+      ? t('common.loading')
+      : slowAuth ? t('common.connecting_to_server') : undefined;
     return (
       <AppLoadingScreen
         message={message}

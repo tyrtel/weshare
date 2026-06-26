@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -13,6 +14,7 @@ import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 
 export function JoinScreen() {
+  const { t } = useTranslation();
   const { token }  = useLocalSearchParams<{ token: string }>();
   const router     = useRouter();
   const colors     = useColors();
@@ -55,16 +57,16 @@ export function JoinScreen() {
           }}
         >
           <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm, textAlign: 'center' }}>
-            Invite not found
+            {t('invite.join.error_title')}
           </Text>
           <Text
             variant="body"
             color={colors.text.secondary}
             style={{ textAlign: 'center', marginBottom: tokens.spacing.lg }}
           >
-            This invite link may have expired or is no longer valid.
+            {t('invite.join.error_body')}
           </Text>
-          <Button label="Go home" onPress={() => router.replace('/')} variant="ghost" />
+          <Button label={t('invite.join.go_home_button')} onPress={() => router.replace('/')} variant="ghost" />
         </View>
       </ScreenWrapper>
     );
@@ -83,17 +85,17 @@ export function JoinScreen() {
           }}
         >
           <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm, textAlign: 'center' }}>
-            Sign in to join
+            {t('invite.join.sign_in_title')}
           </Text>
           <Text
             variant="body"
             color={colors.text.secondary}
             style={{ textAlign: 'center', marginBottom: tokens.spacing.lg }}
           >
-            You need to sign in before joining <Text variant="body">{trip.name}</Text>.
+            {t('invite.join.sign_in_body', { trip_name: trip.name })}
           </Text>
           <Button
-            label="Sign in"
+            label={t('invite.join.sign_in_button')}
             onPress={() => router.replace('/auth')}
           />
         </View>
@@ -111,7 +113,7 @@ export function JoinScreen() {
           color={colors.text.secondary}
           style={{ marginBottom: tokens.spacing.xs, textAlign: 'center' }}
         >
-          You&apos;re invited to
+          {t('invite.join.invited_to_label')}
         </Text>
         <Text
           variant="heading1"
@@ -131,14 +133,14 @@ export function JoinScreen() {
             alignItems: 'center',
           }}
         >
-          <Text variant="body" color={colors.text.secondary}>Joining as </Text>
+          <Text variant="body" color={colors.text.secondary}>{t('invite.join.joining_as')} </Text>
           <Text variant="body">{currentUser.name}</Text>
         </View>
 
-        <ErrorBanner error={joinError} fallback="Could not join trip. Please try again." style={{ marginBottom: tokens.spacing.md }} />
+        <ErrorBanner error={joinError} fallback={t('invite.join.error_fallback')} style={{ marginBottom: tokens.spacing.md }} />
 
         <Button
-          label={joining ? 'Joining…' : `Join ${trip.name}`}
+          label={joining ? t('invite.join.joining_in_progress') : t('invite.join.join_button', { trip_name: trip.name })}
           onPress={handleJoin}
           disabled={joining}
         />

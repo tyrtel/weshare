@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Modal, View, Pressable, FlatList, TextInput, ActivityIndicator, StyleSheet,
 } from 'react-native';
@@ -20,6 +21,7 @@ interface BankSelectorSheetProps {
 }
 
 export function BankSelectorSheet({ visible, onSelect, onClose }: BankSelectorSheetProps) {
+  const { t } = useTranslation();
   const colors      = useColors();
   const bankService = useService(BANK_LIST);
 
@@ -51,7 +53,7 @@ export function BankSelectorSheet({ visible, onSelect, onClose }: BankSelectorSh
       accessibilityViewIsModal
     >
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} accessibilityLabel="Close bank selector" />
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} accessibilityLabel={t('settlement.bank_selector.close_label')} />
 
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
           {/* Handle */}
@@ -60,7 +62,7 @@ export function BankSelectorSheet({ visible, onSelect, onClose }: BankSelectorSh
           </View>
 
           <Text variant="heading3" style={{ paddingHorizontal: tokens.spacing.lg, marginBottom: tokens.spacing.sm }}>
-            Select your bank
+            {t('settlement.bank_selector.title')}
           </Text>
 
           {/* Search */}
@@ -79,14 +81,14 @@ export function BankSelectorSheet({ visible, onSelect, onClose }: BankSelectorSh
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Search banks…"
+              placeholder={t('settlement.bank_selector.search_placeholder')}
               placeholderTextColor={colors.text.tertiary}
               style={{ flex: 1, color: colors.text.primary, paddingVertical: tokens.spacing.sm, fontSize: 14 }}
               autoCorrect={false}
-              accessibilityLabel="Search banks"
+              accessibilityLabel={t('settlement.bank_selector.search_label')}
             />
             {query.length > 0 && (
-              <Pressable onPress={() => setQuery('')} accessibilityLabel="Clear search">
+              <Pressable onPress={() => setQuery('')} accessibilityLabel={t('settlement.bank_selector.clear_search')}>
                 <Ionicons name="close-circle" size={16} color={colors.text.tertiary} />
               </Pressable>
             )}
@@ -102,7 +104,7 @@ export function BankSelectorSheet({ visible, onSelect, onClose }: BankSelectorSh
               contentContainerStyle={{ paddingHorizontal: tokens.spacing.lg, paddingBottom: tokens.spacing.lg }}
               ListEmptyComponent={
                 <Text variant="body" color={colors.text.tertiary} style={{ textAlign: 'center', marginTop: tokens.spacing.lg }}>
-                  No banks found
+                  {t('settlement.bank_selector.empty')}
                 </Text>
               }
               renderItem={({ item, index }) => (
@@ -150,7 +152,7 @@ export function BankSelectorSheet({ visible, onSelect, onClose }: BankSelectorSh
               opacity:          pressed ? 0.7 : 1,
             })}
           >
-            <Text variant="label" color={colors.text.secondary}>Skip — proceed without selecting</Text>
+            <Text variant="label" color={colors.text.secondary}>{t('settlement.bank_selector.skip')}</Text>
           </Pressable>
         </View>
       </View>

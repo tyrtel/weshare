@@ -47,13 +47,13 @@ describe('SpendPieChart', () => {
     expect(screen.getByText(/Alice/)).toBeTruthy();
   });
 
-  it('shows the total spend', () => {
+  it('does not render a duplicate total label (screen already shows the total above the chart)', () => {
     const expenses = [
       expenseFactory({ id: 'e1', paidByUserId: 'u1', totalAmountCents: 3000 }),
       expenseFactory({ id: 'e2', paidByUserId: 'u2', totalAmountCents: 2000 }),
     ];
     render(<SpendPieChart expenses={expenses} members={MEMBERS} currency="EUR" />);
-    expect(screen.getByText('Total: €50.00')).toBeTruthy();
+    expect(screen.queryByText('Total: €50.00')).toBeNull();
   });
 
   it('renders an SVG chart element', () => {

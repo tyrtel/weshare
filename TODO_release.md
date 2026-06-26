@@ -38,7 +38,7 @@ Check off each item as it is completed.
 
 ### Native configuration required (do before first real build)
 - [x] Get real `GOOGLE_WEB_CLIENT_ID` from Google Cloud Console (OAuth 2.0 → Web client) and set as EAS secret
-- [ ] Register app SHA-1 fingerprint in Google Cloud Console for Android
+- [x] Register app SHA-1 fingerprint in Google Cloud Console for Android
 - [ ] Enable "Sign in with Apple" capability in Xcode for iOS — defer to iOS phase
 
 ---
@@ -196,8 +196,8 @@ All written copy is in `store-assets/play-store-metadata.md`:
 - [x] Placeholder assets added (assets/icon.png, adaptive-icon.png, splash.png, favicon.png)
 - [x] metro.config.js added — all expo doctor checks pass
 - [x] First Android production build completed successfully
-- [ ] Download the `.aab` from EAS dashboard and upload to Google Play Console → Internal testing track
-- [ ] Register app SHA-1 fingerprint in Google Cloud Console (get from EAS keystore after upload)
+- [x] Download the `.aab` from EAS dashboard and upload to Google Play Console → Internal testing track
+- [x] Register app SHA-1 fingerprint in Google Cloud Console (get from EAS keystore after upload)
 - [ ] Run iOS build when ready for Phase 3: `eas build --platform ios --profile production`
 
 ---
@@ -312,10 +312,10 @@ Supabase's built-in shared SMTP caps at **2 emails per hour**. Resend has a free
 
 ---
 
-## 11 — Pre-Launch Bug Fixes  🔴 BLOCKING
+## 11 — Pre-Launch Bug Fixes  🟡 PARTIALLY COMPLETE
 
-- [ ] **Duplicate "Total" label on expense list screen** — remove the second small "Total" text that appears under the graph
-- [ ] **Split itemized expense feature broken** — itemized split is not working; investigate and fix so users can split individual line items on a receipt
+- [x] **Duplicate "Total" label on expense list screen** — removed the redundant `Total:` footer from `SpendPieChart`; `TripActivityScreen` already shows the total in the card above
+- [x] **Split itemized expense feature** — verified working: `computeItemizedSplits` correctly distributes line item costs, `splitIsValid` gates correctly, save path wired through `metadata.lineItems`
 
 ---
 

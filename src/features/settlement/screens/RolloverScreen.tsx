@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   FlatList,
@@ -27,6 +28,7 @@ const rolloverParamsSchema = z.object({
 // ── Public entry point (param guard) ─────────────────────────────────────────
 
 export function RolloverScreen() {
+  const { t } = useTranslation();
   const raw    = useLocalSearchParams();
   const parsed = rolloverParamsSchema.safeParse(raw);
   const colors = useColors();
@@ -36,7 +38,7 @@ export function RolloverScreen() {
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
-            Invalid navigation parameters.
+            {t('common.error_invalid_params')}
           </Text>
         </View>
       </ScreenWrapper>
@@ -49,6 +51,7 @@ export function RolloverScreen() {
 // ── Inner content ─────────────────────────────────────────────────────────────
 
 function RolloverScreenContent({ tripId }: { tripId: string }) {
+  const { t } = useTranslation();
   const colors = useColors();
   const router = useRouter();
 
@@ -89,7 +92,7 @@ function RolloverScreenContent({ tripId }: { tripId: string }) {
   const stepIndex = { 'pick-trip': 1, 'match-participants': 2, 'review-debts': 3, 'confirm': 4 }[step];
 
   const screenOptions = useMemo(() => ({
-    title:      'Roll Over Debts',
+    title:      t('settlement.rollover.title'),
     headerLeft: () => (
       <Pressable onPress={handleBack} hitSlop={8}>
         <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
@@ -159,13 +162,14 @@ function PickTripStep({
   availableTrips: Trip[];
   onSelect: (tripId: string) => void;
 }) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   if (availableTrips.length === 0) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
         <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center' }}>
-          No other trips to roll debts into.
+          {t('settlement.rollover.no_trips')}
         </Text>
       </View>
     );
@@ -174,7 +178,7 @@ function PickTripStep({
   return (
     <View style={{ flex: 1 }}>
       <Text variant="label" color={colors.text.secondary} style={{ paddingHorizontal: tokens.spacing.md, paddingBottom: tokens.spacing.sm }}>
-        Choose destination trip
+        {t('settlement.rollover.pick_trip_label')}
       </Text>
       <FlatList
         data={availableTrips}
@@ -223,6 +227,7 @@ function MatchParticipantsStep({
   onRemove: (sourceUserId: string) => void;
   onNext: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useColors();
   const matchedEntries = [...matched.entries()];
 
@@ -235,7 +240,7 @@ function MatchParticipantsStep({
           <>
             {matchedEntries.length > 0 && (
               <Text variant="label" color={colors.text.secondary} style={{ paddingHorizontal: tokens.spacing.md, paddingTop: tokens.spacing.sm, paddingBottom: tokens.spacing.xs }}>
-                Matched ({matchedEntries.length})
+                {t('settlement.rollover.matched_label', { count: matchedEntries.length })}
               </Text>
             )}
           </>
@@ -265,7 +270,7 @@ function MatchParticipantsStep({
           unmatched.length > 0 ? (
             <View>
               <Text variant="label" color={colors.text.secondary} style={{ paddingHorizontal: tokens.spacing.md, paddingTop: tokens.spacing.md, paddingBottom: tokens.spacing.xs }}>
-                Unmatched ({unmatched.length}) — tap a target to link
+                {t('settlement.rollover.unmatched_label', { count: unmatched.length })}
               </Text>
               {unmatched.map((src) => (
                 <View key={src.userId} style={{ marginHorizontal: tokens.spacing.md, marginBottom: tokens.spacing.xs }}>
@@ -303,7 +308,7 @@ function MatchParticipantsStep({
             borderRadius:    tokens.radius.pill,
           })}
         >
-          <Text variant="label" color={colors.text.inverse}>Review debts</Text>
+          <Text variant="label" color={colors.text.inverse}>{t('settlement.rollover.review_button')}</Text>
         </Pressable>
       </View>
     </View>
@@ -323,13 +328,14 @@ function ReviewDebtsStep({
   onToggle: (index: number) => void;
   onNext: () => void;
 }) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   if (seeds.length === 0) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
         <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center' }}>
-          No outstanding debts to roll over.
+          {t('settlement.rollover.no_debts')}
         </Text>
       </View>
     );
@@ -338,7 +344,7 @@ function ReviewDebtsStep({
   return (
     <View style={{ flex: 1 }}>
       <Text variant="label" color={colors.text.secondary} style={{ paddingHorizontal: tokens.spacing.md, paddingBottom: tokens.spacing.sm }}>
-        Deselect any debts you don't want to carry over
+        {t('settlement.rollover.review_label')}
       </Text>
       <FlatList
         data={seeds}
@@ -386,7 +392,7 @@ function ReviewDebtsStep({
             borderRadius:    tokens.radius.pill,
           })}
         >
-          <Text variant="label" color={colors.text.inverse}>Continue</Text>
+          <Text variant="label" color={colors.text.inverse}>{t('settlement.rollover.continue_button')}</Text>
         </Pressable>
       </View>
     </View>
@@ -408,6 +414,7 @@ function ConfirmStep({
   loading: boolean;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   const colors  = useColors();
   const chosen  = seeds.filter((_, i) => selectedIndices.has(i));
   const total   = chosen.reduce((sum, s) => sum + s.amountCents, 0);
@@ -423,11 +430,11 @@ function ConfirmStep({
         ...tokens.shadow.sm,
       }}>
         <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-          Rolling over into trip
+          {t('settlement.rollover.confirm_target_label')}
         </Text>
         <Text variant="body">{targetTripId ?? '—'}</Text>
         <Text variant="label" color={colors.text.secondary} style={{ marginTop: tokens.spacing.sm }}>
-          {chosen.length} debt{chosen.length !== 1 ? 's' : ''}
+          {t('settlement.rollover.debt_count', { count: chosen.length })}
           {currency ? ` · ${formatCurrency(total, currency)}` : ''}
         </Text>
       </View>
@@ -447,7 +454,7 @@ function ConfirmStep({
       >
         {loading
           ? <ActivityIndicator size="small" color={colors.text.inverse} />
-          : <Text variant="label" color={colors.text.inverse}>Roll over debts</Text>
+          : <Text variant="label" color={colors.text.inverse}>{t('settlement.rollover.confirm_button')}</Text>
         }
       </Pressable>
     </View>

@@ -15,11 +15,13 @@ import { useService } from '../../src/core/di/ServiceContext';
 import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
+import { useTranslation } from 'react-i18next';
 import { darkColors as C } from '../../src/theme/colors';
 
 const CODE_LENGTH = 6;
 
 export default function ResetPasswordScreen() {
+  const { t } = useTranslation();
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -73,10 +75,10 @@ export default function ResetPasswordScreen() {
   }
 
   function validate(): string | null {
-    if (digits.some(d => d === ''))  return 'Please enter the 6-digit code.';
-    if (!password)                   return 'Please enter a new password.';
-    if (password.length < 6)         return 'Password must be at least 6 characters.';
-    if (password !== confirm)        return 'Passwords do not match.';
+    if (digits.some(d => d === ''))  return t('auth.reset_password.error_code_empty');
+    if (!password)                   return t('auth.reset_password.error_password_empty');
+    if (password.length < 6)         return t('auth.error_password_too_short');
+    if (password !== confirm)        return t('auth.error_passwords_mismatch');
     return null;
   }
 
@@ -127,15 +129,15 @@ export default function ResetPasswordScreen() {
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.go_back')}
         >
-          <Text variant="body" color={C.primary.default}>← Back</Text>
+          <Text variant="body" color={C.primary.default}>{t('common.back_arrow')}</Text>
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>Set new password</Text>
+          <Text variant="heading" style={styles.title}>{t('auth.reset_password.title')}</Text>
           <Text variant="body" color={C.text.secondary} style={styles.subtitle}>
-            Enter the 6-digit code sent to{'\n'}
+            {t('auth.reset_password.subtitle')}{'\n'}
             <Text variant="body" color={C.text.primary}>{email}</Text>
           </Text>
         </View>
@@ -153,7 +155,7 @@ export default function ResetPasswordScreen() {
               editable={!busy}
               selectTextOnFocus
               style={[styles.digitBox, digit ? styles.digitBoxFilled : null]}
-              accessibilityLabel={`Digit ${i + 1}`}
+              accessibilityLabel={t('auth.verify.digit_label', { number: i + 1 })}
             />
           ))}
         </View>
@@ -162,28 +164,28 @@ export default function ResetPasswordScreen() {
           <TextInput
             ref={passwordRef}
             value={password}
-            onChangeText={t => { setPassword(t); setError(null); }}
-            placeholder="New password (6+ characters)"
+            onChangeText={v => { setPassword(v); setError(null); }}
+            placeholder={t('auth.reset_password.new_password_placeholder')}
             placeholderTextColor={C.text.tertiary}
             secureTextEntry
             returnKeyType="next"
             onSubmitEditing={() => confirmRef.current?.focus()}
             editable={!busy}
             style={styles.input}
-            accessibilityLabel="New password"
+            accessibilityLabel={t('auth.reset_password.new_password_label')}
           />
           <TextInput
             ref={confirmRef}
             value={confirm}
-            onChangeText={t => { setConfirm(t); setError(null); }}
-            placeholder="Confirm new password"
+            onChangeText={v => { setConfirm(v); setError(null); }}
+            placeholder={t('auth.reset_password.confirm_placeholder')}
             placeholderTextColor={C.text.tertiary}
             secureTextEntry
             returnKeyType="go"
             onSubmitEditing={handleSubmit}
             editable={!busy}
             style={styles.input}
-            accessibilityLabel="Confirm new password"
+            accessibilityLabel={t('auth.reset_password.confirm_label')}
           />
         </View>
 
@@ -202,11 +204,11 @@ export default function ResetPasswordScreen() {
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Set new password"
+          accessibilityLabel={t('auth.reset_password.button_label')}
         >
           {busy
             ? <ActivityIndicator color={C.text.inverse} size="small" />
-            : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>Set new password</Text>
+            : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>{t('auth.reset_password.button')}</Text>
           }
         </Pressable>
 
@@ -217,7 +219,7 @@ export default function ResetPasswordScreen() {
           accessibilityRole="button"
         >
           <Text variant="caption" color={resentDone ? C.text.tertiary : C.text.secondary}>
-            {resentDone ? 'Code resent!' : "Didn't receive a code? Send again"}
+            {resentDone ? t('auth.reset_password.code_resent') : t('auth.reset_password.resend_prompt')}
           </Text>
         </Pressable>
       </ScrollView>

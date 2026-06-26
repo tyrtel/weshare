@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +44,7 @@ export function SettlementRow({
   onHistory,
   showDivider = true,
 }: SettlementRowProps) {
+  const { t } = useTranslation();
   const colors   = useColors();
   const entering = Platform.OS !== 'web'
     ? FadeInDown.delay(index * 50).duration(300).springify()
@@ -85,7 +87,7 @@ export function SettlementRow({
           disabled={!onHistory}
           accessibilityRole={onHistory ? 'button' : 'none'}
           accessibilityLabel={onHistory
-            ? `View payment history for ${settlement.fromDisplayName} and ${settlement.toDisplayName}`
+            ? t('settlement.row.history_label', { from: settlement.fromDisplayName, to: settlement.toDisplayName })
             : undefined}
           style={({ pressed }) => ({
             flex: 1,
@@ -147,22 +149,22 @@ export function SettlementRow({
           {isPaymentFlowStatus ? (
             // In-transit: show spinner; other payment-flow: show chevron to history
             isInTransit ? (
-              <ActivityIndicator size="small" color={colors.text.tertiary} accessibilityLabel="Payment in progress" />
+              <ActivityIndicator size="small" color={colors.text.tertiary} accessibilityLabel={t('settlement.row.payment_in_progress')} />
             ) : onHistory ? (
               <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
             ) : null
           ) : isPaid ? (
             // Debt marked paid — checkmark + optional undo
             <View style={{ alignItems: 'flex-end', gap: tokens.spacing.xs }}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.success.default} accessibilityLabel="Paid" />
+              <Ionicons name="checkmark-circle" size={20} color={colors.success.default} accessibilityLabel={t('settlement.row.paid_label')} />
               {onMarkOwed ? (
                 <Pressable
                   onPress={onMarkOwed}
                   accessibilityRole="button"
-                  accessibilityLabel="Undo mark as paid"
+                  accessibilityLabel={t('settlement.row.undo_label')}
                   style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
                 >
-                  <Text variant="caption" color={colors.text.tertiary}>Undo</Text>
+                  <Text variant="caption" color={colors.text.tertiary}>{t('settlement.row.undo')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -173,7 +175,7 @@ export function SettlementRow({
                 <Pressable
                   onPress={onPay}
                   accessibilityRole="button"
-                  accessibilityLabel={`Pay ${settlement.toDisplayName}`}
+                  accessibilityLabel={t('settlement.row.pay_label', { name: settlement.toDisplayName })}
                   style={({ pressed }) => ({
                     backgroundColor: colors.primary.default,
                     borderRadius: tokens.radius.pill,
@@ -182,14 +184,14 @@ export function SettlementRow({
                     opacity: pressed ? 0.7 : 1,
                   })}
                 >
-                  <Text variant="caption" color="#ffffff">Pay</Text>
+                  <Text variant="caption" color="#ffffff">{t('settlement.row.pay_button')}</Text>
                 </Pressable>
               )}
               {onMarkPaid && (
                 <Pressable
                   onPress={markPaidBusy ? undefined : handleMarkPaid}
                   accessibilityRole="button"
-                  accessibilityLabel="Mark as paid"
+                  accessibilityLabel={t('settlement.row.mark_paid_label')}
                   style={({ pressed }) => ({
                     borderRadius: tokens.radius.pill,
                     paddingVertical: tokens.spacing.xs,
@@ -203,7 +205,7 @@ export function SettlementRow({
                 >
                   {markPaidBusy
                     ? <ActivityIndicator size="small" color={colors.text.secondary} />
-                    : <Text variant="caption" color={colors.text.secondary}>Mark Paid</Text>
+                    : <Text variant="caption" color={colors.text.secondary}>{t('settlement.row.mark_paid')}</Text>
                   }
                 </Pressable>
               )}

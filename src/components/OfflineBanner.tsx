@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
+import { useTranslation } from 'react-i18next';
 
 export function OfflineBanner() {
+  const { t } = useTranslation();
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -17,7 +19,7 @@ export function OfflineBanner() {
 
   return (
     <View style={styles.banner}>
-      <Text style={styles.text}>No internet connection</Text>
+      <Text style={styles.text}>{t('common.offline_banner')}</Text>
     </View>
   );
 }

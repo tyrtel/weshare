@@ -15,9 +15,11 @@ import { useService } from '../../src/core/di/ServiceContext';
 import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
+import { useTranslation } from 'react-i18next';
 import { darkColors as C } from '../../src/theme/colors';
 
 export default function ForgotPasswordScreen() {
+  const { t } = useTranslation();
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -27,7 +29,7 @@ export default function ForgotPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
 
   async function handleSend() {
-    if (!email.trim()) { setError('Please enter your email address.'); return; }
+    if (!email.trim()) { setError(t('auth.forgot_password.error_email_empty')); return; }
 
     setBusy(true);
     setError(null);
@@ -59,15 +61,15 @@ export default function ForgotPasswordScreen() {
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.go_back')}
         >
-          <Text variant="body" color={C.primary.default}>← Back</Text>
+          <Text variant="body" color={C.primary.default}>{t('common.back_arrow')}</Text>
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>Reset password</Text>
+          <Text variant="heading" style={styles.title}>{t('auth.forgot_password.title')}</Text>
           <Text variant="body" color={C.text.secondary} style={styles.subtitle}>
-            Enter your email and we'll send you a 6-digit reset code.
+            {t('auth.forgot_password.subtitle')}
           </Text>
         </View>
 
@@ -80,8 +82,8 @@ export default function ForgotPasswordScreen() {
 
           <TextInput
             value={email}
-            onChangeText={t => { setEmail(t); setError(null); }}
-            placeholder="you@example.com"
+            onChangeText={v => { setEmail(v); setError(null); }}
+            placeholder={t('auth.email_placeholder_example')}
             placeholderTextColor={C.text.tertiary}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -90,7 +92,7 @@ export default function ForgotPasswordScreen() {
             onSubmitEditing={handleSend}
             editable={!busy}
             style={styles.input}
-            accessibilityLabel="Email address"
+            accessibilityLabel={t('auth.email_accessibility')}
           />
 
           <Pressable
@@ -102,11 +104,11 @@ export default function ForgotPasswordScreen() {
               pressed && styles.pressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Send reset code"
+            accessibilityLabel={t('auth.forgot_password.button_label')}
           >
             {busy
               ? <ActivityIndicator color={C.text.inverse} size="small" />
-              : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>Send reset code</Text>
+              : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>{t('auth.forgot_password.button')}</Text>
             }
           </Pressable>
         </View>

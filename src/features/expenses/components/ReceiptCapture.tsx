@@ -7,6 +7,7 @@ import { useReceiptStorage } from '../../../hooks/useReceiptStorage';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import type { ParsedReceiptLineItem } from '../../../core/models/ParsedReceipt';
+import { useTranslation } from 'react-i18next';
 
 interface ReceiptCaptureProps {
   onParsed: (
@@ -20,6 +21,7 @@ interface ReceiptCaptureProps {
 }
 
 export function ReceiptCapture({ onParsed, disabled, style }: ReceiptCaptureProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   const { parseReceipt, parsing, error, clearError } = useReceiptParser();
   const { uploadReceipt } = useReceiptStorage();
@@ -57,7 +59,7 @@ export function ReceiptCapture({ onParsed, disabled, style }: ReceiptCaptureProp
           marginTop: tokens.spacing.sm,
         }}>
           <ActivityIndicator size="small" color={colors.primary.default} />
-          <Text variant="caption" color={colors.primary.default}>Reading receipt…</Text>
+          <Text variant="caption" color={colors.primary.default}>{t('expenses.receipt.reading')}</Text>
         </View>
       )}
       {error && (
@@ -74,7 +76,7 @@ export function ReceiptCapture({ onParsed, disabled, style }: ReceiptCaptureProp
           }}
         >
           <Text variant="caption" color={colors.error.default} style={{ flex: 1 }}>
-            Couldn't read receipt — please fill in manually
+            {t('expenses.receipt.error')}
           </Text>
           <Text variant="caption" color={colors.error.default}>✕</Text>
         </Pressable>

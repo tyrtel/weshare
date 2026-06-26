@@ -1,6 +1,6 @@
 module.exports = {
   preset: 'jest-expo',
-  setupFilesAfterEnv: ['@testing-library/jest-native/extend-expect'],
+  setupFilesAfterEnv: ['@testing-library/jest-native/extend-expect', '<rootDir>/jest.setup.ts'],
   testMatch: [
     '**/__tests__/**/*.test.ts',
     '**/__tests__/**/*.test.tsx',
@@ -12,6 +12,7 @@ module.exports = {
   moduleNameMapper: {
     '^@sentry/react-native$': '<rootDir>/src/__mocks__/sentryMock.ts',
     '^expo-contacts$': '<rootDir>/src/__mocks__/expo-contacts.ts',
+    '^expo-localization$': '<rootDir>/src/__mocks__/expo-localization.ts',
     '^expo-secure-store$': '<rootDir>/src/__mocks__/expo-secure-store.ts',
     '^react-native-reanimated$': '<rootDir>/src/__mocks__/reanimatedMock.js',
     '^react-native-gesture-handler$': '<rootDir>/src/__mocks__/gestureHandlerMock.js',

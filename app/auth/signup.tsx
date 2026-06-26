@@ -15,9 +15,11 @@ import { useService } from '../../src/core/di/ServiceContext';
 import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
+import { useTranslation } from 'react-i18next';
 import { darkColors as C } from '../../src/theme/colors';
 
 export default function SignUpScreen() {
+  const { t } = useTranslation();
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -34,12 +36,12 @@ export default function SignUpScreen() {
   const confirmRef  = useRef<TextInput>(null);
 
   function validate(): string | null {
-    if (!name.trim())               return 'Please enter your name.';
-    if (!email.trim())              return 'Please enter your email.';
-    if (!email.includes('@'))       return 'Please enter a valid email address.';
-    if (!password)                  return 'Please enter a password.';
-    if (password.length < 6)        return 'Password must be at least 6 characters.';
-    if (password !== confirm)       return 'Passwords do not match.';
+    if (!name.trim())               return t('auth.sign_up.error_name_empty');
+    if (!email.trim())              return t('auth.sign_in.error_email_empty');
+    if (!email.includes('@'))       return t('auth.error_invalid_email');
+    if (!password)                  return t('auth.sign_up.error_password_empty');
+    if (password.length < 6)        return t('auth.error_password_too_short');
+    if (password !== confirm)       return t('auth.error_passwords_mismatch');
     return null;
   }
 
@@ -84,15 +86,15 @@ export default function SignUpScreen() {
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.go_back')}
         >
-          <Text variant="body" color={C.primary.default}>← Back</Text>
+          <Text variant="body" color={C.primary.default}>{t('common.back_arrow')}</Text>
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>Create account</Text>
+          <Text variant="heading" style={styles.title}>{t('auth.sign_up.title')}</Text>
           <Text variant="body" color={C.text.secondary}>
-            We'll send a code to verify your email.
+            {t('auth.sign_up.subtitle')}
           </Text>
         </View>
 
@@ -104,28 +106,28 @@ export default function SignUpScreen() {
           ) : null}
 
           <View style={styles.field}>
-            <Text variant="label" color={C.text.secondary} style={styles.label}>Name</Text>
+            <Text variant="label" color={C.text.secondary} style={styles.label}>{t('auth.sign_up.name_label')}</Text>
             <TextInput
               value={name}
-              onChangeText={t => { setName(t); setError(null); }}
-              placeholder="Your display name"
+              onChangeText={v => { setName(v); setError(null); }}
+              placeholder={t('auth.sign_up.name_placeholder')}
               placeholderTextColor={C.text.tertiary}
               autoCapitalize="words"
               returnKeyType="next"
               onSubmitEditing={() => emailRef.current?.focus()}
               editable={!busy}
               style={styles.input}
-              accessibilityLabel="Your name"
+              accessibilityLabel={t('auth.sign_up.name_accessibility')}
             />
           </View>
 
           <View style={styles.field}>
-            <Text variant="label" color={C.text.secondary} style={styles.label}>Email</Text>
+            <Text variant="label" color={C.text.secondary} style={styles.label}>{t('auth.sign_up.email_label')}</Text>
             <TextInput
               ref={emailRef}
               value={email}
-              onChangeText={t => { setEmail(t); setError(null); }}
-              placeholder="you@example.com"
+              onChangeText={v => { setEmail(v); setError(null); }}
+              placeholder={t('auth.email_placeholder_example')}
               placeholderTextColor={C.text.tertiary}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -134,33 +136,33 @@ export default function SignUpScreen() {
               onSubmitEditing={() => passwordRef.current?.focus()}
               editable={!busy}
               style={styles.input}
-              accessibilityLabel="Email address"
+              accessibilityLabel={t('auth.email_accessibility')}
             />
           </View>
 
           <View style={styles.field}>
-            <Text variant="label" color={C.text.secondary} style={styles.label}>Password</Text>
+            <Text variant="label" color={C.text.secondary} style={styles.label}>{t('auth.sign_up.password_label')}</Text>
             <TextInput
               ref={passwordRef}
               value={password}
-              onChangeText={t => { setPassword(t); setError(null); }}
-              placeholder="At least 6 characters"
+              onChangeText={v => { setPassword(v); setError(null); }}
+              placeholder={t('auth.sign_up.password_placeholder')}
               placeholderTextColor={C.text.tertiary}
               secureTextEntry
               returnKeyType="next"
               onSubmitEditing={() => confirmRef.current?.focus()}
               editable={!busy}
               style={styles.input}
-              accessibilityLabel="Password"
+              accessibilityLabel={t('auth.password_accessibility')}
             />
           </View>
 
           <View style={styles.field}>
-            <Text variant="label" color={C.text.secondary} style={styles.label}>Confirm password</Text>
+            <Text variant="label" color={C.text.secondary} style={styles.label}>{t('auth.sign_up.confirm_password_label')}</Text>
             <TextInput
               ref={confirmRef}
               value={confirm}
-              onChangeText={t => { setConfirm(t); setError(null); }}
+              onChangeText={v => { setConfirm(v); setError(null); }}
               placeholder="••••••••"
               placeholderTextColor={C.text.tertiary}
               secureTextEntry
@@ -168,7 +170,7 @@ export default function SignUpScreen() {
               onSubmitEditing={handleCreate}
               editable={!busy}
               style={styles.input}
-              accessibilityLabel="Confirm password"
+              accessibilityLabel={t('auth.sign_up.confirm_password_accessibility')}
             />
           </View>
 
@@ -181,23 +183,23 @@ export default function SignUpScreen() {
               pressed && styles.pressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Create account"
+            accessibilityLabel={t('auth.sign_up.button_label')}
           >
             {busy
               ? <ActivityIndicator color={C.text.inverse} size="small" />
-              : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>Create account</Text>
+              : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>{t('auth.sign_up.button')}</Text>
             }
           </Pressable>
         </View>
 
         <View style={styles.signInRow}>
-          <Text variant="body" color={C.text.secondary}>Already have an account?</Text>
+          <Text variant="body" color={C.text.secondary}>{t('auth.sign_up.has_account')}</Text>
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [pressed && { opacity: 0.7 }]}
             accessibilityRole="button"
           >
-            <Text variant="body" color={C.primary.default} style={styles.signInLink}> Sign in</Text>
+            <Text variant="body" color={C.primary.default} style={styles.signInLink}>{' '}{t('auth.sign_up.sign_in_link')}</Text>
           </Pressable>
         </View>
       </ScrollView>

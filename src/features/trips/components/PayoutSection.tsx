@@ -1,5 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Text } from '../../../components/ui/Text';
@@ -20,6 +21,7 @@ interface PayoutSectionProps {
 }
 
 export function PayoutSection({ settlements, members, currency }: PayoutSectionProps) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   function displayName(userId: string): string {
@@ -33,7 +35,7 @@ export function PayoutSection({ settlements, members, currency }: PayoutSectionP
         color={colors.text.secondary}
         style={{ marginBottom: tokens.spacing.sm }}
       >
-        Settle Up
+        {t('trips.payout.title')}
       </Text>
 
       {settlements.length === 0 ? (
@@ -45,7 +47,7 @@ export function PayoutSection({ settlements, members, currency }: PayoutSectionP
             alignItems: 'center',
           }}
         >
-          <Text variant="body" color={colors.text.secondary}>All settled up!</Text>
+          <Text variant="body" color={colors.text.secondary}>{t('trips.payout.all_settled')}</Text>
         </View>
       ) : (
         settlements.map(s => {

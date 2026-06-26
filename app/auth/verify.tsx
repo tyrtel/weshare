@@ -15,11 +15,13 @@ import { useService } from '../../src/core/di/ServiceContext';
 import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
+import { useTranslation } from 'react-i18next';
 import { darkColors as C } from '../../src/theme/colors';
 
 const CODE_LENGTH = 6;
 
 export default function VerifyScreen() {
+  const { t } = useTranslation();
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -121,15 +123,15 @@ export default function VerifyScreen() {
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('common.go_back')}
         >
-          <Text variant="body" color={C.primary.default}>← Back</Text>
+          <Text variant="body" color={C.primary.default}>{t('common.back_arrow')}</Text>
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>Check your email</Text>
+          <Text variant="heading" style={styles.title}>{t('auth.verify.title')}</Text>
           <Text variant="body" color={C.text.secondary} style={styles.subtitle}>
-            We sent a 6-digit code to{'\n'}
+            {t('auth.verify.subtitle')}{'\n'}
             <Text variant="body" color={C.text.primary}>{email}</Text>
           </Text>
         </View>
@@ -147,7 +149,7 @@ export default function VerifyScreen() {
               editable={!busy}
               selectTextOnFocus
               style={[styles.digitBox, digit ? styles.digitBoxFilled : null]}
-              accessibilityLabel={`Digit ${i + 1}`}
+              accessibilityLabel={t('auth.verify.digit_label', { number: i + 1 })}
             />
           ))}
         </View>
@@ -167,11 +169,11 @@ export default function VerifyScreen() {
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Verify code"
+          accessibilityLabel={t('auth.verify.button_label')}
         >
           {busy
             ? <ActivityIndicator color={C.text.inverse} size="small" />
-            : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>Verify</Text>
+            : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>{t('auth.verify.button')}</Text>
           }
         </Pressable>
 
@@ -182,7 +184,7 @@ export default function VerifyScreen() {
           accessibilityRole="button"
         >
           <Text variant="caption" color={resent ? C.text.tertiary : C.text.secondary}>
-            {resent ? 'Code sent!' : "Didn't receive it? Go back and try again"}
+            {resent ? t('auth.verify.code_sent') : t('auth.verify.resend_prompt')}
           </Text>
         </Pressable>
       </ScrollView>

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, FlatList, Pressable, RefreshControl } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
@@ -53,6 +54,7 @@ function PlateIllustration() {
 }
 
 function EmptyExpenses() {
+  const { t } = useTranslation();
   const colors = useColors();
   return (
     <View
@@ -65,13 +67,14 @@ function EmptyExpenses() {
     >
       <PlateIllustration />
       <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center' }}>
-        No expenses yet. Tap + to add the first one.
+        {t('trips.detail.empty_expenses')}
       </Text>
     </View>
   );
 }
 
 export function TripDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
   const colors  = useColors();
@@ -95,13 +98,13 @@ export function TripDetailScreen() {
   const handleCloseTrip = useCallback(() => {
     if (!trip) return;
     void confirm(
-      'Close Trip?',
-      'This will hide the trip from your list. Unsettled debts will still be recorded.',
-      'Close Trip',
+      t('trips.detail.close_alert_title'),
+      t('trips.detail.close_alert_message'),
+      t('trips.detail.close_alert_confirm'),
     ).then(confirmed => {
       if (confirmed) void storeApi.getState().setTripStatus(trip.id, 'closed').then(() => router.back());
     });
-  }, [trip, storeApi, router]);
+  }, [trip, storeApi, router, t]);
 
   const handleSettleUp = useCallback(() => {
     if (!trip) return;
@@ -119,7 +122,7 @@ export function TripDetailScreen() {
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
-            {error?.kind === 'NotFoundError' ? 'Trip not found.' : 'Could not load trip.'}
+            {error?.kind === 'NotFoundError' ? t('trips.detail.error_not_found') : t('trips.detail.error_load')}
           </Text>
         </View>
       </ScreenWrapper>
@@ -164,7 +167,7 @@ export function TripDetailScreen() {
           <Pressable
             onPress={() => router.push(`/trip/activity?id=${trip.id}`)}
             accessibilityRole="button"
-            accessibilityLabel="View full activity"
+            accessibilityLabel={t('trips.detail.view_activity_label')}
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
@@ -175,7 +178,7 @@ export function TripDetailScreen() {
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <Text variant="caption" color={colors.primary.light}>View full activity</Text>
+            <Text variant="caption" color={colors.primary.light}>{t('trips.detail.view_activity')}</Text>
             <Ionicons name="chevron-forward" size={13} color={colors.primary.light} />
           </Pressable>
         ) : null}

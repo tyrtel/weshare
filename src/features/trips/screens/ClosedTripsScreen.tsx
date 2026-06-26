@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, FlatList } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -12,6 +13,7 @@ import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 
 function EmptyState() {
+  const { t } = useTranslation();
   const colors = useColors();
   return (
     <View
@@ -26,20 +28,21 @@ function EmptyState() {
     >
       <Ionicons name="archive-outline" size={48} color={colors.text.tertiary} style={{ marginBottom: tokens.spacing.md }} />
       <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center' }}>
-        No past trips yet.
+        {t('trips.archive.empty')}
       </Text>
     </View>
   );
 }
 
 export function ClosedTripsScreen() {
+  const { t } = useTranslation();
   const { trips, loading } = useClosedTrips();
   const allExpenses = useTripSessionStore(s => s.expenses);
 
   if (loading) {
     return (
       <ScreenWrapper>
-        <Stack.Screen options={{ title: 'Past Trips' }} />
+        <Stack.Screen options={{ title: t('trips.archive.title') }} />
         <TripListSkeleton />
       </ScreenWrapper>
     );
@@ -47,7 +50,7 @@ export function ClosedTripsScreen() {
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Past Trips' }} />
+      <Stack.Screen options={{ title: t('trips.archive.title') }} />
       <FlatList
         data={trips}
         keyExtractor={item => item.id}

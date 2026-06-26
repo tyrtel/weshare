@@ -13,6 +13,7 @@ import { tokens } from '../../../theme/tokens';
 import { formatCents } from '../../../hooks/computations/splitTotals';
 import type { Trip } from '../../../core/models/Trip';
 import type { Expense } from '../../../core/models/Expense';
+import { useTranslation } from 'react-i18next';
 
 interface TripBalance {
   trip: Trip;
@@ -49,6 +50,7 @@ function useBalanceSummary(): TripBalance[] {
 }
 
 function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
+  const { t } = useTranslation();
   const colors  = useColors();
   const router  = useRouter();
   const entering = Platform.OS !== 'web'
@@ -69,17 +71,17 @@ function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
     : colors.text.tertiary;
 
   const balanceLabel = isOwed
-    ? `owed ${formatCents(netCents, currency)}`
+    ? t('balance.row.owed', { amount: formatCents(netCents, currency) })
     : isOwe
-    ? `owe ${formatCents(Math.abs(netCents), currency)}`
-    : 'settled';
+    ? t('balance.row.owe', { amount: formatCents(Math.abs(netCents), currency) })
+    : t('balance.row.settled');
 
   return (
     <Animated.View entering={entering} exiting={exiting}>
       <Pressable
         onPress={() => router.push(`/trip/${item.trip.id}`)}
         accessibilityRole="button"
-        accessibilityLabel={`View trip ${item.trip.name}`}
+        accessibilityLabel={t('balance.row.view_trip_label', { name: item.trip.name })}
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
@@ -97,7 +99,7 @@ function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
             {item.trip.name}
           </Text>
           <Text variant="caption" color={colors.text.tertiary} style={{ marginTop: 2 }}>
-            {item.trip.members.length} {item.trip.members.length === 1 ? 'member' : 'members'}
+            {t('balance.row.member_count', { count: item.trip.members.length })}
           </Text>
         </View>
         <View style={{ alignItems: 'flex-end', gap: tokens.spacing.xs, marginRight: tokens.spacing.xs }}>
@@ -113,6 +115,7 @@ function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
 }
 
 function TotalsFooter({ rows }: { rows: TripBalance[] }) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   // Sum net balance per currency across all visible trips.
@@ -134,17 +137,17 @@ function TotalsFooter({ rows }: { rows: TripBalance[] }) {
       }}
     >
       <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
-        Net total
+        {t('balance.footer.net_total_label')}
       </Text>
       {entries.map(([currency, netCents]) => {
         const isOwed = netCents > 0;
         const isOwe  = netCents < 0;
         const color  = isOwed ? colors.success.default : isOwe ? colors.error.default : colors.text.tertiary;
         const label  = isOwed
-          ? `owed ${formatCents(netCents, currency)}`
+          ? t('balance.row.owed', { amount: formatCents(netCents, currency) })
           : isOwe
-          ? `owe ${formatCents(Math.abs(netCents), currency)}`
-          : 'settled';
+          ? t('balance.row.owe', { amount: formatCents(Math.abs(netCents), currency) })
+          : t('balance.row.settled');
         return (
           <View key={currency} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: tokens.spacing.xs }}>
             <Text variant="body" color={colors.text.primary}>{currency}</Text>
@@ -159,6 +162,7 @@ function TotalsFooter({ rows }: { rows: TripBalance[] }) {
 }
 
 function EmptyState() {
+  const { t } = useTranslation();
   const colors = useColors();
   return (
     <View
@@ -185,16 +189,17 @@ function EmptyState() {
         <Text variant="heading2" color={colors.text.tertiary}>€</Text>
       </View>
       <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm, textAlign: 'center' }}>
-        No balance yet
+        {t('balance.empty.title')}
       </Text>
       <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center' }}>
-        Join or create a trip to see your balance here.
+        {t('balance.empty.body')}
       </Text>
     </View>
   );
 }
 
 export function BalanceSummaryScreen() {
+  const { t } = useTranslation();
   const rows       = useBalanceSummary();
   const isHydrated = useTripSessionStore(s => s.isHydrated);
   const colors     = useColors();
@@ -208,7 +213,7 @@ export function BalanceSummaryScreen() {
           paddingBottom: tokens.spacing.sm,
         }}
       >
-        <Text variant="heading1">Balance</Text>
+        <Text variant="heading1">{t('balance.screen.title')}</Text>
       </View>
 
       {!isHydrated ? (
@@ -235,7 +240,7 @@ export function BalanceSummaryScreen() {
               color={colors.text.secondary}
               style={{ marginBottom: tokens.spacing.sm }}
             >
-              {rows.length} {rows.length === 1 ? 'trip' : 'trips'}
+              {t('balance.list.trip_count', { count: rows.length })}
             </Text>
           ) : null
         }

@@ -7,6 +7,7 @@ import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import { EXPENSE_CATEGORIES, categoryById } from '../utils/categories';
 import type { ExpenseCategory } from '../utils/categories';
+import { useTranslation } from 'react-i18next';
 
 interface CategorySelectorProps {
   value: string | undefined;
@@ -14,6 +15,7 @@ interface CategorySelectorProps {
 }
 
 export function CategorySelector({ value, onChange }: CategorySelectorProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   const [open, setOpen] = useState(false);
 
@@ -36,7 +38,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={selected ? `Category: ${selected.label}. Tap to change.` : 'Add category'}
+        accessibilityLabel={selected ? t('expenses.category.selected_label', { label: selected.label }) : t('expenses.category.add_label')}
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
@@ -55,7 +57,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
           color={hasCategory ? colors.text.primary : colors.text.tertiary}
           style={{ flex: 1 }}
         >
-          {selected ? selected.label : 'No category'}
+          {selected ? selected.label : t('expenses.category.none')}
         </Text>
         <Ionicons name="chevron-forward" size={14} color={colors.text.tertiary} />
       </Pressable>
@@ -82,7 +84,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-            <Text variant="label" color={colors.text.secondary}>Category</Text>
+            <Text variant="label" color={colors.text.secondary}>{t('expenses.category.title')}</Text>
             <Pressable onPress={() => setOpen(false)} hitSlop={8}>
               <Ionicons name="close" size={20} color={colors.text.secondary} />
             </Pressable>
@@ -143,7 +145,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
                   })}
                 >
                   <Ionicons name="close-circle-outline" size={20} color={colors.text.tertiary} />
-                  <Text variant="body" color={colors.text.tertiary}>Remove category</Text>
+                  <Text variant="body" color={colors.text.tertiary}>{t('expenses.category.remove')}</Text>
                 </Pressable>
               ) : null
             }

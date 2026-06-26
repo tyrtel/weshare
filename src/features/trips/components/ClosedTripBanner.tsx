@@ -1,5 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
 import { useColors } from '../../../theme/colors';
@@ -16,6 +17,7 @@ function formatCloseDate(date: Date): string {
 }
 
 export function ClosedTripBanner({ closedAt, expenseCount, memberCount }: Props) {
+  const { t } = useTranslation();
   const colors = useColors();
   return (
     <View
@@ -45,14 +47,14 @@ export function ClosedTripBanner({ closedAt, expenseCount, memberCount }: Props)
         <Ionicons name="archive-outline" size={20} color={colors.text.secondary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text variant="label" color={colors.text.primary}>Trip closed</Text>
+        <Text variant="label" color={colors.text.primary}>{t('trips.closed_banner.title')}</Text>
         {closedAt && (
           <Text variant="caption" color={colors.text.secondary}>
-            Closed {formatCloseDate(closedAt)}
+            {t('trips.closed_banner.closed_date', { date: formatCloseDate(closedAt) })}
           </Text>
         )}
         <Text variant="caption" color={colors.text.tertiary}>
-          {expenseCount} {expenseCount === 1 ? 'expense' : 'expenses'} · {memberCount} {memberCount === 1 ? 'member' : 'members'}
+          {t('trips.closed_banner.expense_count', { count: expenseCount })} · {t('trips.closed_banner.member_count', { count: memberCount })}
         </Text>
       </View>
     </View>

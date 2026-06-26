@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Svg, { Path, G } from 'react-native-svg';
 import { Text } from '../../../components/ui/Text';
 import { personColorFor, useColors } from '../../../theme/colors';
@@ -69,6 +70,7 @@ interface SpendPieChartProps {
 }
 
 export function SpendPieChart({ expenses, members, currency }: SpendPieChartProps) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   const { slices, totalCents } = useMemo(() => {
@@ -117,12 +119,12 @@ export function SpendPieChart({ expenses, members, currency }: SpendPieChartProp
         color={colors.text.secondary}
         style={{ marginBottom: tokens.spacing.sm }}
       >
-        Spend Breakdown
+        {t('trips.spend_chart.title')}
       </Text>
 
       {/* Isometric disc chart */}
       <View style={{ alignItems: 'center' }}>
-        <Svg width={300} height={182} accessibilityLabel="Spend breakdown chart">
+        <Svg width={300} height={182} accessibilityLabel={t('trips.spend_chart.accessibility_label')}>
           {slices.map((s, i) => {
             const isFront = Math.sin(s.midAngle) > 0;
             return (
@@ -174,15 +176,6 @@ export function SpendPieChart({ expenses, members, currency }: SpendPieChartProp
           </View>
         ))}
       </View>
-
-      {/* Total */}
-      <Text
-        variant="caption"
-        color={colors.text.tertiary}
-        style={{ textAlign: 'center', marginTop: tokens.spacing.xs }}
-      >
-        Total: {formatCurrency(totalCents, currency)}
-      </Text>
     </View>
   );
 }

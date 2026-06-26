@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   FlatList,
@@ -67,6 +68,7 @@ interface ManualAddSectionProps {
 }
 
 function ManualAddSection({ tripId, members, onAdded }: ManualAddSectionProps) {
+  const { t } = useTranslation();
   const colors     = useColors();
   const memberRepo = useService(MEMBER_REPO);
   const store      = useService(TRIP_STORE);
@@ -97,7 +99,7 @@ function ManualAddSection({ tripId, members, onAdded }: ManualAddSectionProps) {
       onAdded(result.value);
       setName('');
     } else {
-      setError('Could not add participant. Please try again.');
+      setError(t('invite.add_participants.add_error'));
     }
   }, [name, tripId, memberRepo, store, onAdded]);
 
@@ -107,7 +109,7 @@ function ManualAddSection({ tripId, members, onAdded }: ManualAddSectionProps) {
         <TextInput
           value={name}
           onChangeText={text => { setName(text); setError(null); }}
-          placeholder="Enter a name"
+          placeholder={t('invite.add_participants.name_placeholder')}
           placeholderTextColor={colors.text.tertiary}
           returnKeyType="done"
           onSubmitEditing={handleAdd}
@@ -122,13 +124,13 @@ function ManualAddSection({ tripId, members, onAdded }: ManualAddSectionProps) {
             color: colors.text.primary,
             fontSize: tokens.fontSize.md,
           }}
-          accessibilityLabel="Participant name"
+          accessibilityLabel={t('invite.add_participants.name_label')}
         />
         <Pressable
           onPress={handleAdd}
           disabled={!name.trim() || saving || isDuplicate}
           accessibilityRole="button"
-          accessibilityLabel="Add participant"
+          accessibilityLabel={t('invite.add_participants.add_button_label')}
           style={({ pressed }) => ({
             backgroundColor: colors.primary.default,
             borderRadius: tokens.radius.md,
@@ -140,12 +142,12 @@ function ManualAddSection({ tripId, members, onAdded }: ManualAddSectionProps) {
         >
           {saving
             ? <ActivityIndicator size="small" color="#fff" />
-            : <Text variant="label" color="#ffffff">Add</Text>}
+            : <Text variant="label" color="#ffffff">{t('invite.add_participants.add_button')}</Text>}
         </Pressable>
       </View>
       {isDuplicate && (
         <Text variant="caption" color={colors.error.default} style={{ marginTop: tokens.spacing.xs }}>
-          Already in this trip
+          {t('invite.add_participants.duplicate_error')}
         </Text>
       )}
       {error && (
@@ -182,6 +184,7 @@ function ContactsInlineContent({
   addingId,
   onAddContact,
 }: ContactsInlineContentProps) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   if (loading) {
@@ -201,7 +204,7 @@ function ContactsInlineContent({
         marginBottom: tokens.spacing.md,
       }}>
         <Text variant="body" color={colors.text.secondary}>
-          Enable contacts in Settings to add from your address book.
+          {t('invite.add_participants.contacts_permission_hint')}
         </Text>
       </View>
     );
@@ -216,7 +219,7 @@ function ContactsInlineContent({
       <TextInput
         value={query}
         onChangeText={onQueryChange}
-        placeholder="Search contacts"
+        placeholder={t('invite.add_participants.contacts_search')}
         placeholderTextColor={colors.text.tertiary}
         style={{
           backgroundColor: colors.surface,
@@ -229,7 +232,7 @@ function ContactsInlineContent({
           fontSize: tokens.fontSize.md,
           marginBottom: tokens.spacing.xs,
         }}
-        accessibilityLabel="Search contacts"
+        accessibilityLabel={t('invite.add_participants.contacts_search')}
       />
       <FlatList
         data={filtered}
@@ -244,7 +247,7 @@ function ContactsInlineContent({
               onPress={() => !alreadyAdded && onAddContact(item)}
               disabled={alreadyAdded || isAdding}
               accessibilityRole="button"
-              accessibilityLabel={alreadyAdded ? `${item.name} already added` : `Add ${item.name}`}
+              accessibilityLabel={alreadyAdded ? t('invite.add_participants.contact_already_added', { name: item.name }) : t('invite.add_participants.contact_add_label', { name: item.name })}
               style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -277,7 +280,7 @@ function ContactsInlineContent({
         scrollEnabled={false}
         ListEmptyComponent={
           <Text variant="caption" color={colors.text.secondary} style={{ textAlign: 'center', paddingVertical: tokens.spacing.md }}>
-            {query ? 'No contacts match your search.' : 'No contacts found.'}
+            {query ? t('invite.add_participants.contacts_no_match') : t('invite.add_participants.contacts_empty')}
           </Text>
         }
       />
@@ -294,6 +297,7 @@ interface FrequentPeopleSectionProps {
 }
 
 function FrequentPeopleSection({ currentTripId, currentMembers, onAdded }: FrequentPeopleSectionProps) {
+  const { t } = useTranslation();
   const colors     = useColors();
   const memberRepo = useService(MEMBER_REPO);
   const store      = useService(TRIP_STORE);
@@ -339,7 +343,7 @@ function FrequentPeopleSection({ currentTripId, currentMembers, onAdded }: Frequ
   return (
     <View style={{ marginBottom: tokens.spacing.lg }}>
       <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
-        Also on your other trips
+        {t('invite.add_participants.frequent_label')}
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: tokens.spacing.xs }}>
         {suggestions.map(s => (
@@ -347,7 +351,7 @@ function FrequentPeopleSection({ currentTripId, currentMembers, onAdded }: Frequ
             key={s.userId}
             onPress={() => handleQuickAdd(s)}
             accessibilityRole="button"
-            accessibilityLabel={`Quick add ${s.displayName}`}
+            accessibilityLabel={t('invite.add_participants.quick_add_label', { name: s.displayName })}
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
@@ -378,6 +382,7 @@ interface ShareInviteSectionProps {
 }
 
 function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   const [expanded, setExpanded] = useState(false);
 
@@ -388,7 +393,7 @@ function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
       <Pressable
         onPress={() => setExpanded(e => !e)}
         accessibilityRole="button"
-        accessibilityLabel="Share invite"
+        accessibilityLabel={t('invite.add_participants.share_invite_label')}
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
@@ -404,7 +409,7 @@ function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
         })}
       >
         <Ionicons name="share-social-outline" size={16} color={colors.primary.default} />
-        <Text variant="label" color={colors.primary.default}>Share invite</Text>
+        <Text variant="label" color={colors.primary.default}>{t('invite.add_participants.share_invite_label')}</Text>
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={14}
@@ -433,7 +438,7 @@ function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
             <Pressable
               onPress={handleCopy}
               accessibilityRole="button"
-              accessibilityLabel="Copy invite link"
+              accessibilityLabel={t('invite.add_participants.copy_link_label')}
               style={({ pressed }) => ({
                 flex: 1,
                 flexDirection: 'row',
@@ -447,12 +452,12 @@ function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
               })}
             >
               <Ionicons name="copy-outline" size={16} color={colors.text.secondary} />
-              <Text variant="label" color={colors.text.secondary}>Copy link</Text>
+              <Text variant="label" color={colors.text.secondary}>{t('invite.add_participants.copy_link')}</Text>
             </Pressable>
             <Pressable
               onPress={onShare}
               accessibilityRole="button"
-              accessibilityLabel="Open share sheet"
+              accessibilityLabel={t('invite.add_participants.share_label')}
               style={({ pressed }) => ({
                 flex: 1,
                 flexDirection: 'row',
@@ -466,7 +471,7 @@ function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
               })}
             >
               <Ionicons name="share-outline" size={16} color={colors.primary.default} />
-              <Text variant="label" color={colors.primary.default}>Share</Text>
+              <Text variant="label" color={colors.primary.default}>{t('common.share')}</Text>
             </Pressable>
           </View>
         </View>
@@ -482,6 +487,7 @@ interface CurrentMembersSectionProps {
 }
 
 function CurrentMembersSection({ members }: CurrentMembersSectionProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   if (members.length === 0) return null;
 
@@ -492,7 +498,7 @@ function CurrentMembersSection({ members }: CurrentMembersSectionProps) {
         color={colors.text.secondary}
         style={{ marginBottom: tokens.spacing.sm }}
       >
-        {members.length} {members.length === 1 ? 'person' : 'people'} on this trip
+        {t('invite.add_participants.member_count', { count: members.length })}
       </Text>
       {members.map((member, i) => {
         const palette = personColorFor(member.userId, members);
@@ -529,6 +535,7 @@ function CurrentMembersSection({ members }: CurrentMembersSectionProps) {
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 export function AddParticipantScreen() {
+  const { t } = useTranslation();
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const colors     = useColors();
   const router     = useRouter();
@@ -624,7 +631,7 @@ export function AddParticipantScreen() {
     <Pressable
       onPress={() => router.replace(`/trip/${tripId}` as Parameters<typeof router.replace>[0])}
       accessibilityRole="button"
-      accessibilityLabel="Done"
+      accessibilityLabel={t('invite.add_participants.done_label')}
       style={({ pressed }) => ({
         width: 36,
         height: 36,
@@ -642,8 +649,8 @@ export function AddParticipantScreen() {
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Add Participants', headerRight: doneButton }} />
-      <ClosedTripGuard trip={trip} message="This trip is closed. No new participants can be added.">
+      <Stack.Screen options={{ title: t('invite.add_participants.title'), headerRight: doneButton }} />
+      <ClosedTripGuard trip={trip} message={t('invite.add_participants.closed_guard')}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -660,14 +667,14 @@ export function AddParticipantScreen() {
           ListHeaderComponent={
             <>
               <Text variant="heading2" style={{ marginBottom: tokens.spacing.xs }}>
-                Add Participants
+                {t('invite.add_participants.heading')}
               </Text>
               <Text
                 variant="body"
                 color={colors.text.secondary}
                 style={{ marginBottom: tokens.spacing.lg }}
               >
-                Add people to {trip.name}.
+                {t('invite.add_participants.subtitle', { trip_name: trip.name })}
               </Text>
 
               {/* Current members */}
@@ -684,7 +691,7 @@ export function AddParticipantScreen() {
               <Pressable
                 onPress={handleToggleContacts}
                 accessibilityRole="button"
-                accessibilityLabel={contactsExpanded ? 'Hide contacts' : 'Add from contacts'}
+                accessibilityLabel={contactsExpanded ? t('invite.add_participants.contacts_hide') : t('invite.add_participants.contacts_toggle')}
                 style={({ pressed }) => ({
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -696,7 +703,7 @@ export function AddParticipantScreen() {
               >
                 <Ionicons name="person-add-outline" size={16} color={colors.primary.default} />
                 <Text variant="label" color={colors.primary.default} style={{ flex: 1 }}>
-                  Add from contacts
+                  {t('invite.add_participants.contacts_toggle')}
                 </Text>
                 <Ionicons
                   name={contactsExpanded ? 'chevron-up' : 'chevron-down'}
@@ -710,7 +717,7 @@ export function AddParticipantScreen() {
                 color={colors.text.tertiary}
                 style={{ marginBottom: tokens.spacing.sm }}
               >
-                Phone and email are visible to all members of this trip.
+                {t('invite.add_participants.privacy_notice')}
               </Text>
 
               {/* Inline contacts list — only rendered when expanded */}

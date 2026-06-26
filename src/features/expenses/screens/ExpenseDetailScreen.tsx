@@ -22,6 +22,7 @@ import { confirm } from '../../../core/utils/confirm';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import { isOk } from '../../../core/types/Result';
 import type { TripMember } from '../../../core/models/TripMember';
+import { useTranslation } from 'react-i18next';
 
 const expenseDetailParamsSchema = z.object({
   id: z.string().min(1),
@@ -35,6 +36,7 @@ function getInitials(name: string): string {
 }
 
 export function ExpenseDetailScreen() {
+  const { t } = useTranslation();
   const raw    = useLocalSearchParams();
   const parsed = expenseDetailParamsSchema.safeParse(raw);
 
@@ -43,7 +45,7 @@ export function ExpenseDetailScreen() {
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" style={{ textAlign: 'center' }}>
-            Invalid navigation parameters.
+            {t('expenses.detail.invalid_params')}
           </Text>
         </View>
       </ScreenWrapper>
@@ -54,6 +56,7 @@ export function ExpenseDetailScreen() {
 }
 
 function ExpenseDetailScreenContent({ id }: { id: string }) {
+  const { t } = useTranslation();
   const router     = useRouter();
   const colors     = useColors();
   const memberRepo = useService(MEMBER_REPO);
@@ -84,7 +87,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
 
   const handleDelete = () => {
     if (!expense) return;
-    void confirm('Delete this expense?', 'This cannot be undone.', 'Delete').then(async confirmed => {
+    void confirm(t('expenses.detail.delete_alert_title'), t('common.cannot_be_undone'), t('expenses.detail.delete_alert_confirm')).then(async confirmed => {
       if (confirmed) {
         await storeApi.getState().removeExpense(expense.id, expense.tripId);
         router.back();
@@ -107,7 +110,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
-            {error?.kind === 'NotFoundError' ? 'Expense not found.' : 'Could not load expense.'}
+            {error?.kind === 'NotFoundError' ? t('expenses.detail.error_not_found') : t('expenses.detail.error_load')}
           </Text>
         </View>
       </ScreenWrapper>
@@ -128,7 +131,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
             <Pressable
               onPress={() => router.push(`/expense/edit?id=${expense.id}`)}
               accessibilityRole="button"
-              accessibilityLabel="Edit expense"
+              accessibilityLabel={t('expenses.detail.edit_label')}
               hitSlop={8}
               style={{ paddingHorizontal: tokens.spacing.sm }}
             >
@@ -164,7 +167,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
         {!!expense.metadata?.receiptUrl && (
           <View style={{ marginBottom: tokens.spacing.md }}>
             <Text variant="caption" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-              Receipt
+              {t('expenses.detail.receipt_label')}
             </Text>
             {!receiptUrl ? (
               <View
@@ -183,7 +186,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
               <Pressable
                 onPress={() => setReceiptFullscreen(true)}
                 accessibilityRole="button"
-                accessibilityLabel="View receipt fullscreen"
+                accessibilityLabel={t('expenses.detail.view_receipt_label')}
               >
                 <Image
                   source={{ uri: receiptUrl }}
@@ -194,7 +197,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
                     backgroundColor: colors.surface,
                   }}
                   resizeMode="contain"
-                  accessibilityLabel="Receipt image"
+                  accessibilityLabel={t('expenses.detail.receipt_image_label')}
                   onLoad={() => setReceiptImgLoaded(true)}
                 />
                 {!receiptImgLoaded && (
@@ -243,7 +246,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
             <Pressable
               onPress={() => setReceiptFullscreen(false)}
               accessibilityRole="button"
-              accessibilityLabel="Close receipt"
+              accessibilityLabel={t('expenses.detail.close_receipt_label')}
               style={{
                 position: 'absolute',
                 top: tokens.spacing.lg,
@@ -260,7 +263,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
               source={{ uri: receiptUrl }}
               style={{ flex: 1 }}
               resizeMode="contain"
-              accessibilityLabel="Receipt image fullscreen"
+              accessibilityLabel={t('expenses.detail.receipt_fullscreen_label')}
             />
           </SafeAreaView>
         </Modal>
@@ -284,7 +287,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
           />
           <View style={{ marginLeft: tokens.spacing.sm }}>
             <Text variant="caption" color={colors.text.secondary}>
-              Paid by
+              {t('expenses.detail.paid_by_label')}
             </Text>
             <Text variant="body">{payerName}</Text>
           </View>
@@ -293,7 +296,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
         {/* Splits */}
         <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, padding: tokens.spacing.md }}>
           <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
-            Split ({expense.splits.length})
+            {t('expenses.detail.split_title', { count: expense.splits.length })}
           </Text>
 
           {expense.splits.map((split, i) => {
@@ -311,7 +314,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
                     {name}
                   </Text>
                   {settled ? (
-                    <Badge label="Settled" bg={colors.success.bg} color={colors.success.default} />
+                    <Badge label={t('expenses.detail.settled_badge')} bg={colors.success.bg} color={colors.success.default} />
                   ) : (
                     <Text variant="label" color={colors.primary.default}>
                       {formatCurrency(split.amountOwedCents - split.amountPaidCents, expense.currency)}
@@ -329,7 +332,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
           <Pressable
             onPress={handleDelete}
             accessibilityRole="button"
-            accessibilityLabel="Delete expense"
+            accessibilityLabel={t('expenses.detail.delete_label')}
             style={({ pressed }) => ({
               alignItems: 'center',
               marginTop: tokens.spacing.xl,
@@ -337,7 +340,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <Text variant="label" color={colors.error.default}>Delete expense</Text>
+            <Text variant="label" color={colors.error.default}>{t('expenses.detail.delete_button')}</Text>
           </Pressable>
         )}
       </ScrollView>

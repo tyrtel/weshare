@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, FlatList, ActivityIndicator } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { z } from 'zod';
@@ -21,17 +22,17 @@ const auditParamsSchema = z.object({
   toName:     z.string().default(''),
 });
 
-function paymentMethodLabel(req: SplitRequest): string {
-  if (req.stripeSessionId) return 'Stripe';
-  if (req.obPaymentId)     return 'SEPA Bank Transfer';
+function paymentMethodLabel(req: SplitRequest, t: (key: string) => string): string {
+  if (req.stripeSessionId) return t('settlement.audit.method_stripe');
+  if (req.obPaymentId)     return t('settlement.audit.method_sepa');
   const labels: Record<string, string> = {
-    revolut: 'Revolut',
-    venmo:   'Venmo',
-    lydia:   'Lydia',
-    paypal:  'PayPal',
-    other:   'Other',
+    revolut: t('settlement.audit.method_revolut'),
+    venmo:   t('settlement.audit.method_venmo'),
+    lydia:   t('settlement.audit.method_lydia'),
+    paypal:  t('settlement.audit.method_paypal'),
+    other:   t('settlement.audit.method_other'),
   };
-  return labels[req.preferredWallet] ?? 'Other';
+  return labels[req.preferredWallet] ?? t('settlement.audit.method_other');
 }
 
 function referenceId(req: SplitRequest): string | null {
@@ -43,9 +44,10 @@ interface AuditRequestRowProps {
 }
 
 function AuditRequestRow({ req }: AuditRequestRowProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   const amount = formatCurrency(req.amountCents, req.currency);
-  const method = paymentMethodLabel(req);
+  const method = paymentMethodLabel(req, t);
   const date   = req.createdAt.toLocaleDateString(undefined, {
     year: 'numeric', month: 'short', day: 'numeric',
   });
@@ -77,7 +79,7 @@ function AuditRequestRow({ req }: AuditRequestRowProps) {
       {/* Reference (only when present) */}
       {ref && (
         <Text variant="caption" color={colors.text.tertiary} numberOfLines={1}>
-          Ref: {ref}
+          {t('settlement.audit.ref_prefix', { ref })}
         </Text>
       )}
     </View>
@@ -85,6 +87,7 @@ function AuditRequestRow({ req }: AuditRequestRowProps) {
 }
 
 export function AuditDetailScreen() {
+  const { t } = useTranslation();
   const raw    = useLocalSearchParams();
   const parsed = auditParamsSchema.safeParse(raw);
   const colors = useColors();
@@ -94,7 +97,7 @@ export function AuditDetailScreen() {
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
-            Invalid navigation parameters.
+            {t('common.error_invalid_params')}
           </Text>
         </View>
       </ScreenWrapper>
@@ -107,6 +110,7 @@ export function AuditDetailScreen() {
 type AuditParams = z.infer<typeof auditParamsSchema>;
 
 function AuditDetailScreenContent({ params }: { params: AuditParams }) {
+  const { t } = useTranslation();
   const { tripId, fromUserId, toUserId, fromName, toName } = params;
   const colors = useColors();
 
@@ -118,7 +122,7 @@ function AuditDetailScreenContent({ params }: { params: AuditParams }) {
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Payment History', headerBackTitle: 'Back' }} />
+      <Stack.Screen options={{ title: t('settlement.audit.title'), headerBackTitle: t('common.back') }} />
 
       {/* Pair header */}
       <View
@@ -138,7 +142,7 @@ function AuditDetailScreenContent({ params }: { params: AuditParams }) {
           {title}
         </Text>
         <Text variant="caption" color={colors.text.tertiary}>
-          {loading ? '…' : `${requests.length} record${requests.length !== 1 ? 's' : ''}`}
+          {loading ? '…' : t('settlement.audit.record_count', { count: requests.length })}
         </Text>
       </View>
 
@@ -151,7 +155,7 @@ function AuditDetailScreenContent({ params }: { params: AuditParams }) {
       {error && !loading && (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
-            Could not load payment history.
+            {t('settlement.audit.error_load')}
           </Text>
         </View>
       )}
@@ -160,10 +164,10 @@ function AuditDetailScreenContent({ params }: { params: AuditParams }) {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
           <Ionicons name="receipt-outline" size={40} color={colors.text.tertiary} />
           <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center', marginTop: tokens.spacing.md }}>
-            No payment history yet.
+            {t('settlement.audit.empty_title')}
           </Text>
           <Text variant="caption" color={colors.text.tertiary} style={{ textAlign: 'center', marginTop: tokens.spacing.xs }}>
-            Records appear here once a payment request is created.
+            {t('settlement.audit.empty_body')}
           </Text>
         </View>
       )}

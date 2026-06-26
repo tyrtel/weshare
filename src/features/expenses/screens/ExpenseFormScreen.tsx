@@ -32,14 +32,15 @@ import { CURRENCIES, currencyLabel, currencySymbol } from '../../../core/constan
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import type { ParsedReceiptLineItem } from '../../../core/models/ParsedReceipt';
 import type { SplitResult } from '../utils/splitCalculations';
+import { useTranslation } from 'react-i18next';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SPLIT_MODES: { key: SplitMode; label: string }[] = [
-  { key: 'equal',        label: 'Equal' },
-  { key: 'proportional', label: 'Proportional' },
-  { key: 'custom',       label: 'Custom' },
-  { key: 'itemized',     label: 'Itemized' },
+  { key: 'equal',        label: 'expenses.form.split_equal' },
+  { key: 'proportional', label: 'expenses.form.split_proportional' },
+  { key: 'custom',       label: 'expenses.form.split_custom' },
+  { key: 'itemized',     label: 'expenses.form.split_itemized' },
 ];
 
 const EMPTY_EXPENSES: never[] = [];
@@ -66,6 +67,7 @@ function scaleAndCorrect(splits: SplitResult[], rate: number, targetCents: numbe
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export function ExpenseFormScreen() {
+  const { t } = useTranslation();
   const { tripId, id: expenseId } = useLocalSearchParams<{ tripId?: string; id?: string }>();
   const router  = useRouter();
   const colors  = useColors();
@@ -231,7 +233,7 @@ export function ExpenseFormScreen() {
   // ── Loading state ────────────────────────────────────────────────────────────
 
   const isLoading = tripLoading || (mode === 'edit' && expLoading) || !trip || (mode === 'edit' && !expense);
-  const title     = mode === 'add' ? 'Add Expense' : 'Edit Expense';
+  const title     = mode === 'add' ? t('expenses.form.add_title') : t('expenses.form.edit_title');
 
   if (isLoading) {
     return (
@@ -249,15 +251,15 @@ export function ExpenseFormScreen() {
     : colors.warning?.default ?? colors.text.secondary;
 
   const closedMessage = mode === 'add'
-    ? 'This trip is closed. No new expenses can be added.'
-    : 'This trip is closed. Expenses can no longer be edited.';
+    ? t('expenses.form.closed_add_guard')
+    : t('expenses.form.closed_edit_guard');
 
   const confirmButton = trip.status !== 'closed' ? () => (
     <Pressable
       onPress={handleSubmit}
       disabled={!isValid || saving}
       accessibilityRole="button"
-      accessibilityLabel={mode === 'add' ? 'Confirm expense' : 'Save changes'}
+      accessibilityLabel={mode === 'add' ? t('expenses.form.confirm_label') : t('expenses.form.save_label')}
       style={({ pressed }) => ({
         width: 36,
         height: 36,
@@ -292,17 +294,17 @@ export function ExpenseFormScreen() {
 
             {/* Description */}
             <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-              Description
+              {t('expenses.form.description_label')}
             </Text>
             <TextInput
               value={description}
               onChangeText={v => { setDirty(true); setDescription(v); }}
-              placeholder="e.g. Dinner at Chez Paul"
+              placeholder={t('expenses.form.description_placeholder')}
               placeholderTextColor={colors.text.tertiary}
               style={[inputBorder, { marginBottom: tokens.spacing.md }]}
               autoFocus={mode === 'add'}
               returnKeyType="next"
-              accessibilityLabel="Expense description"
+              accessibilityLabel={t('expenses.form.description_accessibility')}
             />
 
             {/* Category */}
@@ -315,47 +317,16 @@ export function ExpenseFormScreen() {
                   amountCents={totalAmountCents}
                   onChangeCents={v => { setDirty(true); setTotalAmountCents(v); }}
                   currency={entryCurrency || tripCurrency}
-                  label="Amount"
+                  label={t('expenses.form.amount_label')}
+                  onCurrencyPress={() => setCurrencyDropVisible(true)}
+                  isForeign={isForeign}
                 />
                 {dirty && totalAmountCents === 0 && (
                   <Text variant="caption" color={colors.text.secondary} style={{ marginTop: tokens.spacing.xs }}>
-                    Enter an amount to continue
+                    {t('expenses.form.amount_hint')}
                   </Text>
                 )}
               </View>
-            )}
-
-            {/* Currency selector pill */}
-            {!isItemized && (
-              <Pressable
-                onPress={() => setCurrencyDropVisible(true)}
-                accessibilityRole="combobox"
-                accessibilityLabel="Select entry currency"
-                accessibilityState={{ expanded: currencyDropVisible }}
-                style={({ pressed }) => ({
-                  alignSelf: 'flex-start',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: tokens.spacing.xs,
-                  paddingHorizontal: tokens.spacing.sm,
-                  paddingVertical: tokens.spacing.xs,
-                  borderRadius: tokens.radius.pill,
-                  borderWidth: 1,
-                  borderColor: isForeign ? colors.primary.default : colors.border,
-                  backgroundColor: isForeign ? colors.primary.subtle : 'transparent',
-                  marginBottom: tokens.spacing.sm,
-                  opacity: pressed ? 0.7 : 1,
-                })}
-              >
-                <Text variant="caption" color={isForeign ? colors.primary.default : colors.text.secondary}>
-                  {entryCurrency || tripCurrency}
-                </Text>
-                <Ionicons
-                  name="chevron-down"
-                  size={12}
-                  color={isForeign ? colors.primary.default : colors.text.secondary}
-                />
-              </Pressable>
             )}
 
             {/* Exchange rate indicator */}
@@ -364,14 +335,14 @@ export function ExpenseFormScreen() {
                 {rate.loading ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs }}>
                     <ActivityIndicator size="small" color={colors.text.secondary} />
-                    <Text variant="caption" color={colors.text.secondary}>Fetching rate…</Text>
+                    <Text variant="caption" color={colors.text.secondary}>{t('expenses.form.rate_fetching')}</Text>
                   </View>
                 ) : rate.error ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs }}>
                     <Ionicons name="warning-outline" size={14} color={rateSourceColor} />
-                    <Text variant="caption" color={rateSourceColor}>Rate unavailable</Text>
+                    <Text variant="caption" color={rateSourceColor}>{t('expenses.form.rate_unavailable')}</Text>
                     <Pressable onPress={rate.refresh} hitSlop={8}>
-                      <Text variant="caption" color={colors.primary.default}> Retry</Text>
+                      <Text variant="caption" color={colors.primary.default}>{' '}{t('common.retry')}</Text>
                     </Pressable>
                   </View>
                 ) : rate.result ? (
@@ -386,7 +357,7 @@ export function ExpenseFormScreen() {
 
             {/* Paid by */}
             <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
-              Paid by
+              {t('expenses.form.paid_by_label')}
             </Text>
             <PayerSelector
               members={trip.members}
@@ -398,7 +369,7 @@ export function ExpenseFormScreen() {
 
             {/* Split mode toggle */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: tokens.spacing.sm }}>
-              <Text variant="label" color={colors.text.secondary}>Split between</Text>
+              <Text variant="label" color={colors.text.secondary}>{t('expenses.form.split_between_label')}</Text>
               <View style={{ flexDirection: 'row', gap: tokens.spacing.xs }}>
                 {SPLIT_MODES.map(({ key, label }) => {
                   const active = split.splitMode === key;
@@ -418,7 +389,7 @@ export function ExpenseFormScreen() {
                       }}
                     >
                       <Text variant="caption" color={active ? colors.primary.default : colors.text.secondary}>
-                        {label}
+                        {t(label)}
                       </Text>
                     </Pressable>
                   );
@@ -444,7 +415,7 @@ export function ExpenseFormScreen() {
                 <Pressable
                   onPress={split.addLineItem}
                   accessibilityRole="button"
-                  accessibilityLabel="Add item"
+                  accessibilityLabel={t('expenses.form.add_line_item_label')}
                   style={({ pressed }) => ({
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -454,7 +425,7 @@ export function ExpenseFormScreen() {
                   })}
                 >
                   <Ionicons name="add-circle-outline" size={18} color={colors.primary.default} />
-                  <Text variant="label" color={colors.primary.default}>Add item</Text>
+                  <Text variant="label" color={colors.primary.default}>{t('expenses.form.add_line_item')}</Text>
                 </Pressable>
                 {split.lineItems.length > 0 && (
                   <View style={{
@@ -465,7 +436,7 @@ export function ExpenseFormScreen() {
                     borderTopColor: colors.border,
                     marginTop: tokens.spacing.xs,
                   }}>
-                    <Text variant="label" color={colors.text.secondary}>Total</Text>
+                    <Text variant="label" color={colors.text.secondary}>{t('expenses.form.itemized_total_label')}</Text>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text variant="label" color={colors.text.primary}>
                         {formatCurrency(split.itemizedTotal, entryCurrency || tripCurrency)}
@@ -510,15 +481,15 @@ export function ExpenseFormScreen() {
                   }}>
                     <Text variant="caption" color={split.remainder > 0 ? colors.warning?.default : colors.error.default}>
                       {split.remainder > 0
-                        ? `${formatCurrency(split.remainder, tripCurrency)} still to assign`
-                        : `Over by ${formatCurrency(Math.abs(split.remainder), tripCurrency)}`}
+                        ? t('expenses.form.remainder_to_assign', { amount: formatCurrency(split.remainder, tripCurrency) })
+                        : t('expenses.form.remainder_over', { amount: formatCurrency(Math.abs(split.remainder), tripCurrency) })}
                     </Text>
                   </View>
                 )}
               </>
             )}
 
-            <ErrorBanner error={error} fallback="Could not save expense." style={{ marginTop: tokens.spacing.sm }} />
+            <ErrorBanner error={error} fallback={t('expenses.form.error_save')} style={{ marginTop: tokens.spacing.sm }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </ClosedTripGuard>
@@ -528,12 +499,12 @@ export function ExpenseFormScreen() {
         <Pressable
           style={[styles.backdrop, { padding: tokens.spacing.xl }]}
           onPress={() => setCurrencyDropVisible(false)}
-          accessibilityLabel="Close currency picker"
+          accessibilityLabel={t('trips.form.currency_close_label')}
           accessibilityRole="button"
         >
           <View style={[styles.sheet, { backgroundColor: colors.surface, borderRadius: tokens.radius.card }]}>
             <View style={{ paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-              <Text variant="label" color={colors.text.secondary}>Entry currency</Text>
+              <Text variant="label" color={colors.text.secondary}>{t('expenses.form.entry_currency_label')}</Text>
             </View>
             {CURRENCIES.map((item, index) => {
               const selected  = item.code === (entryCurrency || tripCurrency);
@@ -559,7 +530,7 @@ export function ExpenseFormScreen() {
                         {currencyLabel(item.code)}
                       </Text>
                       {isTripCcy && (
-                        <Text variant="caption" color={colors.text.tertiary}>Trip currency</Text>
+                        <Text variant="caption" color={colors.text.tertiary}>{t('trips.form.trip_currency_label')}</Text>
                       )}
                     </View>
                     {selected && <Ionicons name="checkmark" size={16} color={colors.primary.default} />}

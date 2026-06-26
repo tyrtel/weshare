@@ -8,6 +8,7 @@ import { formatCurrency } from '../../../core/utils/formatCurrency';
 import { personColors, useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import type { TripMember } from '../../../core/models/TripMember';
+import { useTranslation } from 'react-i18next';
 
 export type SplitMode = 'equal' | 'proportional' | 'custom' | 'itemized';
 
@@ -44,6 +45,7 @@ export function SplitMemberRow({
   onChangeAmount,
   onChangeWeight,
 }: SplitMemberRowProps) {
+  const { t } = useTranslation();
   const colors  = useColors();
   const palette = personColors[colorIndex % personColors.length];
 
@@ -126,7 +128,7 @@ export function SplitMemberRow({
           )
         ) : (
           <Text variant="caption" color={colors.text.tertiary} style={{ minWidth: 80, textAlign: 'right' }}>
-            excluded
+            {t('expenses.split_row.excluded')}
           </Text>
         )}
       </View>

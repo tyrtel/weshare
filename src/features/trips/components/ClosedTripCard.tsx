@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { Text } from '../../../components/ui/Text';
 import { Badge } from '../../../components/ui/Badge';
@@ -21,6 +22,7 @@ function formatDateRange(createdAt: Date, closedAt: Date | null): string {
 }
 
 export function ClosedTripCard({ trip, expenseCount }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
   const colors = useColors();
 
@@ -57,7 +59,7 @@ export function ClosedTripCard({ trip, expenseCount }: Props) {
       )}
 
       <Text variant="caption" color={colors.text.tertiary} style={{ marginTop: tokens.spacing.xs }}>
-        {expenseCount} {expenseCount === 1 ? 'expense' : 'expenses'}
+        {t('trips.closed_banner.expense_count', { count: expenseCount })}
       </Text>
     </Pressable>
   );

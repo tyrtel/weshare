@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Pressable, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
@@ -29,6 +30,7 @@ function getInitials(name: string): string {
 }
 
 export function ExpenseRow({ expense, members, index = 0, onPress, showDivider = true }: ExpenseRowProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   const entering = Platform.OS !== 'web'
     ? FadeInDown.delay(index * 50).duration(300).springify()
@@ -38,7 +40,7 @@ export function ExpenseRow({ expense, members, index = 0, onPress, showDivider =
     : undefined;
 
   const payer = members.find(m => m.userId === expense.paidByUserId);
-  const payerName = payer?.displayName ?? 'Unknown';
+  const payerName = payer?.displayName ?? t('common.unknown_user');
   const payerIndex = members.findIndex(m => m.userId === expense.paidByUserId);
   const palette = personColors[Math.max(0, payerIndex) % personColors.length];
   const category = categoryById(expense.metadata.category);
@@ -61,7 +63,7 @@ export function ExpenseRow({ expense, members, index = 0, onPress, showDivider =
               <Ionicons name={category.icon as any} size={11} color={colors.text.tertiary} />
             )}
             <Text variant="caption" color={colors.text.secondary}>
-              paid by {payerName}
+              {t('trips.expense_row.paid_by', { name: payerName })}
             </Text>
           </View>
         </View>

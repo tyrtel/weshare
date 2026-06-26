@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Image, ActivityIndicator, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { tokens } from '../../theme/tokens';
 
@@ -16,6 +17,7 @@ interface AppLoadingScreenProps {
 }
 
 export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppLoadingScreenProps) {
+  const { t } = useTranslation();
   return (
     <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
       <Image
@@ -43,7 +45,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
                 marginTop: tokens.spacing.sm,
               })}
             >
-              <Text variant="label" style={{ color: PRIMARY }}>Try again</Text>
+              <Text variant="label" style={{ color: PRIMARY }}>{t('common.try_again')}</Text>
             </Pressable>
           )}
         </>
@@ -74,7 +76,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
             opacity: pressed ? 0.7 : 0.35,
           })}
         >
-          <Text variant="caption" style={{ color: '#9a9ab8' }}>Reset auth</Text>
+          <Text variant="caption" style={{ color: '#9a9ab8' }}>{t('common.debug.reset_auth_button')}</Text>
         </Pressable>
       )}
     </View>

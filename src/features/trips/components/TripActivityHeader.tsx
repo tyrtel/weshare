@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '../../../components/ui/Text';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
@@ -11,6 +12,7 @@ interface TripActivityHeaderProps {
 }
 
 export function TripActivityHeader({ count, showAll, onToggleShowAll }: TripActivityHeaderProps) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   return (
@@ -22,16 +24,16 @@ export function TripActivityHeader({ count, showAll, onToggleShowAll }: TripActi
         marginBottom: tokens.spacing.sm,
       }}
     >
-      <Text variant="label" color={colors.text.secondary}>Recent Activity</Text>
+      <Text variant="label" color={colors.text.secondary}>{t('trips.activity_header.title')}</Text>
       {count > 3 && (
         <Pressable
           onPress={onToggleShowAll}
           accessibilityRole="button"
-          accessibilityLabel={showAll ? 'Show fewer expenses' : 'Show all expenses'}
+          accessibilityLabel={showAll ? t('trips.activity_header.show_fewer_label') : t('trips.activity_header.show_all_label')}
           hitSlop={8}
         >
           <Text variant="caption" color={colors.primary.light}>
-            {showAll ? 'Show less' : `Show all ${count}`}
+            {showAll ? t('trips.activity_header.show_less') : t('trips.activity_header.show_all', { count })}
           </Text>
         </Pressable>
       )}

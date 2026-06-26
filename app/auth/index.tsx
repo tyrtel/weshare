@@ -15,9 +15,11 @@ import { useService } from '../../src/core/di/ServiceContext';
 import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
+import { useTranslation } from 'react-i18next';
 import { darkColors as C } from '../../src/theme/colors';
 
 export default function SignInScreen() {
+  const { t } = useTranslation();
   const auth    = useService(AUTH);
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
@@ -30,8 +32,8 @@ export default function SignInScreen() {
   const passwordRef = useRef<TextInput>(null);
 
   async function handleEmailSignIn() {
-    if (!email.trim()) { setError('Please enter your email.'); return; }
-    if (!password)     { setError('Please enter your password.'); return; }
+    if (!email.trim()) { setError(t('auth.sign_in.error_email_empty')); return; }
+    if (!password)     { setError(t('auth.sign_in.error_password_empty')); return; }
 
     setBusy('email');
     setError(null);
@@ -91,9 +93,9 @@ export default function SignInScreen() {
           <View style={styles.logoPlaceholder}>
             <Text style={{ fontSize: 36, lineHeight: 40, includeFontPadding: false }}>✈️</Text>
           </View>
-          <Text variant="heading" style={styles.appName}>ouiShare</Text>
+          <Text variant="heading" style={styles.appName}>{t('auth.welcome.app_name')}</Text>
           <Text variant="body" color={C.text.secondary} style={styles.tagline}>
-            Split trips, not friendships.
+            {t('auth.welcome.tagline')}
           </Text>
         </View>
 
@@ -108,8 +110,8 @@ export default function SignInScreen() {
           <View style={styles.field}>
             <TextInput
               value={email}
-              onChangeText={t => { setEmail(t); setError(null); }}
-              placeholder="Email"
+              onChangeText={v => { setEmail(v); setError(null); }}
+              placeholder={t('auth.sign_in.email_placeholder')}
               placeholderTextColor={C.text.tertiary}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -118,20 +120,20 @@ export default function SignInScreen() {
               onSubmitEditing={() => passwordRef.current?.focus()}
               editable={!isAnyBusy}
               style={[styles.input, styles.inputTop]}
-              accessibilityLabel="Email address"
+              accessibilityLabel={t('auth.email_accessibility')}
             />
             <TextInput
               ref={passwordRef}
               value={password}
-              onChangeText={t => { setPassword(t); setError(null); }}
-              placeholder="Password"
+              onChangeText={v => { setPassword(v); setError(null); }}
+              placeholder={t('auth.sign_in.password_placeholder')}
               placeholderTextColor={C.text.tertiary}
               secureTextEntry
               returnKeyType="go"
               onSubmitEditing={handleEmailSignIn}
               editable={!isAnyBusy}
               style={[styles.input, styles.inputBottom]}
-              accessibilityLabel="Password"
+              accessibilityLabel={t('auth.password_accessibility')}
             />
           </View>
 
@@ -144,11 +146,11 @@ export default function SignInScreen() {
               pressed && styles.pressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Sign in"
+            accessibilityLabel={t('auth.sign_in.button')}
           >
             {busy === 'email'
               ? <ActivityIndicator color={C.text.inverse} size="small" />
-              : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>Sign in</Text>
+              : <Text variant="body" color={C.text.inverse} style={styles.buttonLabel}>{t('auth.sign_in.button')}</Text>
             }
           </Pressable>
 
@@ -158,14 +160,14 @@ export default function SignInScreen() {
             style={({ pressed }) => [styles.textLink, pressed && { opacity: 0.6 }]}
             accessibilityRole="button"
           >
-            <Text variant="caption" color={C.text.secondary}>Forgot password?</Text>
+            <Text variant="caption" color={C.text.secondary}>{t('auth.sign_in.forgot_password')}</Text>
           </Pressable>
         </View>
 
         {/* Divider */}
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
-          <Text variant="caption" color={C.text.tertiary} style={styles.dividerLabel}>or</Text>
+          <Text variant="caption" color={C.text.tertiary} style={styles.dividerLabel}>{t('auth.sign_in.divider_or')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -176,14 +178,14 @@ export default function SignInScreen() {
             disabled={isAnyBusy}
             style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityLabel="Sign in with Google"
+            accessibilityLabel={t('auth.sign_in.google_label')}
           >
             {busy === 'google'
               ? <ActivityIndicator color={C.text.primary} size="small" />
               : (
                 <>
                   <Text style={styles.googleG}>G</Text>
-                  <Text variant="body" style={styles.socialLabel}>Continue with Google</Text>
+                  <Text variant="body" style={styles.socialLabel}>{t('auth.sign_in.google_button')}</Text>
                 </>
               )
             }
@@ -195,7 +197,7 @@ export default function SignInScreen() {
               disabled={isAnyBusy}
               style={({ pressed }) => [styles.socialButton, styles.appleButton, pressed && styles.pressed]}
               accessibilityRole="button"
-              accessibilityLabel="Sign in with Apple"
+              accessibilityLabel={t('auth.sign_in.apple_label')}
             >
               {busy === 'apple'
                 ? <ActivityIndicator color={C.text.inverse} size="small" />
@@ -203,7 +205,7 @@ export default function SignInScreen() {
                   <>
                     <Text style={styles.appleIcon}></Text>
                     <Text variant="body" style={[styles.socialLabel, styles.appleLabel]}>
-                      Continue with Apple
+                      {t('auth.sign_in.apple_button')}
                     </Text>
                   </>
                 )
@@ -214,7 +216,7 @@ export default function SignInScreen() {
 
         {/* Create account */}
         <View style={styles.createSection}>
-          <Text variant="body" color={C.text.secondary}>Don't have an account?</Text>
+          <Text variant="body" color={C.text.secondary}>{t('auth.sign_in.no_account')}</Text>
           <Pressable
             onPress={() => router.push('/auth/signup' as Parameters<typeof router.push>[0])}
             disabled={isAnyBusy}
@@ -222,7 +224,7 @@ export default function SignInScreen() {
             accessibilityRole="button"
           >
             <Text variant="body" color={C.primary.default} style={styles.createLink}>
-              {' '}Create one
+              {' '}{t('auth.sign_in.create_account_link')}
             </Text>
           </Pressable>
         </View>

@@ -22,10 +22,12 @@ const settlementParamsSchema = z.object({
   tripId: z.string().min(1),
 });
 
+import { useTranslation } from 'react-i18next';
 import { confirm } from '../../../core/utils/confirm';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 
 export function SettlementScreen() {
+  const { t } = useTranslation();
   const raw    = useLocalSearchParams();
   const parsed = settlementParamsSchema.safeParse(raw);
   const colors = useColors();
@@ -35,7 +37,7 @@ export function SettlementScreen() {
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
-            Invalid navigation parameters.
+            {t('common.error_invalid_params')}
           </Text>
         </View>
       </ScreenWrapper>
@@ -46,6 +48,7 @@ export function SettlementScreen() {
 }
 
 function SettlementScreenContent({ tripId }: { tripId: string }) {
+  const { t } = useTranslation();
   const colors   = useColors();
   const router   = useRouter();
   const storeApi = useService(TRIP_STORE);
@@ -91,9 +94,9 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
         pendingRequestRef.current = null;
 
         void confirm(
-          'Did you complete the payment?',
-          `Did you send ${formatCurrency(req.amountCents, req.currency)} via ${req.preferredWallet}?`,
-          'Yes, I paid',
+          t('settlement.screen.payment_confirm_title'),
+          t('settlement.screen.payment_confirm_message', { amount: formatCurrency(req.amountCents, req.currency), wallet: req.preferredWallet }),
+          t('settlement.screen.payment_confirm_yes'),
           'default',
         ).then(confirmed => {
           if (confirmed) void updateRequestStatus(req, 'pending');
@@ -121,7 +124,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
-            Could not load settlement data.
+            {t('settlement.screen.error_load')}
           </Text>
         </View>
       </ScreenWrapper>
@@ -132,7 +135,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Settle Up' }} />
+      <Stack.Screen options={{ title: t('settlement.screen.title') }} />
 
       {/* Balance summary card */}
       {currentUserId && (
@@ -147,22 +150,22 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
         >
           {youOweTotal > 0 ? (
             <>
-              <Text variant="label" color={colors.text.secondary}>You owe</Text>
+              <Text variant="label" color={colors.text.secondary}>{t('settlement.summary.you_owe_label')}</Text>
               <Text variant="heading2" color={colors.error.default}>
                 {formatCurrency(youOweTotal, currency)}
               </Text>
             </>
           ) : owedToYouTotal > 0 ? (
             <>
-              <Text variant="label" color={colors.text.secondary}>You are owed</Text>
+              <Text variant="label" color={colors.text.secondary}>{t('settlement.summary.you_are_owed_label')}</Text>
               <Text variant="heading2" color={colors.success.default}>
                 {formatCurrency(owedToYouTotal, currency)}
               </Text>
             </>
           ) : (
             <>
-              <Text variant="label" color={colors.text.secondary}>Your balance</Text>
-              <Text variant="heading2" color={colors.success.default}>All settled up</Text>
+              <Text variant="label" color={colors.text.secondary}>{t('settlement.summary.your_balance_label')}</Text>
+              <Text variant="heading2" color={colors.success.default}>{t('settlement.summary.all_settled_up')}</Text>
             </>
           )}
         </View>
@@ -180,7 +183,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
           }}
         >
           <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center' }}>
-            Everyone is settled up.
+            {t('settlement.screen.all_settled_empty')}
           </Text>
         </View>
       ) : (
@@ -266,7 +269,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
           })}
         >
           <Ionicons name="checkmark-circle" size={20} color={colors.text.inverse} />
-          <Text variant="label" color={colors.text.inverse}>All settled — Close Trip</Text>
+          <Text variant="label" color={colors.text.inverse}>{t('settlement.screen.all_settled_bar')}</Text>
         </Pressable>
       )}
 
@@ -280,7 +283,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
               hitSlop={8}
               style={{ alignItems: 'center', paddingVertical: tokens.spacing.sm }}
             >
-              <Text variant="caption" color={colors.primary.default}>Roll Over Debts</Text>
+              <Text variant="caption" color={colors.primary.default}>{t('settlement.screen.roll_over_debts')}</Text>
             </Pressable>
           )}
           {tripStatus !== 'closed' && (
@@ -290,7 +293,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
               hitSlop={8}
               style={{ alignItems: 'center', paddingVertical: tokens.spacing.sm }}
             >
-              <Text variant="caption" color={colors.text.tertiary}>Close Trip</Text>
+              <Text variant="caption" color={colors.text.tertiary}>{t('settlement.screen.close_trip')}</Text>
             </Pressable>
           )}
         </View>

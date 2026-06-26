@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { z } from 'zod';
@@ -36,6 +37,7 @@ const bankPaymentParamsSchema = z.object({
 type BankPaymentParams = z.infer<typeof bankPaymentParamsSchema>;
 
 export function BankPaymentScreen() {
+  const { t } = useTranslation();
   const raw    = useLocalSearchParams();
   const parsed = bankPaymentParamsSchema.safeParse(raw);
 
@@ -43,7 +45,7 @@ export function BankPaymentScreen() {
     return (
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <Text variant="body">Invalid payment parameters.</Text>
+          <Text variant="body">{t('settlement.bank.invalid_params')}</Text>
         </View>
       </ScreenWrapper>
     );
@@ -53,6 +55,7 @@ export function BankPaymentScreen() {
 }
 
 function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
+  const { t } = useTranslation();
   const { tripId, payerUserId, requesterUserId, amountCents, currency, recipientName } = params;
 
   const router      = useRouter();
@@ -126,7 +129,7 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
       );
 
       if (!isOk(result)) {
-        Alert.alert('Payment failed', 'Could not initiate bank transfer. Please try again.');
+        Alert.alert(t('settlement.bank.error_title'), t('settlement.bank.error_initiate'));
         await splitRequestRepo.updateSplitRequest({ ...provisional, status: 'declined', updatedAt: new Date() });
         return;
       }
@@ -157,7 +160,7 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Bank Transfer', headerBackTitle: 'Back' }} />
+      <Stack.Screen options={{ title: t('settlement.bank.screen_title'), headerBackTitle: t('common.back') }} />
       <ScrollView
         contentContainerStyle={{
           padding:       tokens.spacing.lg,
@@ -173,9 +176,9 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
           padding:         tokens.spacing.md,
           gap:             tokens.spacing.xs,
         }}>
-          <Text variant="heading3">SEPA Bank Transfer</Text>
+          <Text variant="heading3">{t('settlement.bank.heading')}</Text>
           <Text variant="body" color={colors.text.secondary}>
-            Sending {amountFormatted} to {recipientName || 'recipient'}
+            {t('settlement.bank.sending_to', { amount: amountFormatted, name: recipientName || 'recipient' })}
           </Text>
         </View>
 
@@ -183,11 +186,11 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
         {!activeReq && (
           <View style={{ gap: tokens.spacing.sm }}>
             {/* Optional bank selection */}
-            <Text variant="label" color={colors.text.secondary}>Bank (optional)</Text>
+            <Text variant="label" color={colors.text.secondary}>{t('settlement.bank.bank_label')}</Text>
             <Pressable
               onPress={() => setBankSheetOpen(true)}
               accessibilityRole="button"
-              accessibilityLabel={selectedBank ? `Selected bank: ${selectedBank.name}` : 'Select your bank'}
+              accessibilityLabel={selectedBank ? t('settlement.bank.selected_label', { name: selectedBank.name }) : t('settlement.bank.select_label')}
               style={({ pressed }) => ({
                 flexDirection:     'row',
                 alignItems:        'center',
@@ -208,25 +211,25 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
                 color={selectedBank ? colors.text.primary : colors.text.tertiary}
                 style={{ flex: 1 }}
               >
-                {selectedBank ? selectedBank.name : 'Select your bank…'}
+                {selectedBank ? selectedBank.name : t('settlement.bank.select_placeholder')}
               </Text>
               <Ionicons name="chevron-forward" size={14} color={colors.text.tertiary} />
             </Pressable>
             {selectedBank && (
-              <Pressable onPress={() => setSelectedBank(null)} accessibilityLabel="Clear bank selection">
-                <Text variant="caption" color={colors.text.tertiary}>Clear bank selection</Text>
+              <Pressable onPress={() => setSelectedBank(null)} accessibilityLabel={t('settlement.bank.clear_label')}>
+                <Text variant="caption" color={colors.text.tertiary}>{t('settlement.bank.clear_text')}</Text>
               </Pressable>
             )}
 
             <Text variant="label" color={colors.text.secondary} style={{ marginTop: tokens.spacing.xs }}>
-              Your IBAN (creditor account)
+              {t('settlement.bank.iban_label')}
             </Text>
             <IBANInputField
               value={iban}
               onChange={(raw, valid) => { setIban(raw); setIbanValid(valid); }}
             />
             <Text variant="caption" color={colors.text.tertiary}>
-              We need the IBAN you want to receive funds into. This is passed securely to your bank.
+              {t('settlement.bank.iban_hint')}
             </Text>
           </View>
         )}
@@ -245,7 +248,7 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
               alignItems:     'center',
               justifyContent: 'space-between',
             }}>
-              <Text variant="label">Payment status</Text>
+              <Text variant="label">{t('settlement.bank.status_label')}</Text>
               {status && <SplitStatusBadge status={status} />}
             </View>
 
@@ -254,12 +257,11 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm }}>
                   <ActivityIndicator color={colors.primary.default} />
                   <Text variant="body" color={colors.text.secondary}>
-                    Waiting for your bank to confirm…
+                    {t('settlement.bank.waiting')}
                   </Text>
                 </View>
                 <Text variant="caption" color={colors.text.tertiary}>
-                  You may need to approve the transfer in your bank&apos;s app or website.
-                  Return here once you&apos;ve authorized the payment.
+                  {t('settlement.bank.authorize_hint')}
                 </Text>
               </View>
             )}
@@ -271,10 +273,10 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
                 padding:         tokens.spacing.md,
               }}>
                 <Text variant="label" color={colors.success.default}>
-                  Bank authorized — SEPA transfer in transit
+                  {t('settlement.bank.authorized')}
                 </Text>
                 <Text variant="caption" color={colors.text.secondary} style={{ marginTop: tokens.spacing.xs }}>
-                  SEPA transfers typically settle within 1 business day.
+                  {t('settlement.bank.transit_hint')}
                 </Text>
               </View>
             )}
@@ -289,11 +291,11 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm }}>
                     <Ionicons name="checkmark-circle" size={20} color={colors.success.default} />
-                    <Text variant="label" color={colors.success.default}>Transfer complete</Text>
+                    <Text variant="label" color={colors.success.default}>{t('settlement.bank.completed')}</Text>
                   </View>
                   {activeReq.obPaymentId && (
                     <Text variant="caption" color={colors.text.secondary}>
-                      Reference: {activeReq.obPaymentId}
+                      {t('settlement.bank.reference_prefix', { ref: activeReq.obPaymentId })}
                     </Text>
                   )}
                 </View>
@@ -311,7 +313,7 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
                 padding:         tokens.spacing.md,
               }}>
                 <Text variant="label" color={colors.error.default}>
-                  {status === 'declined' ? 'Payment declined by bank' : 'Authorization expired'}
+                  {status === 'declined' ? t('settlement.bank.declined') : t('settlement.bank.expired')}
                 </Text>
               </View>
             )}
@@ -324,7 +326,7 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
             onPress={() => void handleSubmit()}
             disabled={!ibanValid || submitting}
             accessibilityRole="button"
-            accessibilityLabel="Pay via bank transfer"
+            accessibilityLabel={t('settlement.bank.pay_button_label')}
             style={({ pressed }) => ({
               backgroundColor: ibanValid && !submitting ? colors.primary.default : colors.border,
               borderRadius:    tokens.radius.md,
@@ -335,7 +337,7 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
           >
             {submitting
               ? <ActivityIndicator color="#fff" />
-              : <Text variant="label" color="#fff">Pay via bank transfer</Text>
+              : <Text variant="label" color="#fff">{t('settlement.bank.pay_button')}</Text>
             }
           </Pressable>
         )}
@@ -352,7 +354,7 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
               opacity:         pressed ? 0.8 : 1,
             })}
           >
-            <Text variant="label" color="#fff">Go back</Text>
+            <Text variant="label" color="#fff">{t('settlement.bank.go_back')}</Text>
           </Pressable>
         )}
       </ScrollView>

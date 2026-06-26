@@ -1,0 +1,476 @@
+{
+  "common": {
+    "cancel": "Annuler",
+    "continue": "Continuer",
+    "delete": "Supprimer",
+    "done": "Terminé",
+    "go_back": "Retour",
+    "back": "Retour",
+    "back_arrow": "← Retour",
+    "go_home": "Accueil",
+    "go_to_home": "Retourner à l'accueil",
+    "loading": "Chargement…",
+    "connecting_to_server": "Connexion au serveur…",
+    "try_again": "Réessayer",
+    "retry": "Réessayer",
+    "saving": "Enregistrement…",
+    "save_changes": "Enregistrer",
+    "share": "Partager",
+    "or": "ou",
+    "unknown_user": "Inconnu",
+    "cannot_be_undone": "Cette action est irréversible.",
+    "error_invalid_params": "Paramètres de navigation invalides.",
+    "render_error": "Erreur d'affichage",
+    "offline_banner": "Pas de connexion internet",
+    "date_today": "Aujourd'hui",
+    "date_yesterday": "Hier",
+    "date_days_ago": "Il y a {{count}} jours",
+    "not_found_title": "Page introuvable",
+    "not_found_body": "Cet écran n'existe pas.",
+    "debug": {
+      "reset_auth_title": "Réinitialiser l'authentification",
+      "reset_auth_message": "Effacer les identifiants stockés et se déconnecter. Utile pour simuler un démarrage à froid. Vous devrez vous reconnecter.",
+      "clear_and_sign_out": "Effacer et se déconnecter",
+      "reset_auth_button": "Réinitialiser l'auth"
+    }
+  },
+
+  "auth": {
+    "email_placeholder_example": "vous@exemple.com",
+    "email_accessibility": "Adresse e-mail",
+    "password_accessibility": "Mot de passe",
+    "error_invalid_email": "Veuillez saisir une adresse e-mail valide.",
+    "error_password_too_short": "Le mot de passe doit comporter au moins 6 caractères.",
+    "error_passwords_mismatch": "Les mots de passe ne correspondent pas.",
+    "welcome": {
+      "app_name": "ouiShare",
+      "tagline": "Partagez les frais, pas le travail."
+    },
+    "sign_in": {
+      "email_placeholder": "E-mail",
+      "password_placeholder": "Mot de passe",
+      "button": "Se connecter",
+      "forgot_password": "Mot de passe oublié ?",
+      "divider_or": "ou",
+      "google_button": "Continuer avec Google",
+      "google_label": "Se connecter avec Google",
+      "apple_button": "Continuer avec Apple",
+      "apple_label": "Se connecter avec Apple",
+      "no_account": "Pas encore de compte ?",
+      "create_account_link": "Créer un compte",
+      "error_email_empty": "Veuillez saisir votre e-mail.",
+      "error_password_empty": "Veuillez saisir votre mot de passe."
+    },
+    "sign_up": {
+      "title": "Créer un compte",
+      "subtitle": "Nous enverrons un code pour vérifier votre e-mail.",
+      "name_label": "Nom",
+      "name_placeholder": "Votre prénom ou pseudo",
+      "name_accessibility": "Votre nom",
+      "email_label": "E-mail",
+      "password_label": "Mot de passe",
+      "password_placeholder": "Au moins 6 caractères",
+      "confirm_password_label": "Confirmer le mot de passe",
+      "confirm_password_accessibility": "Confirmer le mot de passe",
+      "button": "Créer un compte",
+      "button_label": "Créer un compte",
+      "has_account": "Déjà un compte ?",
+      "sign_in_link": "Se connecter",
+      "error_name_empty": "Veuillez saisir votre nom.",
+      "error_password_empty": "Veuillez saisir un mot de passe."
+    },
+    "verify": {
+      "title": "Vérifiez vos e-mails",
+      "subtitle": "Nous avons envoyé un code à 6 chiffres à",
+      "digit_label": "Chiffre {{number}}",
+      "button": "Vérifier",
+      "button_label": "Vérifier le code",
+      "code_sent": "Code envoyé !",
+      "resend_prompt": "Vous ne l'avez pas reçu ? Retournez en arrière et réessayez"
+    },
+    "forgot_password": {
+      "title": "Réinitialiser le mot de passe",
+      "subtitle": "Entrez votre e-mail et nous vous enverrons un code à 6 chiffres.",
+      "button": "Envoyer le code",
+      "button_label": "Envoyer le code de réinitialisation",
+      "error_email_empty": "Veuillez saisir votre adresse e-mail."
+    },
+    "reset_password": {
+      "title": "Nouveau mot de passe",
+      "subtitle": "Entrez le code à 6 chiffres envoyé à",
+      "new_password_placeholder": "Nouveau mot de passe (6+ caractères)",
+      "new_password_label": "Nouveau mot de passe",
+      "confirm_placeholder": "Confirmer le nouveau mot de passe",
+      "confirm_label": "Confirmer le nouveau mot de passe",
+      "button": "Définir le mot de passe",
+      "button_label": "Définir le nouveau mot de passe",
+      "code_resent": "Code renvoyé !",
+      "resend_prompt": "Vous n'avez pas reçu de code ? Renvoyer",
+      "error_code_empty": "Veuillez saisir le code à 6 chiffres.",
+      "error_password_empty": "Veuillez saisir un nouveau mot de passe."
+    }
+  },
+
+  "trips": {
+    "list": {
+      "title": "Voyages",
+      "empty_title": "Aucun voyage",
+      "empty_body": "Appuyez sur Nouveau voyage pour démarrer un voyage partagé.",
+      "error_load": "Impossible de charger vos voyages.",
+      "past_trips_link": "Voyages passés",
+      "fab_label": "Nouveau voyage",
+      "fab_label_compact": "Créer un voyage"
+    },
+    "detail": {
+      "empty_expenses": "Aucune dépense pour l'instant. Appuyez sur + pour en ajouter une.",
+      "error_not_found": "Voyage introuvable.",
+      "error_load": "Impossible de charger le voyage.",
+      "edit_label": "Modifier le voyage",
+      "close_label": "Clôturer le voyage",
+      "close_alert_title": "Clôturer le voyage ?",
+      "close_alert_message": "Le voyage sera retiré de votre liste. Les dettes non réglées seront conservées.",
+      "close_alert_confirm": "Clôturer",
+      "settle_up": "Régler les dettes",
+      "settling_in_progress": "Règlement en cours",
+      "settle_continuing_label": "Continuer le règlement",
+      "settle_label": "Régler les dettes",
+      "view_activity": "Voir toute l'activité",
+      "view_activity_label": "Voir toute l'activité",
+      "add_expense": "Ajouter une dépense",
+      "add_expense_label": "Ajouter une dépense",
+      "add_people": "Ajouter des personnes",
+      "add_people_label": "Ajouter des personnes"
+    },
+    "create": {
+      "title": "Nouveau voyage",
+      "heading": "Nouveau voyage",
+      "confirm_label": "Confirmer le nouveau voyage",
+      "error_fallback": "Impossible de créer le voyage. Réessayez."
+    },
+    "edit": {
+      "title": "Modifier le voyage",
+      "heading": "Modifier le voyage",
+      "save_button": "Enregistrer",
+      "saving": "Enregistrement…",
+      "error_fallback": "Impossible de mettre à jour le voyage.",
+      "closed_guard": "Ce voyage est clôturé et ne peut plus être modifié."
+    },
+    "archive": {
+      "title": "Voyages passés",
+      "empty": "Aucun voyage passé."
+    },
+    "form": {
+      "name_label": "Nom du voyage",
+      "name_placeholder": "ex. Dîner chez Paul",
+      "name_accessibility": "Nom du voyage",
+      "currency_label": "Devise",
+      "currency_select_label": "Sélectionner la devise",
+      "currency_select_heading": "Sélectionner la devise",
+      "currency_close_label": "Fermer le sélecteur de devise",
+      "trip_currency_label": "Devise du voyage"
+    },
+    "card": {
+      "you_owe": "Vous devez {{amount}}",
+      "you_are_owed": "On vous doit {{amount}}",
+      "all_settled": "Tout est réglé",
+      "member_count_one": "{{count}} participant",
+      "member_count_other": "{{count}} participants"
+    },
+    "activity_header": {
+      "title": "Activité récente",
+      "show_less": "Afficher moins",
+      "show_all": "Tout afficher ({{count}})",
+      "show_fewer_label": "Afficher moins de dépenses",
+      "show_all_label": "Afficher toutes les dépenses"
+    },
+    "activity": {
+      "total_spend_label": "Total des dépenses",
+      "expense_count_one": "{{count}} dépense · {{currency}}",
+      "expense_count_other": "{{count}} dépenses · {{currency}}",
+      "all_activity_label": "Toute l'activité",
+      "empty": "Aucune dépense enregistrée."
+    },
+    "closed_banner": {
+      "title": "Voyage clôturé",
+      "closed_date": "Clôturé le {{date}}",
+      "expense_count_one": "{{count}} dépense",
+      "expense_count_other": "{{count}} dépenses",
+      "member_count_one": "{{count}} participant",
+      "member_count_other": "{{count}} participants"
+    },
+    "balance_bubbles": {
+      "title": "Situation actuelle",
+      "even": "équilibré"
+    },
+    "spend_chart": {
+      "title": "Répartition des dépenses",
+      "accessibility_label": "Graphique de répartition des dépenses"
+    },
+    "payout": {
+      "title": "Régler les dettes",
+      "all_settled": "Tout est réglé !"
+    },
+    "expense_row": {
+      "paid_by": "payé par {{name}}"
+    }
+  },
+
+  "expenses": {
+    "form": {
+      "add_title": "Ajouter une dépense",
+      "edit_title": "Modifier la dépense",
+      "description_label": "Description",
+      "description_placeholder": "ex. Dîner chez Paul",
+      "description_accessibility": "Description de la dépense",
+      "amount_label": "Montant",
+      "amount_accessibility": "Montant",
+      "amount_hint": "Saisissez un montant pour continuer",
+      "rate_fetching": "Récupération du taux…",
+      "rate_unavailable": "Taux indisponible",
+      "paid_by_label": "Payé par",
+      "split_between_label": "Répartir entre",
+      "split_equal": "Égal",
+      "split_proportional": "Proportionnel",
+      "split_custom": "Personnalisé",
+      "split_itemized": "Détaillé",
+      "add_line_item": "Ajouter un article",
+      "add_line_item_label": "Ajouter un article",
+      "itemized_total_label": "Total",
+      "remainder_to_assign": "{{amount}} restant à répartir",
+      "remainder_over": "Dépassement de {{amount}}",
+      "error_save": "Impossible d'enregistrer la dépense.",
+      "confirm_label": "Confirmer la dépense",
+      "save_label": "Enregistrer les modifications",
+      "closed_add_guard": "Ce voyage est clôturé. Aucune nouvelle dépense ne peut être ajoutée.",
+      "closed_edit_guard": "Ce voyage est clôturé. Les dépenses ne peuvent plus être modifiées.",
+      "entry_currency_label": "Devise de saisie"
+    },
+    "receipt": {
+      "reading": "Lecture du reçu…",
+      "error": "Impossible de lire le reçu — veuillez saisir manuellement"
+    },
+    "category": {
+      "title": "Catégorie",
+      "none": "Sans catégorie",
+      "add_label": "Ajouter une catégorie",
+      "selected_label": "Catégorie : {{label}}. Appuyez pour modifier.",
+      "remove": "Supprimer la catégorie"
+    },
+    "line_item": {
+      "placeholder": "Article",
+      "description_label": "Description de l'article",
+      "remove_label": "Supprimer l'article"
+    },
+    "split_row": {
+      "excluded": "exclu"
+    },
+    "detail": {
+      "error_not_found": "Dépense introuvable.",
+      "error_load": "Impossible de charger la dépense.",
+      "invalid_params": "Paramètres de navigation invalides.",
+      "receipt_label": "Reçu",
+      "view_receipt_label": "Voir le reçu en plein écran",
+      "receipt_image_label": "Image du reçu",
+      "close_receipt_label": "Fermer le reçu",
+      "receipt_fullscreen_label": "Image du reçu en plein écran",
+      "paid_by_label": "Payé par",
+      "split_title": "Répartition ({{count}})",
+      "settled_badge": "Réglé",
+      "delete_button": "Supprimer la dépense",
+      "delete_label": "Supprimer la dépense",
+      "edit_label": "Modifier la dépense",
+      "delete_alert_title": "Supprimer cette dépense ?",
+      "delete_alert_confirm": "Supprimer"
+    }
+  },
+
+  "settlement": {
+    "screen": {
+      "title": "Régler les dettes",
+      "error_load": "Impossible de charger les données de règlement.",
+      "all_settled_empty": "Tout le monde est à jour.",
+      "all_settled_bar": "Tout est réglé — Clôturer le voyage",
+      "roll_over_debts": "Reporter les dettes",
+      "close_trip": "Clôturer le voyage",
+      "payment_confirm_title": "Avez-vous effectué le paiement ?",
+      "payment_confirm_message": "Avez-vous envoyé {{amount}} via {{wallet}} ?",
+      "payment_confirm_yes": "Oui, j'ai payé"
+    },
+    "summary": {
+      "you_owe_label": "Vous devez",
+      "you_are_owed_label": "On vous doit",
+      "your_balance_label": "Votre solde",
+      "all_settled_up": "Tout est réglé"
+    },
+    "payment_sheet": {
+      "title": "Payer via…",
+      "subtitle": "Choisissez comment envoyer le paiement à {{name}}.",
+      "invalid_amount": "Montant invalide. Veuillez revenir en arrière et réessayer.",
+      "close_label": "Fermer les options de paiement",
+      "cancel": "Annuler"
+    },
+    "audit": {
+      "title": "Historique des paiements",
+      "record_count_one": "{{count}} enregistrement",
+      "record_count_other": "{{count}} enregistrements",
+      "empty_title": "Aucun historique de paiement.",
+      "empty_body": "Les enregistrements apparaissent ici une fois qu'une demande de paiement est créée.",
+      "error_load": "Impossible de charger l'historique des paiements.",
+      "ref_prefix": "Réf. : {{ref}}",
+      "method_stripe": "Stripe",
+      "method_sepa": "Virement SEPA",
+      "method_revolut": "Revolut",
+      "method_venmo": "Venmo",
+      "method_lydia": "Lydia",
+      "method_paypal": "PayPal",
+      "method_other": "Autre"
+    },
+    "bank": {
+      "screen_title": "Virement bancaire",
+      "heading": "Virement SEPA",
+      "sending_to": "Envoi de {{amount}} à {{name}}",
+      "bank_label": "Banque (optionnel)",
+      "select_label": "Sélectionner votre banque",
+      "selected_label": "Banque sélectionnée : {{name}}",
+      "select_placeholder": "Sélectionner votre banque…",
+      "clear_label": "Effacer la sélection de banque",
+      "clear_text": "Effacer la sélection de banque",
+      "iban_label": "Votre IBAN (compte créditeur)",
+      "iban_hint": "Nous avons besoin de l'IBAN sur lequel vous souhaitez recevoir les fonds. Il est transmis de façon sécurisée à votre banque.",
+      "status_label": "Statut du paiement",
+      "waiting": "En attente de confirmation de votre banque…",
+      "authorize_hint": "Vous devrez peut-être approuver le virement dans l'application ou le site de votre banque. Revenez ici une fois que vous avez autorisé le paiement.",
+      "authorized": "Banque autorisée — virement SEPA en transit",
+      "transit_hint": "Les virements SEPA sont généralement exécutés dans un délai d'un jour ouvré.",
+      "completed": "Virement effectué",
+      "reference_prefix": "Référence : {{ref}}",
+      "declined": "Paiement refusé par la banque",
+      "expired": "Autorisation expirée",
+      "invalid_params": "Paramètres de paiement invalides.",
+      "error_title": "Échec du paiement",
+      "error_initiate": "Impossible d'initier le virement bancaire. Veuillez réessayer.",
+      "pay_button": "Payer par virement bancaire",
+      "pay_button_label": "Payer par virement bancaire",
+      "go_back": "Retour"
+    },
+    "bank_selector": {
+      "title": "Sélectionner votre banque",
+      "search_placeholder": "Rechercher une banque…",
+      "search_label": "Rechercher des banques",
+      "clear_search": "Effacer la recherche",
+      "empty": "Aucune banque trouvée",
+      "close_label": "Fermer le sélecteur de banque",
+      "skip": "Passer — continuer sans sélectionner"
+    },
+    "row": {
+      "undo": "Annuler",
+      "undo_label": "Annuler le marquage comme payé",
+      "pay_button": "Payer",
+      "pay_label": "Payer {{name}}",
+      "mark_paid": "Marquer payé",
+      "mark_paid_label": "Marquer comme payé",
+      "payment_in_progress": "Paiement en cours",
+      "paid_label": "Payé",
+      "history_label": "Voir l'historique des paiements entre {{from}} et {{to}}"
+    },
+    "rollover": {
+      "title": "Reporter les dettes",
+      "pick_trip_label": "Choisir le voyage de destination",
+      "no_trips": "Aucun autre voyage pour reporter les dettes.",
+      "matched_label": "Correspondants ({{count}})",
+      "unmatched_label": "Non correspondants ({{count}}) — appuyez sur une cible pour associer",
+      "review_button": "Vérifier les dettes",
+      "no_debts": "Aucune dette en cours à reporter.",
+      "review_label": "Décochez les dettes que vous ne souhaitez pas reporter",
+      "confirm_target_label": "Report vers le voyage",
+      "debt_count_one": "{{count}} dette",
+      "debt_count_other": "{{count}} dettes",
+      "confirm_button": "Reporter les dettes",
+      "continue_button": "Continuer"
+    }
+  },
+
+  "balance": {
+    "screen": {
+      "title": "Solde"
+    },
+    "empty": {
+      "title": "Aucun solde",
+      "body": "Rejoignez ou créez un voyage pour voir votre solde ici."
+    },
+    "footer": {
+      "net_total_label": "Total net"
+    },
+    "list": {
+      "trip_count_one": "{{count}} voyage",
+      "trip_count_other": "{{count}} voyages"
+    },
+    "row": {
+      "owed": "doit {{amount}}",
+      "owe": "vous doit {{amount}}",
+      "settled": "réglé",
+      "member_count_one": "{{count}} participant",
+      "member_count_other": "{{count}} participants",
+      "view_trip_label": "Voir le voyage {{name}}"
+    }
+  },
+
+  "invite": {
+    "screen": {
+      "title": "Inviter à {{trip_name}}",
+      "subtitle": "Partagez ce lien avec vos amis pour qu'ils puissent rejoindre.",
+      "copy_label": "Copier le lien d'invitation",
+      "copy_button": "copier",
+      "share_button": "Partager l'invitation",
+      "no_link_warning": "Pas encore de lien d'invitation. Rouvrez cet écran une fois le voyage entièrement enregistré."
+    },
+    "join": {
+      "error_title": "Invitation introuvable",
+      "error_body": "Ce lien d'invitation a peut-être expiré ou n'est plus valide.",
+      "sign_in_title": "Connectez-vous pour rejoindre",
+      "sign_in_body": "Vous devez vous connecter avant de rejoindre {{trip_name}}.",
+      "sign_in_button": "Se connecter",
+      "invited_to_label": "Vous êtes invité à",
+      "joining_as": "Rejoindre en tant que",
+      "error_fallback": "Impossible de rejoindre le voyage. Veuillez réessayer.",
+      "joining_in_progress": "Adhésion en cours…",
+      "join_button": "Rejoindre {{trip_name}}",
+      "go_home_button": "Accueil"
+    },
+    "add_participants": {
+      "title": "Ajouter des participants",
+      "heading": "Ajouter des participants",
+      "subtitle": "Ajoutez des personnes à {{trip_name}}.",
+      "member_count_one": "{{count}} personne dans ce voyage",
+      "member_count_other": "{{count}} personnes dans ce voyage",
+      "name_placeholder": "Entrez un nom",
+      "name_label": "Nom du participant",
+      "add_button_label": "Ajouter un participant",
+      "add_button": "Ajouter",
+      "duplicate_error": "Déjà dans ce voyage",
+      "add_error": "Impossible d'ajouter le participant. Veuillez réessayer.",
+      "contacts_toggle": "Ajouter depuis les contacts",
+      "contacts_hide": "Masquer les contacts",
+      "privacy_notice": "Le téléphone et l'e-mail sont visibles par tous les membres de ce voyage.",
+      "contacts_permission_hint": "Activez les contacts dans les Réglages pour ajouter depuis votre carnet d'adresses.",
+      "contacts_search": "Rechercher dans les contacts",
+      "contact_already_added": "{{name}} déjà ajouté",
+      "contact_add_label": "Ajouter {{name}}",
+      "contacts_no_match": "Aucun contact ne correspond à votre recherche.",
+      "contacts_empty": "Aucun contact trouvé.",
+      "frequent_label": "Aussi dans vos autres voyages",
+      "quick_add_label": "Ajouter rapidement {{name}}",
+      "share_invite_label": "Partager l'invitation",
+      "copy_link": "Copier le lien",
+      "copy_link_label": "Copier le lien d'invitation",
+      "share_label": "Ouvrir le partage",
+      "closed_guard": "Ce voyage est clôturé. Aucun nouveau participant ne peut être ajouté.",
+      "done_label": "Terminé"
+    },
+    "link_card": {
+      "title": "Ou partager un lien",
+      "copy_label": "Copier le lien d'invitation",
+      "share_button": "Partager l'invitation"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -79,6 +80,7 @@ function TintedBubbles({ sorted, currency, members }: {
   currency: string;
   members: TripMember[];
 }) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   const debtors  = sorted.filter(b => b.balanceCents < -THRESHOLD);
@@ -109,7 +111,7 @@ function TintedBubbles({ sorted, currency, members }: {
           ? `−${formatCurrency(Math.abs(balanceCents), currency)}`
           : isCreditor
             ? `+${formatCurrency(balanceCents, currency)}`
-            : 'even';
+            : t('trips.balance_bubbles.even');
 
         return (
           <View
@@ -141,6 +143,7 @@ function ListRows({ sorted, currency, members }: {
   currency: string;
   members: TripMember[];
 }) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   return (
@@ -157,7 +160,7 @@ function ListRows({ sorted, currency, members }: {
           ? `−${formatCurrency(Math.abs(balanceCents), currency)}`
           : isCreditor
             ? `+${formatCurrency(balanceCents, currency)}`
-            : 'even';
+            : t('trips.balance_bubbles.even');
 
         return (
           <View
@@ -211,6 +214,7 @@ function ListRows({ sorted, currency, members }: {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function BalanceBubblesSection({ members, expenses, currency }: BalanceBubblesSectionProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   const { style } = useStandingsStyle();
 
@@ -228,7 +232,7 @@ export function BalanceBubblesSection({ members, expenses, currency }: BalanceBu
     <View style={{ marginBottom: tokens.spacing.lg }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: tokens.spacing.md }}>
         <Text variant="label" color={colors.text.secondary} style={{ flex: 1 }}>
-          Current standings
+          {t('trips.balance_bubbles.title')}
         </Text>
         <StyleToggle />
       </View>

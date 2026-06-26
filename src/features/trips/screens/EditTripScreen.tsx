@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, ScrollView, Pressable, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -28,6 +29,7 @@ function currencyLabel(code: string): string {
 }
 
 export function EditTripScreen() {
+  const { t } = useTranslation();
   const { id }  = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
   const colors  = useColors();
@@ -71,8 +73,8 @@ export function EditTripScreen() {
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: 'Edit Trip' }} />
-      <ClosedTripGuard trip={trip} message="This trip is closed and can no longer be edited.">
+      <Stack.Screen options={{ title: t('trips.edit.title') }} />
+      <ClosedTripGuard trip={trip} message={t('trips.edit.closed_guard')}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -82,22 +84,22 @@ export function EditTripScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Text variant="heading2" style={{ marginBottom: tokens.spacing.lg }}>
-            Edit Trip
+            {t('trips.edit.heading')}
           </Text>
 
           <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-            Trip name
+            {t('trips.form.name_label')}
           </Text>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="e.g. Chez Paul dinner"
+            placeholder={t('trips.form.name_placeholder')}
             placeholderTextColor={colors.text.tertiary}
             style={inputStyle}
             autoFocus
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
-            accessibilityLabel="Trip name"
+            accessibilityLabel={t('trips.form.name_accessibility')}
           />
 
           <Text
@@ -105,12 +107,12 @@ export function EditTripScreen() {
             color={colors.text.secondary}
             style={{ marginBottom: tokens.spacing.xs }}
           >
-            Currency
+            {t('trips.form.currency_label')}
           </Text>
           <Pressable
             onPress={() => setDropdownVisible(true)}
             accessibilityRole="combobox"
-            accessibilityLabel="Select currency"
+            accessibilityLabel={t('trips.form.currency_select_label')}
             accessibilityState={{ expanded: dropdownVisible }}
             style={({ pressed }) => ({
               flexDirection: 'row',
@@ -143,7 +145,7 @@ export function EditTripScreen() {
               <Pressable onPress={() => {}}>
                 <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, overflow: 'hidden' }}>
                   <View style={{ paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-                    <Text variant="label" color={colors.text.secondary}>Select currency</Text>
+                    <Text variant="label" color={colors.text.secondary}>{t('trips.form.currency_select_heading')}</Text>
                   </View>
                   <FlatList
                     data={CURRENCIES}
@@ -178,10 +180,10 @@ export function EditTripScreen() {
             </Pressable>
           </Modal>
 
-          <ErrorBanner error={error} fallback="Could not update trip." style={{ marginBottom: tokens.spacing.md }} />
+          <ErrorBanner error={error} fallback={t('trips.edit.error_fallback')} style={{ marginBottom: tokens.spacing.md }} />
 
           <Button
-            label={saving ? 'Saving…' : 'Save changes'}
+            label={saving ? t('trips.edit.saving') : t('trips.edit.save_button')}
             onPress={handleSubmit}
             disabled={saving || !name.trim()}
           />

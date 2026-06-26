@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
@@ -18,16 +19,17 @@ interface TripCardProps {
   financialSummary?: TripFinancialSummary | null;
 }
 
-function formatRelativeDate(date: Date): string {
+function formatRelativeDate(date: Date, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays === 0) return t('common.date_today');
+  if (diffDays === 1) return t('common.date_yesterday');
+  if (diffDays < 7) return t('common.date_days_ago', { count: diffDays });
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 export function TripCard({ trip, index, onPress, financialSummary }: TripCardProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   const entering = Platform.OS !== 'web'
     ? FadeInDown.delay(index * 50).duration(300).springify()
@@ -49,7 +51,7 @@ export function TripCard({ trip, index, onPress, financialSummary }: TripCardPro
             color={colors.text.secondary}
             style={{ marginTop: tokens.spacing.xs }}
           >
-            {formatRelativeDate(trip.createdAt)}
+            {formatRelativeDate(trip.createdAt, t)}
           </Text>
         </View>
         <Badge label={trip.currency} />
@@ -72,10 +74,10 @@ export function TripCard({ trip, index, onPress, financialSummary }: TripCardPro
           style={{ marginTop: tokens.spacing.xs }}
         >
           {financialSummary.direction === 'owe'
-            ? `You owe ${formatCurrency(financialSummary.amountCents, trip.currency)}`
+            ? t('trips.card.you_owe', { amount: formatCurrency(financialSummary.amountCents, trip.currency) })
             : financialSummary.direction === 'owed'
-              ? `You're owed ${formatCurrency(financialSummary.amountCents, trip.currency)}`
-              : 'All settled'}
+              ? t('trips.card.you_are_owed', { amount: formatCurrency(financialSummary.amountCents, trip.currency) })
+              : t('trips.card.all_settled')}
         </Text>
       )}
     </Card>

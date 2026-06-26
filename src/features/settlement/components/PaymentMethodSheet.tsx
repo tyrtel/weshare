@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, View, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -43,6 +44,7 @@ export function PaymentMethodSheet({
   onClose,
   onPaymentLaunched,
 }: PaymentMethodSheetProps) {
+  const { t } = useTranslation();
   const colors           = useColors();
   const router           = useRouter();
   const registry         = useService(PAYMENT_REGISTRY);
@@ -131,7 +133,7 @@ export function PaymentMethodSheet({
         <Pressable
           style={StyleSheet.absoluteFillObject}
           onPress={onClose}
-          accessibilityLabel="Close payment options"
+          accessibilityLabel={t('settlement.payment_sheet.close_label')}
         />
 
         <GestureDetector gesture={dragGesture}>
@@ -147,20 +149,20 @@ export function PaymentMethodSheet({
 
           <View style={{ paddingHorizontal: tokens.spacing.lg, paddingBottom: tokens.spacing.xxl }}>
             <Text variant="heading3" style={{ marginBottom: tokens.spacing.xs }}>
-              Pay via…
+              {t('settlement.payment_sheet.title')}
             </Text>
             <Text
               variant="body"
               color={colors.text.secondary}
               style={{ marginBottom: tokens.spacing.lg }}
             >
-              Choose how to send payment to {recipientName}.
+              {t('settlement.payment_sheet.subtitle', { name: recipientName })}
             </Text>
 
             {!isAmountValid ? (
               <View style={{ paddingVertical: tokens.spacing.lg, alignItems: 'center' }}>
                 <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
-                  Invalid payment amount. Please go back and try again.
+                  {t('settlement.payment_sheet.invalid_amount')}
                 </Text>
               </View>
             ) : availableMethods === null ? (
@@ -211,7 +213,7 @@ export function PaymentMethodSheet({
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="Cancel"
+              accessibilityLabel={t('settlement.payment_sheet.cancel')}
               style={({ pressed }) => ({
                 marginTop:       tokens.spacing.md,
                 alignItems:      'center',
@@ -219,7 +221,7 @@ export function PaymentMethodSheet({
                 opacity:         pressed ? 0.7 : 1,
               })}
             >
-              <Text variant="label" color={colors.text.secondary}>Cancel</Text>
+              <Text variant="label" color={colors.text.secondary}>{t('settlement.payment_sheet.cancel')}</Text>
             </Pressable>
           </View>
         </Animated.View>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -14,6 +15,7 @@ import { tokens } from '../../../theme/tokens';
 import type { Expense } from '../../../core/models/Expense';
 
 export function TripActivityScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
   const colors  = useColors();
@@ -24,7 +26,7 @@ export function TripActivityScreen() {
 
   const handleExpensePress = (expense: Expense) => router.push(`/expense/${expense.id}`);
 
-  if (loading || !trip) return <ScreenWrapper />;
+  if (loading || !trip) return <ScreenWrapper isLoading />;
 
   return (
     <ScreenWrapper>
@@ -41,7 +43,7 @@ export function TripActivityScreen() {
           <Pressable
             onPress={() => router.back()}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={t('common.back')}
             style={{ marginRight: tokens.spacing.sm, padding: tokens.spacing.xs }}
             hitSlop={8}
           >
@@ -64,7 +66,7 @@ export function TripActivityScreen() {
           }}
         >
           <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-            Total trip spend
+            {t('trips.activity.total_spend_label')}
           </Text>
           <Text
             style={{
@@ -77,7 +79,7 @@ export function TripActivityScreen() {
             {formatCurrency(totalCents, trip.currency)}
           </Text>
           <Text variant="caption" color={colors.text.tertiary} style={{ marginTop: tokens.spacing.xs }}>
-            {expenses.length} {expenses.length === 1 ? 'expense' : 'expenses'} · {trip.currency}
+            {t('trips.activity.expense_count', { count: expenses.length, currency: trip.currency })}
           </Text>
         </View>
 
@@ -94,7 +96,7 @@ export function TripActivityScreen() {
           color={colors.text.secondary}
           style={{ marginBottom: tokens.spacing.sm, marginTop: tokens.spacing.xs }}
         >
-          All Activity
+          {t('trips.activity.all_activity_label')}
         </Text>
 
         {expenses.length === 0 ? (
@@ -106,7 +108,7 @@ export function TripActivityScreen() {
               alignItems: 'center',
             }}
           >
-            <Text variant="body" color={colors.text.secondary}>No expenses recorded yet.</Text>
+            <Text variant="body" color={colors.text.secondary}>{t('trips.activity.empty')}</Text>
           </View>
         ) : (
           <View

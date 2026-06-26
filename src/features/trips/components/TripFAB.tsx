@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Pressable, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Animated, {
   ZoomIn,
   useSharedValue,
@@ -22,6 +23,7 @@ interface TripFABProps {
 }
 
 export function TripFAB({ onAddExpense, onAddPeople, isExtended }: TripFABProps) {
+  const { t } = useTranslation();
   const colors = useColors();
 
   const fabWidth     = useSharedValue(FAB_COMPACT);
@@ -52,7 +54,7 @@ export function TripFAB({ onAddExpense, onAddPeople, isExtended }: TripFABProps)
         <Pressable
           onPress={onAddPeople}
           accessibilityRole="button"
-          accessibilityLabel="Add people"
+          accessibilityLabel={t('trips.detail.add_people_label')}
           style={({ pressed }) => ({
             flexDirection: 'row',
             alignItems: 'center',
@@ -68,7 +70,7 @@ export function TripFAB({ onAddExpense, onAddPeople, isExtended }: TripFABProps)
           })}
         >
           <Ionicons name="person-add-outline" size={16} color={colors.primary.default} />
-          <Text variant="caption" color={colors.primary.default}>Add People</Text>
+          <Text variant="caption" color={colors.primary.default}>{t('trips.detail.add_people')}</Text>
         </Pressable>
       </Animated.View>
 
@@ -90,7 +92,7 @@ export function TripFAB({ onAddExpense, onAddPeople, isExtended }: TripFABProps)
           <Pressable
             onPress={onAddExpense}
             accessibilityRole="button"
-            accessibilityLabel="Add expense"
+            accessibilityLabel={t('trips.detail.add_expense_label')}
             style={({ pressed }) => ({
               flex: 1,
               flexDirection: 'row',
@@ -102,7 +104,7 @@ export function TripFAB({ onAddExpense, onAddPeople, isExtended }: TripFABProps)
           >
             <Ionicons name="add" size={24} color="#ffffff" />
             <Animated.View style={[animatedLabelStyle, { marginLeft: tokens.spacing.xs }]}>
-              <Text variant="label" color="#ffffff">Add expense</Text>
+              <Text variant="label" color="#ffffff">{t('trips.detail.add_expense')}</Text>
             </Animated.View>
           </Pressable>
         </Animated.View>

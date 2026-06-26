@@ -1,0 +1,476 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "delete": "Delete",
+    "done": "Done",
+    "go_back": "Go back",
+    "back": "Back",
+    "back_arrow": "← Back",
+    "go_home": "Go home",
+    "go_to_home": "Go to home screen",
+    "loading": "Loading...",
+    "connecting_to_server": "Connecting to server…",
+    "try_again": "Try again",
+    "retry": "Retry",
+    "saving": "Saving…",
+    "save_changes": "Save changes",
+    "share": "Share",
+    "or": "or",
+    "unknown_user": "Unknown",
+    "cannot_be_undone": "This cannot be undone.",
+    "error_invalid_params": "Invalid navigation parameters.",
+    "render_error": "Render Error",
+    "offline_banner": "No internet connection",
+    "date_today": "Today",
+    "date_yesterday": "Yesterday",
+    "date_days_ago": "{{count}} days ago",
+    "not_found_title": "Not found",
+    "not_found_body": "This screen doesn't exist.",
+    "debug": {
+      "reset_auth_title": "Reset Auth",
+      "reset_auth_message": "Clear all stored credentials and sign out. Useful for simulating a fresh cold start. You will need to sign in again.",
+      "clear_and_sign_out": "Clear & Sign Out",
+      "reset_auth_button": "Reset auth"
+    }
+  },
+
+  "auth": {
+    "email_placeholder_example": "you@example.com",
+    "email_accessibility": "Email address",
+    "password_accessibility": "Password",
+    "error_invalid_email": "Please enter a valid email address.",
+    "error_password_too_short": "Password must be at least 6 characters.",
+    "error_passwords_mismatch": "Passwords do not match.",
+    "welcome": {
+      "app_name": "ouiShare",
+      "tagline": "Share the fun, not the paperwork."
+    },
+    "sign_in": {
+      "email_placeholder": "Email",
+      "password_placeholder": "Password",
+      "button": "Sign in",
+      "forgot_password": "Forgot password?",
+      "divider_or": "or",
+      "google_button": "Continue with Google",
+      "google_label": "Sign in with Google",
+      "apple_button": "Continue with Apple",
+      "apple_label": "Sign in with Apple",
+      "no_account": "Don't have an account?",
+      "create_account_link": "Create one",
+      "error_email_empty": "Please enter your email.",
+      "error_password_empty": "Please enter your password."
+    },
+    "sign_up": {
+      "title": "Create account",
+      "subtitle": "We'll send a code to verify your email.",
+      "name_label": "Name",
+      "name_placeholder": "Your display name",
+      "name_accessibility": "Your name",
+      "email_label": "Email",
+      "password_label": "Password",
+      "password_placeholder": "At least 6 characters",
+      "confirm_password_label": "Confirm password",
+      "confirm_password_accessibility": "Confirm password",
+      "button": "Create account",
+      "button_label": "Create account",
+      "has_account": "Already have an account?",
+      "sign_in_link": "Sign in",
+      "error_name_empty": "Please enter your name.",
+      "error_password_empty": "Please enter a password."
+    },
+    "verify": {
+      "title": "Check your email",
+      "subtitle": "We sent a 6-digit code to",
+      "digit_label": "Digit {{number}}",
+      "button": "Verify",
+      "button_label": "Verify code",
+      "code_sent": "Code sent!",
+      "resend_prompt": "Didn't receive it? Go back and try again"
+    },
+    "forgot_password": {
+      "title": "Reset password",
+      "subtitle": "Enter your email and we'll send you a 6-digit reset code.",
+      "button": "Send reset code",
+      "button_label": "Send reset code",
+      "error_email_empty": "Please enter your email address."
+    },
+    "reset_password": {
+      "title": "Set new password",
+      "subtitle": "Enter the 6-digit code sent to",
+      "new_password_placeholder": "New password (6+ characters)",
+      "new_password_label": "New password",
+      "confirm_placeholder": "Confirm new password",
+      "confirm_label": "Confirm new password",
+      "button": "Set new password",
+      "button_label": "Set new password",
+      "code_resent": "Code resent!",
+      "resend_prompt": "Didn't receive a code? Send again",
+      "error_code_empty": "Please enter the 6-digit code.",
+      "error_password_empty": "Please enter a new password."
+    }
+  },
+
+  "trips": {
+    "list": {
+      "title": "Trips",
+      "empty_title": "No trips yet",
+      "empty_body": "Tap New trip to start a shared trip with friends.",
+      "error_load": "Couldn't load your trips.",
+      "past_trips_link": "Past Trips",
+      "fab_label": "New trip",
+      "fab_label_compact": "Create trip"
+    },
+    "detail": {
+      "empty_expenses": "No expenses yet. Tap + to add the first one.",
+      "error_not_found": "Trip not found.",
+      "error_load": "Could not load trip.",
+      "edit_label": "Edit trip",
+      "close_label": "Close trip",
+      "close_alert_title": "Close Trip?",
+      "close_alert_message": "This will hide the trip from your list. Unsettled debts will still be recorded.",
+      "close_alert_confirm": "Close Trip",
+      "settle_up": "Settle Up",
+      "settling_in_progress": "Settling in progress",
+      "settle_continuing_label": "Continue settling",
+      "settle_label": "Settle up",
+      "view_activity": "View full activity",
+      "view_activity_label": "View full activity",
+      "add_expense": "Add expense",
+      "add_expense_label": "Add expense",
+      "add_people": "Add People",
+      "add_people_label": "Add people"
+    },
+    "create": {
+      "title": "New Trip",
+      "heading": "New Trip",
+      "confirm_label": "Confirm new trip",
+      "error_fallback": "Could not create trip. Try again."
+    },
+    "edit": {
+      "title": "Edit Trip",
+      "heading": "Edit Trip",
+      "save_button": "Save changes",
+      "saving": "Saving…",
+      "error_fallback": "Could not update trip.",
+      "closed_guard": "This trip is closed and can no longer be edited."
+    },
+    "archive": {
+      "title": "Past Trips",
+      "empty": "No past trips yet."
+    },
+    "form": {
+      "name_label": "Trip name",
+      "name_placeholder": "e.g. Chez Paul dinner",
+      "name_accessibility": "Trip name",
+      "currency_label": "Currency",
+      "currency_select_label": "Select currency",
+      "currency_select_heading": "Select currency",
+      "currency_close_label": "Close currency picker",
+      "trip_currency_label": "Trip currency"
+    },
+    "card": {
+      "you_owe": "You owe {{amount}}",
+      "you_are_owed": "You're owed {{amount}}",
+      "all_settled": "All settled",
+      "member_count_one": "{{count}} member",
+      "member_count_other": "{{count}} members"
+    },
+    "activity_header": {
+      "title": "Recent Activity",
+      "show_less": "Show less",
+      "show_all": "Show all {{count}}",
+      "show_fewer_label": "Show fewer expenses",
+      "show_all_label": "Show all expenses"
+    },
+    "activity": {
+      "total_spend_label": "Total trip spend",
+      "expense_count_one": "{{count}} expense · {{currency}}",
+      "expense_count_other": "{{count}} expenses · {{currency}}",
+      "all_activity_label": "All Activity",
+      "empty": "No expenses recorded yet."
+    },
+    "closed_banner": {
+      "title": "Trip closed",
+      "closed_date": "Closed {{date}}",
+      "expense_count_one": "{{count}} expense",
+      "expense_count_other": "{{count}} expenses",
+      "member_count_one": "{{count}} member",
+      "member_count_other": "{{count}} members"
+    },
+    "balance_bubbles": {
+      "title": "Current standings",
+      "even": "even"
+    },
+    "spend_chart": {
+      "title": "Spend Breakdown",
+      "accessibility_label": "Spend breakdown chart"
+    },
+    "payout": {
+      "title": "Settle Up",
+      "all_settled": "All settled up!"
+    },
+    "expense_row": {
+      "paid_by": "paid by {{name}}"
+    }
+  },
+
+  "expenses": {
+    "form": {
+      "add_title": "Add Expense",
+      "edit_title": "Edit Expense",
+      "description_label": "Description",
+      "description_placeholder": "e.g. Dinner at Chez Paul",
+      "description_accessibility": "Expense description",
+      "amount_label": "Amount",
+      "amount_accessibility": "Amount",
+      "amount_hint": "Enter an amount to continue",
+      "rate_fetching": "Fetching rate…",
+      "rate_unavailable": "Rate unavailable",
+      "paid_by_label": "Paid by",
+      "split_between_label": "Split between",
+      "split_equal": "Equal",
+      "split_proportional": "Proportional",
+      "split_custom": "Custom",
+      "split_itemized": "Itemized",
+      "add_line_item": "Add item",
+      "add_line_item_label": "Add item",
+      "itemized_total_label": "Total",
+      "remainder_to_assign": "{{amount}} still to assign",
+      "remainder_over": "Over by {{amount}}",
+      "error_save": "Could not save expense.",
+      "confirm_label": "Confirm expense",
+      "save_label": "Save changes",
+      "closed_add_guard": "This trip is closed. No new expenses can be added.",
+      "closed_edit_guard": "This trip is closed. Expenses can no longer be edited.",
+      "entry_currency_label": "Entry currency"
+    },
+    "receipt": {
+      "reading": "Reading receipt…",
+      "error": "Couldn't read receipt — please fill in manually"
+    },
+    "category": {
+      "title": "Category",
+      "none": "No category",
+      "add_label": "Add category",
+      "selected_label": "Category: {{label}}. Tap to change.",
+      "remove": "Remove category"
+    },
+    "line_item": {
+      "placeholder": "Item",
+      "description_label": "Item description",
+      "remove_label": "Remove item"
+    },
+    "split_row": {
+      "excluded": "excluded"
+    },
+    "detail": {
+      "error_not_found": "Expense not found.",
+      "error_load": "Could not load expense.",
+      "invalid_params": "Invalid navigation parameters.",
+      "receipt_label": "Receipt",
+      "view_receipt_label": "View receipt fullscreen",
+      "receipt_image_label": "Receipt image",
+      "close_receipt_label": "Close receipt",
+      "receipt_fullscreen_label": "Receipt image fullscreen",
+      "paid_by_label": "Paid by",
+      "split_title": "Split ({{count}})",
+      "settled_badge": "Settled",
+      "delete_button": "Delete expense",
+      "delete_label": "Delete expense",
+      "edit_label": "Edit expense",
+      "delete_alert_title": "Delete this expense?",
+      "delete_alert_confirm": "Delete"
+    }
+  },
+
+  "settlement": {
+    "screen": {
+      "title": "Settle Up",
+      "error_load": "Could not load settlement data.",
+      "all_settled_empty": "Everyone is settled up.",
+      "all_settled_bar": "All settled — Close Trip",
+      "roll_over_debts": "Roll Over Debts",
+      "close_trip": "Close Trip",
+      "payment_confirm_title": "Did you complete the payment?",
+      "payment_confirm_message": "Did you send {{amount}} via {{wallet}}?",
+      "payment_confirm_yes": "Yes, I paid"
+    },
+    "summary": {
+      "you_owe_label": "You owe",
+      "you_are_owed_label": "You are owed",
+      "your_balance_label": "Your balance",
+      "all_settled_up": "All settled up"
+    },
+    "payment_sheet": {
+      "title": "Pay via…",
+      "subtitle": "Choose how to send payment to {{name}}.",
+      "invalid_amount": "Invalid payment amount. Please go back and try again.",
+      "close_label": "Close payment options",
+      "cancel": "Cancel"
+    },
+    "audit": {
+      "title": "Payment History",
+      "record_count_one": "{{count}} record",
+      "record_count_other": "{{count}} records",
+      "empty_title": "No payment history yet.",
+      "empty_body": "Records appear here once a payment request is created.",
+      "error_load": "Could not load payment history.",
+      "ref_prefix": "Ref: {{ref}}",
+      "method_stripe": "Stripe",
+      "method_sepa": "SEPA Bank Transfer",
+      "method_revolut": "Revolut",
+      "method_venmo": "Venmo",
+      "method_lydia": "Lydia",
+      "method_paypal": "PayPal",
+      "method_other": "Other"
+    },
+    "bank": {
+      "screen_title": "Bank Transfer",
+      "heading": "SEPA Bank Transfer",
+      "sending_to": "Sending {{amount}} to {{name}}",
+      "bank_label": "Bank (optional)",
+      "select_label": "Select your bank",
+      "selected_label": "Selected bank: {{name}}",
+      "select_placeholder": "Select your bank…",
+      "clear_label": "Clear bank selection",
+      "clear_text": "Clear bank selection",
+      "iban_label": "Your IBAN (creditor account)",
+      "iban_hint": "We need the IBAN you want to receive funds into. This is passed securely to your bank.",
+      "status_label": "Payment status",
+      "waiting": "Waiting for your bank to confirm…",
+      "authorize_hint": "You may need to approve the transfer in your bank's app or website. Return here once you've authorized the payment.",
+      "authorized": "Bank authorized — SEPA transfer in transit",
+      "transit_hint": "SEPA transfers typically settle within 1 business day.",
+      "completed": "Transfer complete",
+      "reference_prefix": "Reference: {{ref}}",
+      "declined": "Payment declined by bank",
+      "expired": "Authorization expired",
+      "invalid_params": "Invalid payment parameters.",
+      "error_title": "Payment failed",
+      "error_initiate": "Could not initiate bank transfer. Please try again.",
+      "pay_button": "Pay via bank transfer",
+      "pay_button_label": "Pay via bank transfer",
+      "go_back": "Go back"
+    },
+    "bank_selector": {
+      "title": "Select your bank",
+      "search_placeholder": "Search banks…",
+      "search_label": "Search banks",
+      "clear_search": "Clear search",
+      "empty": "No banks found",
+      "close_label": "Close bank selector",
+      "skip": "Skip — proceed without selecting"
+    },
+    "row": {
+      "undo": "Undo",
+      "undo_label": "Undo mark as paid",
+      "pay_button": "Pay",
+      "pay_label": "Pay {{name}}",
+      "mark_paid": "Mark Paid",
+      "mark_paid_label": "Mark as paid",
+      "payment_in_progress": "Payment in progress",
+      "paid_label": "Paid",
+      "history_label": "View payment history for {{from}} and {{to}}"
+    },
+    "rollover": {
+      "title": "Roll Over Debts",
+      "pick_trip_label": "Choose destination trip",
+      "no_trips": "No other trips to roll debts into.",
+      "matched_label": "Matched ({{count}})",
+      "unmatched_label": "Unmatched ({{count}}) — tap a target to link",
+      "review_button": "Review debts",
+      "no_debts": "No outstanding debts to roll over.",
+      "review_label": "Deselect any debts you don't want to carry over",
+      "confirm_target_label": "Rolling over into trip",
+      "debt_count_one": "{{count}} debt",
+      "debt_count_other": "{{count}} debts",
+      "confirm_button": "Roll over debts",
+      "continue_button": "Continue"
+    }
+  },
+
+  "balance": {
+    "screen": {
+      "title": "Balance"
+    },
+    "empty": {
+      "title": "No balance yet",
+      "body": "Join or create a trip to see your balance here."
+    },
+    "footer": {
+      "net_total_label": "Net total"
+    },
+    "list": {
+      "trip_count_one": "{{count}} trip",
+      "trip_count_other": "{{count}} trips"
+    },
+    "row": {
+      "owed": "owed {{amount}}",
+      "owe": "owe {{amount}}",
+      "settled": "settled",
+      "member_count_one": "{{count}} member",
+      "member_count_other": "{{count}} members",
+      "view_trip_label": "View trip {{name}}"
+    }
+  },
+
+  "invite": {
+    "screen": {
+      "title": "Invite to {{trip_name}}",
+      "subtitle": "Share this link with friends so they can join.",
+      "copy_label": "Copy invite link",
+      "copy_button": "copy",
+      "share_button": "Share invite",
+      "no_link_warning": "No invite link yet. Re-open this screen after the trip is fully saved."
+    },
+    "join": {
+      "error_title": "Invite not found",
+      "error_body": "This invite link may have expired or is no longer valid.",
+      "sign_in_title": "Sign in to join",
+      "sign_in_body": "You need to sign in before joining {{trip_name}}.",
+      "sign_in_button": "Sign in",
+      "invited_to_label": "You're invited to",
+      "joining_as": "Joining as",
+      "error_fallback": "Could not join trip. Please try again.",
+      "joining_in_progress": "Joining…",
+      "join_button": "Join {{trip_name}}",
+      "go_home_button": "Go home"
+    },
+    "add_participants": {
+      "title": "Add Participants",
+      "heading": "Add Participants",
+      "subtitle": "Add people to {{trip_name}}.",
+      "member_count_one": "{{count}} person on this trip",
+      "member_count_other": "{{count}} people on this trip",
+      "name_placeholder": "Enter a name",
+      "name_label": "Participant name",
+      "add_button_label": "Add participant",
+      "add_button": "Add",
+      "duplicate_error": "Already in this trip",
+      "add_error": "Could not add participant. Please try again.",
+      "contacts_toggle": "Add from contacts",
+      "contacts_hide": "Hide contacts",
+      "privacy_notice": "Phone and email are visible to all members of this trip.",
+      "contacts_permission_hint": "Enable contacts in Settings to add from your address book.",
+      "contacts_search": "Search contacts",
+      "contact_already_added": "{{name}} already added",
+      "contact_add_label": "Add {{name}}",
+      "contacts_no_match": "No contacts match your search.",
+      "contacts_empty": "No contacts found.",
+      "frequent_label": "Also on your other trips",
+      "quick_add_label": "Quick add {{name}}",
+      "share_invite_label": "Share invite",
+      "copy_link": "Copy link",
+      "copy_link_label": "Copy invite link",
+      "share_label": "Open share sheet",
+      "closed_guard": "This trip is closed. No new participants can be added.",
+      "done_label": "Done"
+    },
+    "link_card": {
+      "title": "Or share a link",
+      "copy_label": "Copy invite link",
+      "share_button": "Share invite"
+    }
+  }
+}
