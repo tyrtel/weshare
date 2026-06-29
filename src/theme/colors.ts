@@ -21,7 +21,7 @@ export const darkColors = {
   text: {
     primary: '#e8e8f5',
     secondary: '#8888aa',
-    tertiary: '#5a5a7a',
+    tertiary: '#7a7a99',
     inverse: '#1a1a2e',
   },
 
@@ -65,7 +65,7 @@ export const lightColors = {
   text: {
     primary: '#1a1a2e',
     secondary: '#6b7280',
-    tertiary: '#9ca3af',
+    tertiary: '#7b8299',
     inverse: '#f8f9fc',
   },
 

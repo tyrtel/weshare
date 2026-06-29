@@ -39,6 +39,8 @@
     "email_placeholder_example": "vous@exemple.com",
     "email_accessibility": "Adresse e-mail",
     "password_accessibility": "Mot de passe",
+    "show_password": "Afficher le mot de passe",
+    "hide_password": "Masquer le mot de passe",
     "error_invalid_email": "Veuillez saisir une adresse e-mail valide.",
     "error_password_too_short": "Le mot de passe doit comporter au moins 6 caractères.",
     "error_passwords_mismatch": "Les mots de passe ne correspondent pas.",
@@ -111,9 +113,106 @@
     }
   },
 
+  "home": {
+    "title": "Accueil",
+    "fab_label": "Nouveau"
+  },
+  "groups": {
+    "list": {
+      "section_title": "Groupes",
+      "empty": "Aucun groupe. Appuyez sur + pour en créer un."
+    },
+    "card": {
+      "you_owe": "Tu dois {{amount}}",
+      "you_are_owed": "On te doit {{amount}}",
+      "all_settled": "Tout réglé",
+      "member_count_one": "{{count}} membre",
+      "member_count_other": "{{count}} membres",
+      "trip_count_one": "{{count}} voyage",
+      "trip_count_other": "{{count}} voyages"
+    },
+    "create": {
+      "fab_label": "Nouveau groupe",
+      "title": "Nouveau groupe",
+      "heading": "Créer un groupe",
+      "confirm_label": "Créer",
+      "error_fallback": "Impossible de créer le groupe"
+    },
+    "edit": {
+      "title": "Modifier le groupe",
+      "confirm_label": "Enregistrer",
+      "error_fallback": "Impossible de mettre à jour le groupe",
+      "members_label": "Membres",
+      "guest_label": "Invité",
+      "owner_label": "Propriétaire",
+      "add_member_button": "Ajouter une personne",
+      "member_name_placeholder": "Nom affiché",
+      "add_member_error": "Impossible d'ajouter le membre"
+    },
+    "form": {
+      "name_label": "Nom du groupe",
+      "name_placeholder": "ex. Équipe du week-end",
+      "name_accessibility": "Saisir le nom du groupe",
+      "currency_label": "Devise par défaut",
+      "currency_select_label": "Sélectionner une devise",
+      "currency_select_heading": "Devise",
+      "currency_close_label": "Fermer le sélecteur de devise"
+    },
+    "detail": {
+      "title": "Groupe",
+      "active_section": "Actif",
+      "past_section": "Passé",
+      "view_past": "Voir les éléments passés",
+      "hide_past": "Masquer les éléments passés",
+      "fab_new_trip": "Nouveau voyage",
+      "fab_new_expense": "Nouvelle dépense",
+      "fab_add_member": "Ajouter une personne",
+      "empty_active": "Aucun élément actif pour l'instant.",
+      "delete_title": "Supprimer le groupe ?",
+      "delete_message": "Les voyages et dépenses associés ne seront pas supprimés.",
+      "delete_confirm": "Supprimer",
+      "settle_up": "Régler"
+    },
+    "add_member": {
+      "title": "Ajouter des personnes",
+      "heading": "Ajouter des personnes",
+      "subtitle": "Ajoutez des personnes à {{group_name}}.",
+      "member_count_one": "{{count}} personne dans ce groupe",
+      "member_count_other": "{{count}} personnes dans ce groupe",
+      "name_placeholder": "Saisissez un nom",
+      "add_button": "Ajouter",
+      "duplicate_error": "Déjà dans ce groupe",
+      "add_error": "Impossible d'ajouter la personne. Veuillez réessayer.",
+      "privacy_notice": "Le téléphone et l'e-mail sont visibles par tous les membres du groupe."
+    },
+    "settle": {
+      "title": "Régler",
+      "subtitle": "Virements suggérés pour solder toutes les dettes.",
+      "balances_section": "Soldes",
+      "transfers_section": "Virements suggérés",
+      "even": "Équilibré",
+      "all_settled": "Tout le monde est réglé.",
+      "settle_all_button": "Tout marquer comme réglé",
+      "settle_all_error": "Une erreur s'est produite. Certains éléments n'ont peut-être pas été réglés.",
+      "confirm_title": "Tout marquer comme réglé ?",
+      "confirm_message": "Cela réglera toutes les dépenses du groupe et clôturera tous les voyages actifs. Cette action est irréversible.",
+      "confirm_action": "Tout régler"
+    },
+    "expense": {
+      "add_title": "Nouvelle dépense",
+      "add_heading": "Ajouter une dépense",
+      "split_among_label": "Répartir entre",
+      "split_equal_note": "Réparti équitablement entre {{count}} membres",
+      "settle_title": "Marquer comme réglée ?",
+      "settle_message": "Cette dépense sera déplacée vers les éléments passés.",
+      "settle_confirm": "Marquer réglée",
+      "settle_button": "Marquer comme réglée"
+    }
+  },
   "trips": {
     "list": {
       "title": "Voyages",
+      "section_title": "Voyages",
       "empty_title": "Aucun voyage",
       "empty_body": "Appuyez sur Nouveau voyage pour démarrer un voyage partagé.",
       "error_load": "Impossible de charger vos voyages.",
@@ -145,7 +244,10 @@
       "title": "Nouveau voyage",
       "heading": "Nouveau voyage",
       "confirm_label": "Confirmer le nouveau voyage",
-      "error_fallback": "Impossible de créer le voyage. Réessayez."
+      "error_fallback": "Impossible de créer le voyage. Réessayez.",
+      "member_picker_title": "Qui vient ?",
+      "member_picker_heading": "Sélectionner les membres",
+      "member_picker_subtitle": "Choisissez les membres du groupe à inclure. Tous sont sélectionnés par défaut."
     },
     "edit": {
       "title": "Modifier le voyage",
@@ -229,6 +331,8 @@
       "rate_unavailable": "Taux indisponible",
       "paid_by_label": "Payé par",
       "split_between_label": "Répartir entre",
+      "split_equal_default_label": "Répartition égale",
+      "split_customize": "Personnaliser…",
       "split_equal": "Égal",
       "split_proportional": "Proportionnel",
       "split_custom": "Personnalisé",
@@ -243,7 +347,8 @@
       "save_label": "Enregistrer les modifications",
       "closed_add_guard": "Ce voyage est clôturé. Aucune nouvelle dépense ne peut être ajoutée.",
       "closed_edit_guard": "Ce voyage est clôturé. Les dépenses ne peuvent plus être modifiées.",
-      "entry_currency_label": "Devise de saisie"
+      "entry_currency_label": "Devise de saisie",
+      "group_currency_label": "Devise du groupe"
     },
     "receipt": {
       "reading": "Lecture du reçu…",

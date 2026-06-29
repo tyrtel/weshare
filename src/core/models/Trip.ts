@@ -12,4 +12,5 @@ export interface Trip {
   inviteToken?: string; // short token for invite deep-links
   status: TripStatus;
   closedAt: Date | null;
+  groupId?: string; // set when this trip belongs to a group
 }

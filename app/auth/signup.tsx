@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useService } from '../../src/core/di/ServiceContext';
@@ -24,12 +25,14 @@ export default function SignUpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [name, setName]         = useState('');
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm]   = useState('');
-  const [busy, setBusy]         = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [name, setName]               = useState('');
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [confirm, setConfirm]         = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm]   = useState(false);
+  const [busy, setBusy]               = useState(false);
+  const [error, setError]             = useState<string | null>(null);
 
   const emailRef    = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -92,7 +95,7 @@ export default function SignUpScreen() {
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>{t('auth.sign_up.title')}</Text>
+          <Text style={styles.title}>{t('auth.sign_up.title')}</Text>
           <Text variant="body" color={C.text.secondary}>
             {t('auth.sign_up.subtitle')}
           </Text>
@@ -142,36 +145,56 @@ export default function SignUpScreen() {
 
           <View style={styles.field}>
             <Text variant="label" color={C.text.secondary} style={styles.label}>{t('auth.sign_up.password_label')}</Text>
-            <TextInput
-              ref={passwordRef}
-              value={password}
-              onChangeText={v => { setPassword(v); setError(null); }}
-              placeholder={t('auth.sign_up.password_placeholder')}
-              placeholderTextColor={C.text.tertiary}
-              secureTextEntry
-              returnKeyType="next"
-              onSubmitEditing={() => confirmRef.current?.focus()}
-              editable={!busy}
-              style={styles.input}
-              accessibilityLabel={t('auth.password_accessibility')}
-            />
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                ref={passwordRef}
+                value={password}
+                onChangeText={v => { setPassword(v); setError(null); }}
+                placeholder={t('auth.sign_up.password_placeholder')}
+                placeholderTextColor={C.text.tertiary}
+                secureTextEntry={!showPassword}
+                returnKeyType="next"
+                onSubmitEditing={() => confirmRef.current?.focus()}
+                editable={!busy}
+                style={[styles.input, { paddingRight: 48 }]}
+                accessibilityLabel={t('auth.password_accessibility')}
+              />
+              <Pressable
+                onPress={() => setShowPassword(v => !v)}
+                style={{ position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center', paddingHorizontal: 4 }}
+                hitSlop={8}
+                accessibilityLabel={showPassword ? t('auth.hide_password') : t('auth.show_password')}
+              >
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={C.text.tertiary} />
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.field}>
             <Text variant="label" color={C.text.secondary} style={styles.label}>{t('auth.sign_up.confirm_password_label')}</Text>
-            <TextInput
-              ref={confirmRef}
-              value={confirm}
-              onChangeText={v => { setConfirm(v); setError(null); }}
-              placeholder="••••••••"
-              placeholderTextColor={C.text.tertiary}
-              secureTextEntry
-              returnKeyType="go"
-              onSubmitEditing={handleCreate}
-              editable={!busy}
-              style={styles.input}
-              accessibilityLabel={t('auth.sign_up.confirm_password_accessibility')}
-            />
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                ref={confirmRef}
+                value={confirm}
+                onChangeText={v => { setConfirm(v); setError(null); }}
+                placeholder="••••••••"
+                placeholderTextColor={C.text.tertiary}
+                secureTextEntry={!showConfirm}
+                returnKeyType="go"
+                onSubmitEditing={handleCreate}
+                editable={!busy}
+                style={[styles.input, { paddingRight: 48 }]}
+                accessibilityLabel={t('auth.sign_up.confirm_password_accessibility')}
+              />
+              <Pressable
+                onPress={() => setShowConfirm(v => !v)}
+                style={{ position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center', paddingHorizontal: 4 }}
+                hitSlop={8}
+                accessibilityLabel={showConfirm ? t('auth.hide_password') : t('auth.show_password')}
+              >
+                <Ionicons name={showConfirm ? 'eye-off' : 'eye'} size={20} color={C.text.tertiary} />
+              </Pressable>
+            </View>
           </View>
 
           <Pressable

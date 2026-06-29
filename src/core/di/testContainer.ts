@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO,
 } from './tokens';
 import type { ITripRepository } from '../interfaces/ITripRepository';
 import type { IMemberRepository } from '../interfaces/IMemberRepository';
@@ -20,6 +20,7 @@ import type { IReceiptParser } from '../interfaces/IReceiptParser';
 import type { IReceiptStorage } from '../interfaces/IReceiptStorage';
 import type { IExchangeRateService } from '../interfaces/IExchangeRateService';
 import type { TripSessionStoreApi } from '../../store/tripSessionStore';
+import type { IGroupRepository } from '../interfaces/IGroupRepository';
 
 export interface ContainerOverrides {
   tripRepo?:         ITripRepository;
@@ -39,6 +40,7 @@ export interface ContainerOverrides {
   receiptStorage?:   IReceiptStorage;
   exchangeRate?:     IExchangeRateService;
   tripStore?:        TripSessionStoreApi;
+  groupRepo?:        IGroupRepository;
 }
 
 /**
@@ -101,9 +103,12 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   container.register(RECEIPT_STORAGE,  overrides.receiptStorage  ?? new MockReceiptStorage());
   const { MockExchangeRateService } = require('../../__mocks__/MockExchangeRateService');
   container.register(EXCHANGE_RATE,    overrides.exchangeRate    ?? new MockExchangeRateService());
+  const { InMemoryGroupRepository } = require('../../__mocks__/InMemoryGroupRepository');
+  const groupRepo = overrides.groupRepo ?? new InMemoryGroupRepository();
+  container.register(GROUP_REPO,       groupRepo);
   container.register(
     TRIP_STORE,
-    overrides.tripStore ?? createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo }),
+    overrides.tripStore ?? createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }),
   );
   return container;
 }

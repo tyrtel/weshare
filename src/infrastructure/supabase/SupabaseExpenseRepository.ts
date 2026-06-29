@@ -32,12 +32,14 @@ function rowToExpense(rawRow: unknown, rawSplits: unknown[]): Result<Expense, Ap
   const row = parsedExpense.value;
   return ok({
     id:               row.id,
-    tripId:           row.trip_id,
+    tripId:           row.trip_id ?? undefined,
+    groupId:          row.group_id ?? undefined,
     description:      row.description,
     totalAmountCents: row.total_amount_cents,
     currency:         row.currency,
     paidByUserId:     row.paid_by_user_id,
     createdAt:        new Date(row.created_at),
+    settledAt:        row.settled_at ? new Date(row.settled_at) : null,
     metadata:         (row.metadata ?? {}) as ExpenseMetadata,
     splits:           splitsResult.value,
   });
@@ -77,7 +79,8 @@ export class SupabaseExpenseRepository implements IExpenseRepository {
       .from('expenses')
       .insert({
         id:                 expense.id,
-        trip_id:            expense.tripId,
+        trip_id:            expense.tripId ?? null,
+        group_id:           expense.groupId ?? null,
         description:        expense.description,
         total_amount_cents: expense.totalAmountCents,
         currency:           expense.currency,
@@ -112,5 +115,34 @@ export class SupabaseExpenseRepository implements IExpenseRepository {
     const { error } = await supabase.from('expenses').delete().eq('id', id);
     if (error) return err(toAppError(error, 'Expense', id));
     return ok(undefined);
+  }
+
+  async getExpensesForGroup(groupId: string): Promise<Result<Expense[], AppError>> {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*, splits(*)')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: true });
+    if (error) return err(toAppError(error, 'Expense'));
+
+    const expenses: Expense[] = [];
+    for (const row of data as Array<{ splits?: unknown[] } & Record<string, unknown>>) {
+      const result = rowToExpense(row, row.splits ?? []);
+      if (!result.ok) return result;
+      expenses.push(result.value);
+    }
+    return ok(expenses);
+  }
+
+  async settleExpense(id: string, settledAt: Date): Promise<Result<Expense, AppError>> {
+    const { data, error } = await supabase
+      .from('expenses')
+      .update({ settled_at: settledAt.toISOString() })
+      .eq('id', id)
+      .select('*, splits(*)')
+      .single();
+    if (error) return err(toAppError(error, 'Expense', id));
+    const raw = data as { splits?: unknown[] } & Record<string, unknown>;
+    return rowToExpense(raw, raw.splits ?? []);
   }
 }

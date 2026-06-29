@@ -27,37 +27,37 @@ describe('UniversalTabBar', () => {
 
   it('renders both tab labels', () => {
     const { getByText } = renderBar('/');
-    expect(getByText('Trips')).toBeTruthy();
+    expect(getByText('Home')).toBeTruthy();
     expect(getByText('Balance')).toBeTruthy();
   });
 
-  it('Trips tab is active on root path', () => {
+  it('Home tab is active on root path', () => {
     const { getByLabelText } = renderBar('/');
-    expect(getByLabelText('Trips').props.accessibilityState).toEqual({ selected: true });
+    expect(getByLabelText('Home').props.accessibilityState).toEqual({ selected: true });
     expect(getByLabelText('Balance').props.accessibilityState).toEqual({ selected: false });
   });
 
-  it('Trips tab is active on /trip/abc', () => {
+  it('Home tab is active on /trip/abc', () => {
     const { getByLabelText } = renderBar('/trip/abc');
-    expect(getByLabelText('Trips').props.accessibilityState).toEqual({ selected: true });
+    expect(getByLabelText('Home').props.accessibilityState).toEqual({ selected: true });
     expect(getByLabelText('Balance').props.accessibilityState).toEqual({ selected: false });
   });
 
   it('Balance tab is active on /balance', () => {
     const { getByLabelText } = renderBar('/balance');
     expect(getByLabelText('Balance').props.accessibilityState).toEqual({ selected: true });
-    expect(getByLabelText('Trips').props.accessibilityState).toEqual({ selected: false });
+    expect(getByLabelText('Home').props.accessibilityState).toEqual({ selected: false });
   });
 
   it('Balance tab is active on /settle/t1', () => {
     const { getByLabelText } = renderBar('/settle/t1');
     expect(getByLabelText('Balance').props.accessibilityState).toEqual({ selected: true });
-    expect(getByLabelText('Trips').props.accessibilityState).toEqual({ selected: false });
+    expect(getByLabelText('Home').props.accessibilityState).toEqual({ selected: false });
   });
 
-  it('pressing Trips tab calls router.push("/")', () => {
+  it('pressing Home tab calls router.push("/")', () => {
     const { getByLabelText } = renderBar('/balance');
-    fireEvent.press(getByLabelText('Trips'));
+    fireEvent.press(getByLabelText('Home'));
     expect(mockPush).toHaveBeenCalledWith('/');
   });
 

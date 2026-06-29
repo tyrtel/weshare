@@ -3,11 +3,12 @@ import { View, Image, ActivityIndicator, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { tokens } from '../../theme/tokens';
+import { darkColors } from '../../theme/colors';
 
-// Hardcoded to match the native splash background — cannot use theme hooks here
-// because this component renders before the ServiceProvider is ready.
-const BG      = '#1a1a2e';
-const PRIMARY = '#1D9E75';
+// Uses darkColors directly (no hook) — this component renders before ServiceProvider.
+// Values match the native splash background so there is no colour flash on startup.
+const BG      = darkColors.background;
+const PRIMARY = darkColors.primary.default;
 
 interface AppLoadingScreenProps {
   message?:       string;
@@ -28,7 +29,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
 
       {error ? (
         <>
-          <Text variant="body" style={{ color: '#9a9ab8', textAlign: 'center', marginBottom: tokens.spacing.md }}>
+          <Text variant="body" style={{ color: darkColors.text.secondary, textAlign: 'center', marginBottom: tokens.spacing.md }}>
             {error}
           </Text>
           {onRetry && (
@@ -55,7 +56,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
           {message && (
             <Text
               variant="caption"
-              style={{ color: '#6b6b8a', marginTop: tokens.spacing.md, textAlign: 'center' }}
+              style={{ color: darkColors.text.secondary, marginTop: tokens.spacing.md, textAlign: 'center' }}
             >
               {message}
             </Text>
@@ -76,7 +77,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
             opacity: pressed ? 0.7 : 0.35,
           })}
         >
-          <Text variant="caption" style={{ color: '#9a9ab8' }}>{t('common.debug.reset_auth_button')}</Text>
+          <Text variant="caption" style={{ color: darkColors.text.secondary }}>{t('common.debug.reset_auth_button')}</Text>
         </Pressable>
       )}
     </View>

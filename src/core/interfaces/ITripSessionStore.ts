@@ -3,6 +3,8 @@ import type { TripMember } from '../models/TripMember';
 import type { Expense } from '../models/Expense';
 import type { Split } from '../models/Split';
 import type { SplitRequest } from '../models/SplitRequest';
+import type { Group } from '../models/Group';
+import type { GroupMember } from '../models/GroupMember';
 import type { Result } from '../types/Result';
 import type { AppError } from '../types/AppError';
 
@@ -16,6 +18,8 @@ export interface TripSessionState {
   pendingExpenseIds: string[];
   isHydrated: boolean;
   hydrationError: AppError | null;
+  groups: Group[];
+  groupExpenses: Record<string, Expense[]>;   // keyed by groupId
 }
 
 export interface TripSessionActions {
@@ -57,6 +61,25 @@ export interface TripSessionActions {
   setActiveTrip(tripId: string | null): void;
   /** Clear all cached state — call on sign-out. */
   resetSession(): void;
+
+  /** Fetch all groups for a user and populate the cache. */
+  loadGroups(userId: string): Promise<void>;
+  /** Fetch and cache expenses for one group. */
+  loadGroupDetail(groupId: string): Promise<void>;
+  /** Persist a new group expense optimistically and append to the cache. */
+  addGroupExpense(expense: Expense): Promise<void>;
+  /** Mark a group expense as settled in the cache (after repo call). */
+  settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date): void;
+  /** Append a saved group expense to the cache (no repo call — expense already persisted by hook). */
+  appendGroupExpense(expense: Expense): void;
+  /** Append a newly-created group to the cache (no repo call). */
+  appendGroup(group: Group): void;
+  /** Replace a group in the cache by id (no repo call). */
+  updateGroupInStore(group: Group): void;
+  /** Remove a group from the cache by id (no repo call). */
+  removeGroup(groupId: string): void;
+  /** Append a new member to a cached group (no repo call). */
+  addMemberToGroupInStore(groupId: string, member: GroupMember): void;
 }
 
 export type ITripSessionStore = TripSessionState & TripSessionActions;

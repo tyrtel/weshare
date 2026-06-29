@@ -24,6 +24,7 @@ import { useExpenseDetail } from '../hooks/useExpenseDetail';
 import { useSplitForm } from '../hooks/useSplitForm';
 import type { SplitFormEntry } from '../hooks/useSplitForm';
 import { useCurrencyRate } from '../hooks/useCurrencyRate';
+import { useCreateGroupExpense } from '../../groups/hooks/useCreateGroupExpense';
 import { useTripDetail } from '../../trips/hooks/useTripDetail';
 import { useTripSessionStore } from '../../../core/di/ServiceContext';
 import { useColors } from '../../../theme/colors';
@@ -32,6 +33,8 @@ import { CURRENCIES, currencyLabel, currencySymbol } from '../../../core/constan
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import type { ParsedReceiptLineItem } from '../../../core/models/ParsedReceipt';
 import type { SplitResult } from '../utils/splitCalculations';
+import type { TripMember } from '../../../core/models/TripMember';
+import type { GroupMember } from '../../../core/models/GroupMember';
 import { useTranslation } from 'react-i18next';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -64,32 +67,61 @@ function scaleAndCorrect(splits: SplitResult[], rate: number, targetCents: numbe
   return scaled;
 }
 
+function groupMembersAsTripMembers(members: GroupMember[]): TripMember[] {
+  return members.map(m => ({
+    userId:      m.userId,
+    tripId:      '',
+    displayName: m.displayName,
+    isGuest:     m.isGuest,
+    joinedAt:    m.joinedAt,
+    avatarUrl:   m.avatarUrl,
+  }));
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export function ExpenseFormScreen() {
   const { t } = useTranslation();
-  const { tripId, id: expenseId } = useLocalSearchParams<{ tripId?: string; id?: string }>();
+  const { tripId, id: expenseId, groupId } = useLocalSearchParams<{ tripId?: string; id?: string; groupId?: string }>();
   const router  = useRouter();
   const colors  = useColors();
-  const mode    = expenseId ? 'edit' : 'add';
 
-  // Edit mode: load the existing expense first.
+  const isGroupMode = !!groupId && !tripId && !expenseId;
+  const mode        = expenseId ? 'edit' : 'add';
+
+  // ── Data loading ─────────────────────────────────────────────────────────────
+
+  // Group mode: read directly from the store (synchronous).
+  const group = useTripSessionStore(s => groupId ? (s.groups.find(g => g.id === groupId) ?? null) : null);
+
+  // Trip mode: load via hook. Pass '' in group mode so the hook is always called.
   const { expense, loading: expLoading } = useExpenseDetail(expenseId ?? '');
+  const resolvedTripId = isGroupMode ? '' : (tripId ?? expense?.tripId ?? '');
+  const { trip, loading: tripLoading }   = useTripDetail(resolvedTripId);
 
-  // Resolve trip from param (add) or from loaded expense (edit).
-  const resolvedTripId = tripId ?? expense?.tripId ?? '';
-  const { trip, loading: tripLoading } = useTripDetail(resolvedTripId);
-
-  // Both hooks are always called; only one fires on submit.
-  const { addExpense,  loading: addLoading,  error: addError  } = useAddExpense(resolvedTripId);
-  const { editExpense, loading: editLoading, error: editError  } = useEditExpense();
-  const saving = mode === 'add' ? addLoading  : editLoading;
-  const error  = mode === 'add' ? addError    : editError;
-
-  // Read existing expenses to derive the last-used foreign currency default.
+  // Trip expenses (for last-foreign-currency heuristic; unused in group mode).
   const tripExpenses = useTripSessionStore(
     s => (s.expenses as Record<string, typeof EMPTY_EXPENSES>)[resolvedTripId] ?? EMPTY_EXPENSES,
   );
+
+  // ── Save hooks (always called; only one fires per submit) ─────────────────────
+
+  const { addExpense,         loading: addLoading,   error: addError   } = useAddExpense(resolvedTripId);
+  const { createGroupExpense, loading: groupLoading, error: groupError  } = useCreateGroupExpense(groupId ?? '');
+  const { editExpense,        loading: editLoading,  error: editError   } = useEditExpense();
+
+  const saving = isGroupMode ? groupLoading : mode === 'add' ? addLoading  : editLoading;
+  const error  = isGroupMode ? groupError   : mode === 'add' ? addError    : editError;
+
+  // ── Unified members + currency ────────────────────────────────────────────────
+
+  const contextMembers: TripMember[] = isGroupMode
+    ? groupMembersAsTripMembers(group?.members ?? [])
+    : trip?.members ?? [];
+
+  const contextCurrency = isGroupMode ? (group?.currency ?? 'EUR') : (trip?.currency ?? 'EUR');
+
+  // ── Form state ────────────────────────────────────────────────────────────────
 
   const [description,         setDescription]         = useState('');
   const [totalAmountCents,    setTotalAmountCents]     = useState(0);
@@ -100,10 +132,15 @@ export function ExpenseFormScreen() {
   const [initialised,         setInitialised]         = useState(false);
   const [dirty,               setDirty]               = useState(false);
   const [receiptPath,         setReceiptPath]         = useState<string | undefined>(undefined);
+  const [splitExpanded,       setSplitExpanded]       = useState(mode === 'edit');
 
   // Render-phase initialisation — fires once when the necessary data arrives.
   if (!initialised) {
-    if (mode === 'add' && trip) {
+    if (isGroupMode && group) {
+      if (group.members.length > 0) setPaidByUserId(group.members[0].userId);
+      setEntryCurrency(group.currency);
+      setInitialised(true);
+    } else if (mode === 'add' && trip) {
       if (trip.members.length > 0) setPaidByUserId(trip.members[0].userId);
       const lastForeign = [...tripExpenses]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -122,9 +159,8 @@ export function ExpenseFormScreen() {
     }
   }
 
-  const tripCurrency   = trip?.currency ?? 'EUR';
-  const isForeign      = entryCurrency !== '' && entryCurrency !== tripCurrency;
-  const rate           = useCurrencyRate(entryCurrency || tripCurrency, tripCurrency);
+  const isForeign      = entryCurrency !== '' && entryCurrency !== contextCurrency;
+  const rate           = useCurrencyRate(entryCurrency || contextCurrency, contextCurrency);
 
   const convertedCents = useMemo(() => {
     if (!isForeign || !rate.result) return totalAmountCents;
@@ -142,14 +178,15 @@ export function ExpenseFormScreen() {
   }, [mode, expense?.id, trip?.id]);
 
   const split = useSplitForm({
-    members:       trip?.members ?? [],
+    members:          contextMembers,
     totalAmountCents: convertedCents,
     initialEntries,
-    initialMode:   mode === 'edit' ? 'custom' : undefined,
-    ready:         mode === 'edit' ? (!!expense && !!trip) : undefined,
+    initialMode:      mode === 'edit' ? 'custom' : undefined,
+    ready:            mode === 'edit' ? (!!expense && !!trip) : undefined,
   });
 
-  const isItemized     = split.splitMode === 'itemized';
+  const isItemized        = split.splitMode === 'itemized';
+  const showSplitToggle   = splitExpanded || split.splitMode !== 'equal';
   const enteredTotal   = isItemized ? split.itemizedTotal : totalAmountCents;
   const effectiveTotal = !isForeign || !rate.result
     ? enteredTotal
@@ -174,8 +211,8 @@ export function ExpenseFormScreen() {
   ) => {
     if (parsedDescription) setDescription(parsedDescription);
     if (path) setReceiptPath(path);
-    if (parsedLineItems.length > 0 && trip) {
-      split.initFromParsed(parsedLineItems, trip.members);
+    if (parsedLineItems.length > 0 && contextMembers.length > 0) {
+      split.initFromParsed(parsedLineItems, contextMembers);
     } else if (amountCents > 0) {
       setTotalAmountCents(amountCents);
     }
@@ -194,7 +231,7 @@ export function ExpenseFormScreen() {
     const input = {
       description,
       totalAmountCents: effectiveTotal,
-      currency:         tripCurrency,
+      currency:         contextCurrency,
       paidByUserId,
       splits:           finalSplits,
       category,
@@ -204,7 +241,9 @@ export function ExpenseFormScreen() {
     };
 
     let saved = null;
-    if (mode === 'add') {
+    if (isGroupMode) {
+      saved = await createGroupExpense(input);
+    } else if (mode === 'add') {
       saved = await addExpense(input);
     } else if (expense) {
       saved = await editExpense(expense, input);
@@ -232,8 +271,13 @@ export function ExpenseFormScreen() {
 
   // ── Loading state ────────────────────────────────────────────────────────────
 
-  const isLoading = tripLoading || (mode === 'edit' && expLoading) || !trip || (mode === 'edit' && !expense);
-  const title     = mode === 'add' ? t('expenses.form.add_title') : t('expenses.form.edit_title');
+  const isLoading = isGroupMode
+    ? !group
+    : tripLoading || (mode === 'edit' && expLoading) || !trip || (mode === 'edit' && !expense);
+
+  const title = isGroupMode
+    ? t('groups.expense.add_title')
+    : mode === 'add' ? t('expenses.form.add_title') : t('expenses.form.edit_title');
 
   if (isLoading) {
     return (
@@ -250,16 +294,12 @@ export function ExpenseFormScreen() {
     ? colors.text.secondary
     : colors.warning?.default ?? colors.text.secondary;
 
-  const closedMessage = mode === 'add'
-    ? t('expenses.form.closed_add_guard')
-    : t('expenses.form.closed_edit_guard');
-
-  const confirmButton = trip.status !== 'closed' ? () => (
+  const confirmButton = () => (
     <Pressable
       onPress={handleSubmit}
       disabled={!isValid || saving}
       accessibilityRole="button"
-      accessibilityLabel={mode === 'add' ? t('expenses.form.confirm_label') : t('expenses.form.save_label')}
+      accessibilityLabel={mode === 'add' || isGroupMode ? t('expenses.form.confirm_label') : t('expenses.form.save_label')}
       style={({ pressed }) => ({
         width: 36,
         height: 36,
@@ -275,224 +315,251 @@ export function ExpenseFormScreen() {
         ? <ActivityIndicator color="#fff" size="small" />
         : <Ionicons name="checkmark" size={20} color="#fff" />}
     </Pressable>
-  ) : undefined;
+  );
+
+  // ── Form body (shared between trip and group) ─────────────────────────────────
+
+  const formBody = (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        contentContainerStyle={{ padding: tokens.spacing.md, paddingBottom: tokens.spacing.xxl }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Heading + receipt capture */}
+        <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm }}>{title}</Text>
+        <ReceiptCapture onParsed={handleParsed} disabled={saving} style={{ marginBottom: tokens.spacing.md }} />
+
+        {/* Description */}
+        <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
+          {t('expenses.form.description_label')}
+        </Text>
+        <TextInput
+          value={description}
+          onChangeText={v => { setDirty(true); setDescription(v); }}
+          placeholder={t('expenses.form.description_placeholder')}
+          placeholderTextColor={colors.text.tertiary}
+          style={[inputBorder, { marginBottom: tokens.spacing.md }]}
+          autoFocus={mode === 'add' || isGroupMode}
+          returnKeyType="next"
+          accessibilityLabel={t('expenses.form.description_accessibility')}
+        />
+
+        {/* Category */}
+        <CategorySelector value={category} onChange={setCategory} />
+
+        {/* Amount + currency — hidden in itemized mode */}
+        {!isItemized && (
+          <View style={{ marginBottom: tokens.spacing.sm }}>
+            <AmountInput
+              amountCents={totalAmountCents}
+              onChangeCents={v => { setDirty(true); setTotalAmountCents(v); }}
+              currency={entryCurrency || contextCurrency}
+              label={t('expenses.form.amount_label')}
+              onCurrencyPress={() => setCurrencyDropVisible(true)}
+              isForeign={isForeign}
+            />
+            {dirty && totalAmountCents === 0 && (
+              <Text variant="caption" color={colors.text.secondary} style={{ marginTop: tokens.spacing.xs }}>
+                {t('expenses.form.amount_hint')}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* Exchange rate indicator */}
+        {!isItemized && isForeign && (
+          <View style={{ marginBottom: tokens.spacing.md }}>
+            {rate.loading ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs }}>
+                <ActivityIndicator size="small" color={colors.text.secondary} />
+                <Text variant="caption" color={colors.text.secondary}>{t('expenses.form.rate_fetching')}</Text>
+              </View>
+            ) : rate.error ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs }}>
+                <Ionicons name="warning-outline" size={14} color={rateSourceColor} />
+                <Text variant="caption" color={rateSourceColor}>{t('expenses.form.rate_unavailable')}</Text>
+                <Pressable onPress={rate.refresh} hitSlop={8}>
+                  <Text variant="caption" color={colors.primary.default}>{' '}{t('common.retry')}</Text>
+                </Pressable>
+              </View>
+            ) : rate.result ? (
+              <Text variant="caption" color={rateSourceColor}>
+                {`at ${rate.result.source !== 'live' ? '≈' : ''}${currencySymbol(entryCurrency)}${formatRate(rate.result.rate)}${convertedCents > 0 ? ` = ${formatCurrency(convertedCents, contextCurrency)}` : ''}${rate.result.source === 'approximate' ? ' · approx.' : ''}`}
+              </Text>
+            ) : null}
+          </View>
+        )}
+
+        <Divider style={{ marginBottom: tokens.spacing.md }} />
+
+        {/* Paid by */}
+        <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
+          {t('expenses.form.paid_by_label')}
+        </Text>
+        <PayerSelector
+          members={contextMembers}
+          selectedUserId={paidByUserId}
+          onSelect={setPaidByUserId}
+        />
+
+        <Divider style={{ marginVertical: tokens.spacing.md }} />
+
+        {/* Split — collapsed summary or expanded mode toggle */}
+        {showSplitToggle ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: tokens.spacing.sm }}>
+            <Text variant="label" color={colors.text.secondary}>{t('expenses.form.split_between_label')}</Text>
+            <View style={{ flexDirection: 'row', gap: tokens.spacing.xs }}>
+              {SPLIT_MODES.map(({ key, label }) => {
+                const active = split.splitMode === key;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => split.handleSetMode(key)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: active }}
+                    style={{
+                      paddingHorizontal: tokens.spacing.sm,
+                      paddingVertical:   tokens.spacing.xs,
+                      borderRadius:      tokens.radius.pill,
+                      borderWidth:       1,
+                      borderColor:       active ? colors.primary.default : colors.border,
+                      backgroundColor:   active ? colors.primary.subtle : 'transparent',
+                    }}
+                  >
+                    <Text variant="caption" color={active ? colors.primary.default : colors.text.secondary}>
+                      {t(label)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: tokens.spacing.sm }}>
+            <Text variant="label" color={colors.text.secondary}>{t('expenses.form.split_equal_default_label')}</Text>
+            <Pressable
+              onPress={() => setSplitExpanded(true)}
+              accessibilityRole="button"
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            >
+              <Text variant="caption" color={colors.primary.default}>{t('expenses.form.split_customize')}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* ── Itemized mode ── */}
+        {isItemized ? (
+          <>
+            {split.lineItems.map(item => (
+              <LineItemRow
+                key={item.id}
+                item={item}
+                members={contextMembers}
+                currency={entryCurrency || contextCurrency}
+                onUpdateDescription={desc => split.updateLineItem(item.id, { description: desc })}
+                onUpdateAmount={cents => split.updateLineItem(item.id, { amountCents: cents })}
+                onToggleMember={userId => split.toggleMemberInItem(item.id, userId)}
+                onRemove={() => split.removeLineItem(item.id)}
+              />
+            ))}
+            <Pressable
+              onPress={split.addLineItem}
+              accessibilityRole="button"
+              accessibilityLabel={t('expenses.form.add_line_item_label')}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: tokens.spacing.xs,
+                paddingVertical: tokens.spacing.sm,
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={colors.primary.default} />
+              <Text variant="label" color={colors.primary.default}>{t('expenses.form.add_line_item')}</Text>
+            </Pressable>
+            {split.lineItems.length > 0 && (
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                paddingVertical: tokens.spacing.sm,
+                borderTopWidth: 1,
+                borderTopColor: colors.border,
+                marginTop: tokens.spacing.xs,
+              }}>
+                <Text variant="label" color={colors.text.secondary}>{t('expenses.form.itemized_total_label')}</Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text variant="label" color={colors.text.primary}>
+                    {formatCurrency(split.itemizedTotal, entryCurrency || contextCurrency)}
+                  </Text>
+                  {isForeign && rate.result && split.itemizedTotal > 0 && (
+                    <Text variant="caption" color={colors.text.secondary}>
+                      = {formatCurrency(effectiveTotal, contextCurrency)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+          </>
+        ) : (
+          /* ── Equal / proportional / custom modes ── */
+          <>
+            {contextMembers.map((member, i) => {
+              const entry = split.splitEntries.find(e => e.userId === member.userId);
+              if (!entry) return null;
+              return (
+                <SplitMemberRow
+                  key={member.userId}
+                  member={member}
+                  colorIndex={i}
+                  included={entry.included}
+                  amountCents={split.getDisplayAmountFor(member.userId)}
+                  splitMode={split.splitMode}
+                  weight={split.weights[member.userId] ?? 0}
+                  currency={contextCurrency}
+                  onToggleInclude={() => split.handleToggleMember(member.userId)}
+                  onChangeAmount={cents => split.handleChangeAmount(member.userId, cents)}
+                  onChangeWeight={bps => split.handleChangeWeight(member.userId, bps)}
+                />
+              );
+            })}
+            {split.splitMode === 'custom' && split.remainder !== 0 && (
+              <View style={{
+                padding: tokens.spacing.sm,
+                backgroundColor: split.remainder > 0 ? colors.warning?.bg : colors.error.bg,
+                borderRadius: tokens.radius.md,
+                marginTop: tokens.spacing.sm,
+              }}>
+                <Text variant="caption" color={split.remainder > 0 ? colors.warning?.default : colors.error.default}>
+                  {split.remainder > 0
+                    ? t('expenses.form.remainder_to_assign', { amount: formatCurrency(split.remainder, contextCurrency) })
+                    : t('expenses.form.remainder_over', { amount: formatCurrency(Math.abs(split.remainder), contextCurrency) })}
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        <ErrorBanner error={error} fallback={t('expenses.form.error_save')} style={{ marginTop: tokens.spacing.sm }} />
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <ScreenWrapper>
       <Stack.Screen options={{ title, headerRight: confirmButton }} />
-      <ClosedTripGuard trip={trip} message={closedMessage}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <ScrollView
-            contentContainerStyle={{ padding: tokens.spacing.md, paddingBottom: tokens.spacing.xxl }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Heading + receipt capture */}
-            <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm }}>{title}</Text>
-            <ReceiptCapture onParsed={handleParsed} disabled={saving} style={{ marginBottom: tokens.spacing.md }} />
 
-            {/* Description */}
-            <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-              {t('expenses.form.description_label')}
-            </Text>
-            <TextInput
-              value={description}
-              onChangeText={v => { setDirty(true); setDescription(v); }}
-              placeholder={t('expenses.form.description_placeholder')}
-              placeholderTextColor={colors.text.tertiary}
-              style={[inputBorder, { marginBottom: tokens.spacing.md }]}
-              autoFocus={mode === 'add'}
-              returnKeyType="next"
-              accessibilityLabel={t('expenses.form.description_accessibility')}
-            />
-
-            {/* Category */}
-            <CategorySelector value={category} onChange={setCategory} />
-
-            {/* Amount + currency — hidden in itemized mode */}
-            {!isItemized && (
-              <View style={{ marginBottom: tokens.spacing.sm }}>
-                <AmountInput
-                  amountCents={totalAmountCents}
-                  onChangeCents={v => { setDirty(true); setTotalAmountCents(v); }}
-                  currency={entryCurrency || tripCurrency}
-                  label={t('expenses.form.amount_label')}
-                  onCurrencyPress={() => setCurrencyDropVisible(true)}
-                  isForeign={isForeign}
-                />
-                {dirty && totalAmountCents === 0 && (
-                  <Text variant="caption" color={colors.text.secondary} style={{ marginTop: tokens.spacing.xs }}>
-                    {t('expenses.form.amount_hint')}
-                  </Text>
-                )}
-              </View>
-            )}
-
-            {/* Exchange rate indicator */}
-            {!isItemized && isForeign && (
-              <View style={{ marginBottom: tokens.spacing.md }}>
-                {rate.loading ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs }}>
-                    <ActivityIndicator size="small" color={colors.text.secondary} />
-                    <Text variant="caption" color={colors.text.secondary}>{t('expenses.form.rate_fetching')}</Text>
-                  </View>
-                ) : rate.error ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs }}>
-                    <Ionicons name="warning-outline" size={14} color={rateSourceColor} />
-                    <Text variant="caption" color={rateSourceColor}>{t('expenses.form.rate_unavailable')}</Text>
-                    <Pressable onPress={rate.refresh} hitSlop={8}>
-                      <Text variant="caption" color={colors.primary.default}>{' '}{t('common.retry')}</Text>
-                    </Pressable>
-                  </View>
-                ) : rate.result ? (
-                  <Text variant="caption" color={rateSourceColor}>
-                    {`at ${rate.result.source !== 'live' ? '≈' : ''}${currencySymbol(entryCurrency)}${formatRate(rate.result.rate)}${convertedCents > 0 ? ` = ${formatCurrency(convertedCents, tripCurrency)}` : ''}${rate.result.source === 'approximate' ? ' · approx.' : ''}`}
-                  </Text>
-                ) : null}
-              </View>
-            )}
-
-            <Divider style={{ marginBottom: tokens.spacing.md }} />
-
-            {/* Paid by */}
-            <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
-              {t('expenses.form.paid_by_label')}
-            </Text>
-            <PayerSelector
-              members={trip.members}
-              selectedUserId={paidByUserId}
-              onSelect={setPaidByUserId}
-            />
-
-            <Divider style={{ marginVertical: tokens.spacing.md }} />
-
-            {/* Split mode toggle */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: tokens.spacing.sm }}>
-              <Text variant="label" color={colors.text.secondary}>{t('expenses.form.split_between_label')}</Text>
-              <View style={{ flexDirection: 'row', gap: tokens.spacing.xs }}>
-                {SPLIT_MODES.map(({ key, label }) => {
-                  const active = split.splitMode === key;
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => split.handleSetMode(key)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: active }}
-                      style={{
-                        paddingHorizontal: tokens.spacing.sm,
-                        paddingVertical:   tokens.spacing.xs,
-                        borderRadius:      tokens.radius.pill,
-                        borderWidth:       1,
-                        borderColor:       active ? colors.primary.default : colors.border,
-                        backgroundColor:   active ? colors.primary.subtle : 'transparent',
-                      }}
-                    >
-                      <Text variant="caption" color={active ? colors.primary.default : colors.text.secondary}>
-                        {t(label)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* ── Itemized mode ── */}
-            {isItemized ? (
-              <>
-                {split.lineItems.map(item => (
-                  <LineItemRow
-                    key={item.id}
-                    item={item}
-                    members={trip.members}
-                    currency={entryCurrency || tripCurrency}
-                    onUpdateDescription={desc => split.updateLineItem(item.id, { description: desc })}
-                    onUpdateAmount={cents => split.updateLineItem(item.id, { amountCents: cents })}
-                    onToggleMember={userId => split.toggleMemberInItem(item.id, userId)}
-                    onRemove={() => split.removeLineItem(item.id)}
-                  />
-                ))}
-                <Pressable
-                  onPress={split.addLineItem}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('expenses.form.add_line_item_label')}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: tokens.spacing.xs,
-                    paddingVertical: tokens.spacing.sm,
-                    opacity: pressed ? 0.6 : 1,
-                  })}
-                >
-                  <Ionicons name="add-circle-outline" size={18} color={colors.primary.default} />
-                  <Text variant="label" color={colors.primary.default}>{t('expenses.form.add_line_item')}</Text>
-                </Pressable>
-                {split.lineItems.length > 0 && (
-                  <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    paddingVertical: tokens.spacing.sm,
-                    borderTopWidth: 1,
-                    borderTopColor: colors.border,
-                    marginTop: tokens.spacing.xs,
-                  }}>
-                    <Text variant="label" color={colors.text.secondary}>{t('expenses.form.itemized_total_label')}</Text>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text variant="label" color={colors.text.primary}>
-                        {formatCurrency(split.itemizedTotal, entryCurrency || tripCurrency)}
-                      </Text>
-                      {isForeign && rate.result && split.itemizedTotal > 0 && (
-                        <Text variant="caption" color={colors.text.secondary}>
-                          = {formatCurrency(effectiveTotal, tripCurrency)}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                )}
-              </>
-            ) : (
-              /* ── Equal / proportional / custom modes ── */
-              <>
-                {trip.members.map((member, i) => {
-                  const entry = split.splitEntries.find(e => e.userId === member.userId);
-                  if (!entry) return null;
-                  return (
-                    <SplitMemberRow
-                      key={member.userId}
-                      member={member}
-                      colorIndex={i}
-                      included={entry.included}
-                      amountCents={split.getDisplayAmountFor(member.userId)}
-                      splitMode={split.splitMode}
-                      weight={split.weights[member.userId] ?? 0}
-                      currency={tripCurrency}
-                      onToggleInclude={() => split.handleToggleMember(member.userId)}
-                      onChangeAmount={cents => split.handleChangeAmount(member.userId, cents)}
-                      onChangeWeight={bps => split.handleChangeWeight(member.userId, bps)}
-                    />
-                  );
-                })}
-                {split.splitMode === 'custom' && split.remainder !== 0 && (
-                  <View style={{
-                    padding: tokens.spacing.sm,
-                    backgroundColor: split.remainder > 0 ? colors.warning?.bg : colors.error.bg,
-                    borderRadius: tokens.radius.md,
-                    marginTop: tokens.spacing.sm,
-                  }}>
-                    <Text variant="caption" color={split.remainder > 0 ? colors.warning?.default : colors.error.default}>
-                      {split.remainder > 0
-                        ? t('expenses.form.remainder_to_assign', { amount: formatCurrency(split.remainder, tripCurrency) })
-                        : t('expenses.form.remainder_over', { amount: formatCurrency(Math.abs(split.remainder), tripCurrency) })}
-                    </Text>
-                  </View>
-                )}
-              </>
-            )}
-
-            <ErrorBanner error={error} fallback={t('expenses.form.error_save')} style={{ marginTop: tokens.spacing.sm }} />
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </ClosedTripGuard>
+      {/* Groups have no open/closed concept — skip the guard */}
+      {isGroupMode ? formBody : (
+        <ClosedTripGuard
+          trip={trip!}
+          message={mode === 'add' ? t('expenses.form.closed_add_guard') : t('expenses.form.closed_edit_guard')}
+        >
+          {formBody}
+        </ClosedTripGuard>
+      )}
 
       {/* Currency dropdown overlay */}
       {currencyDropVisible && (
@@ -507,8 +574,8 @@ export function ExpenseFormScreen() {
               <Text variant="label" color={colors.text.secondary}>{t('expenses.form.entry_currency_label')}</Text>
             </View>
             {CURRENCIES.map((item, index) => {
-              const selected  = item.code === (entryCurrency || tripCurrency);
-              const isTripCcy = item.code === tripCurrency;
+              const selected     = item.code === (entryCurrency || contextCurrency);
+              const isContextCcy = item.code === contextCurrency;
               return (
                 <View key={item.code}>
                   {index > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
@@ -529,8 +596,10 @@ export function ExpenseFormScreen() {
                       <Text variant="body" color={selected ? colors.primary.default : colors.text.primary}>
                         {currencyLabel(item.code)}
                       </Text>
-                      {isTripCcy && (
-                        <Text variant="caption" color={colors.text.tertiary}>{t('trips.form.trip_currency_label')}</Text>
+                      {isContextCcy && (
+                        <Text variant="caption" color={colors.text.tertiary}>
+                          {isGroupMode ? t('expenses.form.group_currency_label') : t('trips.form.trip_currency_label')}
+                        </Text>
                       )}
                     </View>
                     {selected && <Ionicons name="checkmark" size={16} color={colors.primary.default} />}

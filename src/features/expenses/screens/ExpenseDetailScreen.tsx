@@ -74,6 +74,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
 
   useEffect(() => {
     if (!expense) return;
+    if (!expense.tripId) return;
     memberRepo.getMembersForTrip(expense.tripId).then(result => {
       if (isOk(result)) setMembers(result.value);
     });
@@ -89,7 +90,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
     if (!expense) return;
     void confirm(t('expenses.detail.delete_alert_title'), t('common.cannot_be_undone'), t('expenses.detail.delete_alert_confirm')).then(async confirmed => {
       if (confirmed) {
-        await storeApi.getState().removeExpense(expense.id, expense.tripId);
+        await storeApi.getState().removeExpense(expense.id, expense.tripId ?? '');
         router.back();
       }
     });

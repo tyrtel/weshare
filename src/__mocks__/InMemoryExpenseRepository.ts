@@ -63,4 +63,20 @@ export class InMemoryExpenseRepository implements IExpenseRepository {
     this.expenses.delete(id);
     return ok(undefined);
   };
+
+  getExpensesForGroup = async (groupId: string): Promise<Result<Expense[], AppError>> => {
+    const result: Expense[] = [];
+    for (const expense of this.expenses.values()) {
+      if (expense.groupId === groupId) result.push(this._hydrateSplits(expense));
+    }
+    return ok(result);
+  };
+
+  settleExpense = async (id: string, settledAt: Date): Promise<Result<Expense, AppError>> => {
+    const expense = this.expenses.get(id);
+    if (!expense) return err({ kind: 'NotFoundError', resource: 'Expense', id });
+    const settled = { ...expense, settledAt };
+    this.expenses.set(id, settled);
+    return ok(this._hydrateSplits(settled));
+  };
 }

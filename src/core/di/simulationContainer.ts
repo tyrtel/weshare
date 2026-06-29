@@ -10,7 +10,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import { InMemoryTripRepository } from '../../__mocks__/InMemoryTripRepository';
@@ -29,6 +29,7 @@ import { MockBankListService } from '../../__mocks__/MockBankListService';
 import { MockReceiptParserService } from '../../__mocks__/MockReceiptParserService';
 import { MockReceiptStorage } from '../../__mocks__/MockReceiptStorage';
 import { MockExchangeRateService } from '../../__mocks__/MockExchangeRateService';
+import { InMemoryGroupRepository } from '../../__mocks__/InMemoryGroupRepository';
 
 import { restaurantScenario, RESTAURANT_CURRENT_USER, RESTAURANT_CURRENT_USER_EMAIL } from '../../__mocks__/fixtures/restaurantScenario';
 import { twoPersonScenario } from '../../__mocks__/fixtures/twoPersonScenario';
@@ -92,6 +93,8 @@ async function _create(): Promise<ServiceContainer> {
   container.register(RECEIPT_PARSER, new MockReceiptParserService());
   container.register(RECEIPT_STORAGE,  new MockReceiptStorage());
   container.register(EXCHANGE_RATE,    new MockExchangeRateService());
-  container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo }));
+  const groupRepo = new InMemoryGroupRepository();
+  container.register(GROUP_REPO,   groupRepo);
+  container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }));
   return container;
 }

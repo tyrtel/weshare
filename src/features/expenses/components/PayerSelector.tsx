@@ -38,6 +38,7 @@ export function PayerSelector({ members, selectedUserId, onSelect }: PayerSelect
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
             accessibilityLabel={member.displayName}
+            hitSlop={4}
             style={{
               alignItems: 'center',
               gap: tokens.spacing.xs,

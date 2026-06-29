@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Platform } from 'react-native';
+import { Pressable, Platform, ActivityIndicator } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Text } from './Text';
 import { useColors } from '../../theme/colors';
@@ -14,6 +14,8 @@ interface ButtonProps {
   variant?: Variant;
   size?: Size;
   disabled?: boolean;
+  loading?: boolean;
+  testID?: string;
 }
 
 export function Button({
@@ -22,6 +24,8 @@ export function Button({
   variant = 'primary',
   size = 'md',
   disabled = false,
+  loading = false,
+  testID,
 }: ButtonProps) {
   const colors = useColors();
   const scale  = useSharedValue(1);
@@ -53,12 +57,13 @@ export function Button({
   return (
     <Animated.View style={Platform.OS !== 'web' ? animatedStyle : undefined}>
       <Pressable
+        testID={testID}
         onPress={onPress}
         onPressIn={Platform.OS !== 'web' ? handlePressIn : undefined}
         onPressOut={Platform.OS !== 'web' ? handlePressOut : undefined}
-        disabled={disabled}
+        disabled={disabled || loading}
         accessibilityRole="button"
-        accessibilityState={{ disabled }}
+        accessibilityState={{ disabled: disabled || loading }}
         style={({ pressed }) => ({
           backgroundColor: bgColor,
           borderRadius: tokens.radius.pill,
@@ -66,13 +71,14 @@ export function Button({
           paddingHorizontal: paddingH,
           borderWidth: variant === 'ghost' ? 1 : 0,
           borderColor: variant === 'ghost' ? colors.primary.default : undefined,
-          opacity: (pressed && Platform.OS === 'web') || disabled ? 0.7 : 1,
+          opacity: (pressed && Platform.OS === 'web') || disabled || loading ? 0.7 : 1,
           alignItems: 'center',
         })}
       >
-        <Text variant="label" color={textColor}>
-          {label}
-        </Text>
+        {loading
+          ? <ActivityIndicator size="small" color={textColor} />
+          : <Text variant="label" color={textColor}>{label}</Text>
+        }
       </Pressable>
     </Animated.View>
   );

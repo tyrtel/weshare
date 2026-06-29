@@ -107,6 +107,7 @@ export function SettlementRow({
             <Text
               variant="caption"
               color={colors.text.secondary}
+              numberOfLines={1}
               style={{ marginTop: 4, textAlign: 'center' }}
             >
               {firstName(settlement.fromDisplayName)}
@@ -137,6 +138,7 @@ export function SettlementRow({
             <Text
               variant="caption"
               color={colors.text.secondary}
+              numberOfLines={1}
               style={{ marginTop: 4, textAlign: 'center' }}
             >
               {firstName(settlement.toDisplayName)}

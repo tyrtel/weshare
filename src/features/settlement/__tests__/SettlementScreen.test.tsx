@@ -28,8 +28,10 @@ jest.mock('../hooks/useSettlement', () => ({
 }));
 
 jest.mock('expo-haptics', () => ({
-  impactAsync:          jest.fn(),
-  ImpactFeedbackStyle: { Medium: 'Medium' },
+  impactAsync:               jest.fn(),
+  notificationAsync:         jest.fn(),
+  ImpactFeedbackStyle:       { Medium: 'Medium' },
+  NotificationFeedbackType:  { Success: 'success', Warning: 'warning', Error: 'error' },
 }));
 
 import { useLocalSearchParams } from 'expo-router';

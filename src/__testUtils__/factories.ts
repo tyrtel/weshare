@@ -3,6 +3,8 @@ import type { TripMember } from '../core/models/TripMember';
 import type { Expense } from '../core/models/Expense';
 import type { Split } from '../core/models/Split';
 import type { SplitRequest } from '../core/models/SplitRequest';
+import type { Group } from '../core/models/Group';
+import type { GroupMember } from '../core/models/GroupMember';
 
 export const TEST_DATE = new Date('2025-06-01T12:00:00Z');
 
@@ -40,8 +42,32 @@ export function expenseFactory(overrides: Partial<Expense> = {}): Expense {
     currency: 'EUR',
     paidByUserId: 'u1',
     createdAt: TEST_DATE,
+    settledAt: null,
     splits: [],
     metadata: {},
+    ...overrides,
+  };
+}
+
+export function groupFactory(overrides: Partial<Group> = {}): Group {
+  return {
+    id: 'g1',
+    name: 'Weekend Crew',
+    currency: 'EUR',
+    ownerId: 'u1',
+    createdAt: TEST_DATE,
+    members: [],
+    ...overrides,
+  };
+}
+
+export function groupMemberFactory(overrides: Partial<GroupMember> = {}): GroupMember {
+  return {
+    userId: 'u1',
+    groupId: 'g1',
+    displayName: 'Alice',
+    isGuest: false,
+    joinedAt: TEST_DATE,
     ...overrides,
   };
 }

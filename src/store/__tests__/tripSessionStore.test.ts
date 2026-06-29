@@ -3,6 +3,7 @@ import { InMemoryMemberRepository } from '../../__mocks__/InMemoryMemberReposito
 import { InMemoryExpenseRepository } from '../../__mocks__/InMemoryExpenseRepository';
 import { InMemorySplitRepository } from '../../__mocks__/InMemorySplitRepository';
 import { InMemorySplitRequestRepository } from '../../__mocks__/InMemorySplitRequestRepository';
+import { InMemoryGroupRepository } from '../../__mocks__/InMemoryGroupRepository';
 import { createTripSessionStore } from '../tripSessionStore';
 import type { TripSessionStoreApi, TripStoreRepos } from '../tripSessionStore';
 import { ok, err } from '../../core/types/Result';
@@ -53,6 +54,7 @@ const expense: Expense = {
   currency: 'EUR',
   paidByUserId: 'u1',
   createdAt: NOW,
+  settledAt: null,
   splits: [split],
   metadata: {},
 };
@@ -68,6 +70,7 @@ function makeStore(overrides?: Partial<TripStoreRepos>): TripSessionStoreApi {
     members:       overrides?.members       ?? new InMemoryMemberRepository(),
     splits:        overrides?.splits        ?? new InMemorySplitRepository(),
     splitRequests: overrides?.splitRequests ?? new InMemorySplitRequestRepository(),
+    groups:        overrides?.groups        ?? new InMemoryGroupRepository(),
   });
 }
 
@@ -77,7 +80,8 @@ function seededStore(): { repos: TripStoreRepos; store: TripSessionStoreApi } {
   const expenses      = new InMemoryExpenseRepository().seed([expense], [split]);
   const splits        = new InMemorySplitRepository().seed([split]);
   const splitRequests = new InMemorySplitRequestRepository();
-  const repos: TripStoreRepos = { trips, expenses, members, splits, splitRequests };
+  const groups        = new InMemoryGroupRepository();
+  const repos: TripStoreRepos = { trips, expenses, members, splits, splitRequests, groups };
   return { repos, store: createTripSessionStore(repos) };
 }
 

@@ -16,6 +16,7 @@ import type { IReceiptParser } from '../interfaces/IReceiptParser';
 import type { IReceiptStorage } from '../interfaces/IReceiptStorage';
 import type { IExchangeRateService } from '../interfaces/IExchangeRateService';
 import type { TripSessionStoreApi } from '../../store/tripSessionStore';
+import type { IGroupRepository } from '../interfaces/IGroupRepository';
 
 export const TRIP_REPO          = createToken<ITripRepository>('ITripRepository');
 export const MEMBER_REPO        = createToken<IMemberRepository>('IMemberRepository');
@@ -34,3 +35,4 @@ export const RECEIPT_PARSER     = createToken<IReceiptParser>('IReceiptParser');
 export const RECEIPT_STORAGE    = createToken<IReceiptStorage>('IReceiptStorage');
 export const EXCHANGE_RATE      = createToken<IExchangeRateService>('IExchangeRateService');
 export const TRIP_STORE         = createToken<TripSessionStoreApi>('TripSessionStore');
+export const GROUP_REPO         = createToken<IGroupRepository>('IGroupRepository');

@@ -4,12 +4,12 @@ import {
   View,
   FlatList,
   Pressable,
-  ActivityIndicator,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { z } from 'zod';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
+import { Button } from '../../../components/ui/Button';
 import { ErrorBanner } from '../../../components/ui/ErrorBanner';
 import { Text } from '../../../components/ui/Text';
 import { useSettlement } from '../hooks/useSettlement';
@@ -439,24 +439,13 @@ function ConfirmStep({
         </Text>
       </View>
 
-      <Pressable
+      <Button
         testID="confirm-rollover"
+        label={t('settlement.rollover.confirm_button')}
         onPress={onConfirm}
-        disabled={loading || chosen.length === 0}
-        style={({ pressed }) => ({
-          alignItems:      'center',
-          padding:         tokens.spacing.md,
-          backgroundColor: (loading || chosen.length === 0)
-            ? colors.primary.subtle
-            : pressed ? colors.primary.dim : colors.primary.default,
-          borderRadius:    tokens.radius.pill,
-        })}
-      >
-        {loading
-          ? <ActivityIndicator size="small" color={colors.text.inverse} />
-          : <Text variant="label" color={colors.text.inverse}>{t('settlement.rollover.confirm_button')}</Text>
-        }
-      </Pressable>
+        disabled={chosen.length === 0}
+        loading={loading}
+      />
     </View>
   );
 }

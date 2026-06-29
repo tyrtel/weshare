@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import type { PaymentProvider } from '../interfaces/IPaymentService';
@@ -79,6 +79,9 @@ async function _create(): Promise<ServiceContainer> {
   const { ExchangeRateService } = await import(
     '../../infrastructure/exchange-rate/ExchangeRateService'
   );
+  const { SupabaseGroupRepository } = await import(
+    '../../infrastructure/supabase/SupabaseGroupRepository'
+  );
 
   const tripRepo         = new SupabaseTripRepository();
   const memberRepo       = new SupabaseMemberRepository();
@@ -113,6 +116,8 @@ async function _create(): Promise<ServiceContainer> {
   container.register(RECEIPT_PARSER,   new ReceiptParserService());
   container.register(RECEIPT_STORAGE,  new SupabaseReceiptStorage());
   container.register(EXCHANGE_RATE,    new ExchangeRateService());
-  container.register(TRIP_STORE,       createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo }));
+  const groupRepo = new SupabaseGroupRepository();
+  container.register(GROUP_REPO,       groupRepo);
+  container.register(TRIP_STORE,       createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }));
   return container;
 }

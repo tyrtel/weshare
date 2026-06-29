@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View,
+  Image,
   TextInput,
   Pressable,
   ActivityIndicator,
@@ -9,6 +10,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useService } from '../../src/core/di/ServiceContext';
@@ -24,10 +26,11 @@ export default function SignInScreen() {
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
 
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy]         = useState<'email' | 'google' | 'apple' | null>(null);
-  const [error, setError]       = useState<string | null>(null);
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy]               = useState<'email' | 'google' | 'apple' | null>(null);
+  const [error, setError]             = useState<string | null>(null);
 
   const passwordRef = useRef<TextInput>(null);
 
@@ -90,10 +93,8 @@ export default function SignInScreen() {
       >
         {/* Branding */}
         <View style={styles.brandSection}>
-          <View style={styles.logoPlaceholder}>
-            <Text style={{ fontSize: 36, lineHeight: 40, includeFontPadding: false }}>✈️</Text>
-          </View>
-          <Text variant="heading" style={styles.appName}>{t('auth.welcome.app_name')}</Text>
+          <Image source={require('../../assets/icon.png')} style={styles.logoPlaceholder} />
+          <Text style={styles.appName}>{t('auth.welcome.app_name')}</Text>
           <Text variant="body" color={C.text.secondary} style={styles.tagline}>
             {t('auth.welcome.tagline')}
           </Text>
@@ -122,19 +123,29 @@ export default function SignInScreen() {
               style={[styles.input, styles.inputTop]}
               accessibilityLabel={t('auth.email_accessibility')}
             />
-            <TextInput
-              ref={passwordRef}
-              value={password}
-              onChangeText={v => { setPassword(v); setError(null); }}
-              placeholder={t('auth.sign_in.password_placeholder')}
-              placeholderTextColor={C.text.tertiary}
-              secureTextEntry
-              returnKeyType="go"
-              onSubmitEditing={handleEmailSignIn}
-              editable={!isAnyBusy}
-              style={[styles.input, styles.inputBottom]}
-              accessibilityLabel={t('auth.password_accessibility')}
-            />
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                ref={passwordRef}
+                value={password}
+                onChangeText={v => { setPassword(v); setError(null); }}
+                placeholder={t('auth.sign_in.password_placeholder')}
+                placeholderTextColor={C.text.tertiary}
+                secureTextEntry={!showPassword}
+                returnKeyType="go"
+                onSubmitEditing={handleEmailSignIn}
+                editable={!isAnyBusy}
+                style={[styles.input, styles.inputBottom, { paddingRight: 48 }]}
+                accessibilityLabel={t('auth.password_accessibility')}
+              />
+              <Pressable
+                onPress={() => setShowPassword(v => !v)}
+                style={{ position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center', paddingHorizontal: 4 }}
+                hitSlop={8}
+                accessibilityLabel={showPassword ? t('auth.hide_password') : t('auth.show_password')}
+              >
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={C.text.tertiary} />
+              </Pressable>
+            </View>
           </View>
 
           <Pressable
@@ -311,7 +322,7 @@ const styles = StyleSheet.create({
   },
   textLink: {
     alignSelf: 'center',
-    paddingVertical: 4,
+    paddingVertical: 12,
   },
   divider: {
     flexDirection: 'row',

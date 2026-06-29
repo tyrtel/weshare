@@ -77,6 +77,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
   useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
 
   const handleCloseTrip = useCallback(() => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     void closeTrip().then(() => router.back());
   }, [closeTrip, router]);
 
@@ -252,7 +253,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
       {allSettled && (
         <Pressable
           testID="all-settled-bar"
-          onPress={() => void closeTrip().then(() => router.back())}
+          onPress={handleCloseTrip}
           style={({ pressed }) => ({
             position:        'absolute',
             bottom:          TAB_BAR_HEIGHT,

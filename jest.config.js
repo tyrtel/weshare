@@ -12,6 +12,7 @@ module.exports = {
   moduleNameMapper: {
     '^@sentry/react-native$': '<rootDir>/src/__mocks__/sentryMock.ts',
     '^expo-contacts$': '<rootDir>/src/__mocks__/expo-contacts.ts',
+    '^expo-haptics$': '<rootDir>/src/__mocks__/expo-haptics.ts',
     '^expo-localization$': '<rootDir>/src/__mocks__/expo-localization.ts',
     '^expo-secure-store$': '<rootDir>/src/__mocks__/expo-secure-store.ts',
     '^react-native-reanimated$': '<rootDir>/src/__mocks__/reanimatedMock.js',

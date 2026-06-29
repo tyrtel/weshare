@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, FlatList, Pressable, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -111,7 +111,10 @@ export function TripDetailScreen() {
     router.push(`/settle/${trip.id}`);
   }, [trip, router]);
 
-  const visibleExpenses = showAllExpenses ? expenses : expenses.slice(0, 3);
+  const visibleExpenses = useMemo(
+    () => showAllExpenses ? expenses : expenses.slice(0, 3),
+    [showAllExpenses, expenses],
+  );
 
   if (loading && !trip) {
     return <ScreenWrapper isLoading skeleton={<TripDetailSkeleton />} />;

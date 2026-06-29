@@ -29,12 +29,14 @@ export interface ExpenseMetadata {
 
 export interface Expense {
   id: string;
-  tripId: string;
+  tripId?: string;        // set for trip expenses; absent for group-level expenses
+  groupId?: string;       // set for group-level expenses; absent for trip expenses
   description: string;
   totalAmountCents: number; // integer cents — never floats; 14800 = €148.00
   currency: string;
   paidByUserId: string;
   createdAt: Date;
+  settledAt: Date | null; // group expenses only — null = active; Date = settled/off main view
   splits: Split[];
   metadata: ExpenseMetadata;
 }

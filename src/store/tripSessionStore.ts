@@ -6,6 +6,7 @@ import type { IExpenseRepository } from '../core/interfaces/IExpenseRepository';
 import type { IMemberRepository } from '../core/interfaces/IMemberRepository';
 import type { ISplitRepository } from '../core/interfaces/ISplitRepository';
 import type { ISplitRequestRepository } from '../core/interfaces/ISplitRequestRepository';
+import type { IGroupRepository } from '../core/interfaces/IGroupRepository';
 import type { ITripSessionStore, TripSessionState } from '../core/interfaces/ITripSessionStore';
 import type { AppError } from '../core/types/AppError';
 import type { Trip } from '../core/models/Trip';
@@ -13,11 +14,14 @@ import type { TripMember } from '../core/models/TripMember';
 import type { Expense } from '../core/models/Expense';
 import type { Split } from '../core/models/Split';
 import type { SplitRequest } from '../core/models/SplitRequest';
+import type { Group } from '../core/models/Group';
+import type { GroupMember } from '../core/models/GroupMember';
 import { ok, isOk, isErr } from '../core/types/Result';
 import {
   safeParse,
   tripSchema,
   expenseSchema,
+  groupSchema,
   tripMemberSchema,
   splitSchema,
 } from '../core/schemas/billSessionSchema';
@@ -32,6 +36,7 @@ export interface TripStoreRepos {
   members:       IMemberRepository;
   splits:        ISplitRepository;
   splitRequests: ISplitRequestRepository;
+  groups:        IGroupRepository;
 }
 
 export type TripSessionStoreApi = StoreApi<ITripSessionStore>;
@@ -49,6 +54,8 @@ const INITIAL_STATE: TripSessionState = {
   pendingExpenseIds: [],
   isHydrated: false,
   hydrationError: null,
+  groups: [],
+  groupExpenses: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -76,7 +83,8 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
   // that both call loadTrips concurrently. Without dedup each gets its own
   // cold-PostgREST connection; they queue behind each other and breach the
   // 15-second timeout. All concurrent callers share one in-flight query.
-  let _loadTripsPromise: Promise<void> | null = null;
+  let _loadTripsPromise:  Promise<void> | null = null;
+  let _loadGroupsPromise: Promise<void> | null = null;
 
   return createStore<ITripSessionStore>()((set, get) => ({
     ...INITIAL_STATE,
@@ -142,7 +150,10 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
     // ── Expenses ─────────────────────────────────────────────────────────────
 
     async addExpense(expense: Expense): Promise<void> {
-      const currentTrip = get().trips.find(t => t.id === expense.tripId);
+      const tripId = expense.tripId;
+      if (!tripId) return; // group expenses use addGroupExpense instead
+
+      const currentTrip = get().trips.find(t => t.id === tripId);
       if (currentTrip && currentTrip.status !== 'active') {
         set({ hydrationError: { kind: 'ValidationError', field: 'trip.status', message: 'Expenses cannot be added while the trip is being settled' } });
         return;
@@ -152,7 +163,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       set((state) => ({
         expenses: {
           ...state.expenses,
-          [expense.tripId]: [...(state.expenses[expense.tripId] ?? []), expense],
+          [tripId]: [...(state.expenses[tripId] ?? []), expense],
         },
         pendingExpenseIds: [...state.pendingExpenseIds, expense.id],
       }));
@@ -161,7 +172,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
         set((state) => ({
           expenses: {
             ...state.expenses,
-            [expense.tripId]: (state.expenses[expense.tripId] ?? []).filter(
+            [tripId]: (state.expenses[tripId] ?? []).filter(
               (e) => e.id !== expense.id,
             ),
           },
@@ -181,11 +192,12 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
         return;
       }
       const saved = parsed.value as Expense;
+      const savedTripId = saved.tripId ?? tripId;
       // Replace optimistic entry with the confirmed server copy.
       set((state) => ({
         expenses: {
           ...state.expenses,
-          [saved.tripId]: (state.expenses[saved.tripId] ?? []).map((e) =>
+          [savedTripId]: (state.expenses[savedTripId] ?? []).map((e) =>
             e.id === expense.id ? saved : e,
           ),
         },
@@ -321,10 +333,11 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
     },
 
     appendExpense(expense: Expense): void {
+      if (!expense.tripId) return; // group expenses are not in the trip expenses slice
       set((state) => ({
         expenses: {
           ...state.expenses,
-          [expense.tripId]: [...(state.expenses[expense.tripId] ?? []), expense],
+          [expense.tripId!]: [...(state.expenses[expense.tripId!] ?? []), expense],
         },
       }));
     },
@@ -367,6 +380,126 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
 
     setActiveTrip(tripId: string | null): void {
       set({ activeTripId: tripId });
+    },
+
+    // ── Groups ───────────────────────────────────────────────────────────────
+
+    async loadGroups(userId: string): Promise<void> {
+      if (_loadGroupsPromise) return _loadGroupsPromise;
+      _loadGroupsPromise = repos.groups.getGroupsForUser(userId)
+        .then(result => {
+          if (isErr(result)) {
+            set({ hydrationError: result.error });
+            return;
+          }
+          const groups = parseMany<Group>(result.value, groupSchema);
+          set({ groups });
+        })
+        .finally(() => { _loadGroupsPromise = null; });
+      return _loadGroupsPromise;
+    },
+
+    async loadGroupDetail(groupId: string): Promise<void> {
+      const result = await repos.expenses.getExpensesForGroup(groupId);
+      if (isErr(result)) {
+        set({ hydrationError: result.error });
+        return;
+      }
+      const expenses = parseMany<Expense>(result.value, expenseSchema);
+      set((state) => ({
+        groupExpenses: { ...state.groupExpenses, [groupId]: expenses },
+        hydrationError: null,
+      }));
+    },
+
+    async addGroupExpense(expense: Expense): Promise<void> {
+      const groupId = expense.groupId;
+      if (!groupId) return;
+
+      set((state) => ({
+        groupExpenses: {
+          ...state.groupExpenses,
+          [groupId]: [...(state.groupExpenses[groupId] ?? []), expense],
+        },
+        pendingExpenseIds: [...state.pendingExpenseIds, expense.id],
+      }));
+
+      const rollback = (error: AppError) => {
+        set((state) => ({
+          groupExpenses: {
+            ...state.groupExpenses,
+            [groupId]: (state.groupExpenses[groupId] ?? []).filter(e => e.id !== expense.id),
+          },
+          pendingExpenseIds: state.pendingExpenseIds.filter(id => id !== expense.id),
+          hydrationError: error,
+        }));
+      };
+
+      const result = await repos.expenses.saveExpense(expense);
+      if (isErr(result)) { rollback(result.error); return; }
+      const parsed = safeParse(expenseSchema, result.value);
+      if (isErr(parsed)) { rollback(parsed.error); return; }
+      const saved = parsed.value as Expense;
+      const savedGroupId = saved.groupId ?? groupId;
+      set((state) => ({
+        groupExpenses: {
+          ...state.groupExpenses,
+          [savedGroupId]: (state.groupExpenses[savedGroupId] ?? []).map(e =>
+            e.id === expense.id ? saved : e,
+          ),
+        },
+        pendingExpenseIds: state.pendingExpenseIds.filter(id => id !== expense.id),
+        hydrationError: null,
+      }));
+    },
+
+    settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date): void {
+      set((state) => ({
+        groupExpenses: {
+          ...state.groupExpenses,
+          [groupId]: (state.groupExpenses[groupId] ?? []).map(e =>
+            e.id === expenseId ? { ...e, settledAt } : e,
+          ),
+        },
+      }));
+    },
+
+    appendGroupExpense(expense: Expense): void {
+      const groupId = expense.groupId;
+      if (!groupId) return;
+      set((state) => ({
+        groupExpenses: {
+          ...state.groupExpenses,
+          [groupId]: [...(state.groupExpenses[groupId] ?? []), expense],
+        },
+      }));
+    },
+
+    appendGroup(group: Group): void {
+      set((state) => ({ groups: [...state.groups, group] }));
+    },
+
+    updateGroupInStore(group: Group): void {
+      set((state) => ({
+        groups: state.groups.map(g => g.id === group.id ? group : g),
+      }));
+    },
+
+    removeGroup(groupId: string): void {
+      set((state) => ({
+        groups: state.groups.filter(g => g.id !== groupId),
+        groupExpenses: Object.fromEntries(
+          Object.entries(state.groupExpenses).filter(([id]) => id !== groupId),
+        ),
+      }));
+    },
+
+    addMemberToGroupInStore(groupId: string, member: GroupMember): void {
+      set((state) => ({
+        groups: state.groups.map(g =>
+          g.id === groupId ? { ...g, members: [...g.members, member] } : g,
+        ),
+      }));
     },
 
     // ── Lifecycle ────────────────────────────────────────────────────────────

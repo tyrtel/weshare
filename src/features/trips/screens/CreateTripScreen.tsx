@@ -1,30 +1,128 @@
 import React, { useState } from 'react';
-import { View, TextInput, ScrollView, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, TextInput, ScrollView, Pressable, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { ErrorBanner } from '../../../components/ui/ErrorBanner';
+import { Avatar } from '../../../components/ui';
 import { Text } from '../../../components/ui/Text';
 import { useCreateTrip } from '../hooks/useCreateTrip';
-import { useColors } from '../../../theme/colors';
+import { useTripSessionStore } from '../../../core/di/ServiceContext';
+import { useColors, personColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import { CURRENCIES, currencyLabel } from '../../../core/constants/currencies';
+import type { GroupMember } from '../../../core/models/GroupMember';
+
+type Step = 'form' | 'members';
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function MemberPickerRow({
+  member,
+  selected,
+  onToggle,
+  colorIndex,
+}: {
+  member: GroupMember;
+  selected: boolean;
+  onToggle: () => void;
+  colorIndex: number;
+}) {
+  const colors  = useColors();
+  const palette = personColors[colorIndex % personColors.length];
+
+  return (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={member.displayName}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: tokens.spacing.md,
+        opacity: pressed ? 0.6 : selected ? 1 : 0.38,
+      })}
+    >
+      <View
+        style={{
+          borderWidth: selected ? 2 : 0,
+          borderColor: colors.primary.default,
+          borderRadius: 999,
+          padding: selected ? 2 : 0,
+          marginRight: tokens.spacing.md,
+        }}
+      >
+        <Avatar
+          initials={getInitials(member.displayName)}
+          bg={palette.text}
+          url={member.avatarUrl}
+          size="md"
+        />
+      </View>
+      <Text variant="body" style={{ flex: 1 }} numberOfLines={1}>
+        {member.displayName}
+      </Text>
+      {selected && (
+        <Ionicons name="checkmark-circle" size={22} color={colors.primary.default} />
+      )}
+    </Pressable>
+  );
+}
 
 export function CreateTripScreen() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const colors = useColors();
+  const { t }                          = useTranslation();
+  const router                         = useRouter();
+  const colors                         = useColors();
   const { createTrip, loading, error } = useCreateTrip();
+  const { groupId }                    = useLocalSearchParams<{ groupId?: string }>();
 
+  const group = useTripSessionStore(s => groupId ? s.groups.find(g => g.id === groupId) : undefined);
+
+  const [step,            setStep]            = useState<Step>('form');
   const [name,            setName]            = useState('');
-  const [currency,        setCurrency]        = useState('EUR');
+  const [currency,        setCurrency]        = useState(group?.currency ?? 'EUR');
   const [dropdownVisible, setDropdownVisible] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(group?.members.map(m => m.userId) ?? []),
+  );
+
+  const toggleMember = (userId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
+
+  const handleFormNext = () => {
+    if (!name.trim()) return;
+    if (groupId && group) {
+      setStep('members');
+    } else {
+      void handleSubmit();
+    }
+  };
+
   const handleSubmit = async () => {
-    const trip = await createTrip(name, currency);
+    const selectedGroupMembers: GroupMember[] | undefined = group
+      ? group.members.filter(m => selectedIds.has(m.userId))
+      : undefined;
+
+    const trip = await createTrip(name, currency, { groupId, selectedGroupMembers });
     if (trip) {
-      router.replace(`/add-participant?tripId=${trip.id}`);
+      if (groupId) {
+        router.replace(`/trip/${trip.id}` as Parameters<typeof router.replace>[0]);
+      } else {
+        router.replace(`/add-participant?tripId=${trip.id}` as Parameters<typeof router.replace>[0]);
+      }
     }
   };
 
@@ -40,19 +138,20 @@ export function CreateTripScreen() {
     marginBottom: tokens.spacing.md,
   };
 
-  const isValid = !loading && !!name.trim();
+  const isFormValid   = !loading && !!name.trim();
+  const isMembersStep = step === 'members';
 
   const confirmButton = () => (
     <Pressable
-      onPress={handleSubmit}
-      disabled={!isValid}
+      onPress={isMembersStep ? handleSubmit : handleFormNext}
+      disabled={!isFormValid}
       accessibilityRole="button"
-      accessibilityLabel={t('trips.create.confirm_label')}
+      accessibilityLabel={isMembersStep ? t('common.done') : t('trips.create.confirm_label')}
       style={({ pressed }) => ({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: isValid ? colors.primary.default : colors.text.tertiary,
+        backgroundColor: isFormValid ? colors.primary.default : colors.text.tertiary,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: tokens.spacing.xs,
@@ -64,6 +163,52 @@ export function CreateTripScreen() {
         : <Ionicons name="checkmark" size={20} color="#fff" />}
     </Pressable>
   );
+
+  if (isMembersStep && group) {
+    return (
+      <ScreenWrapper>
+        <Stack.Screen
+          options={{
+            title: t('trips.create.member_picker_title'),
+            headerLeft: () => (
+              <Pressable
+                onPress={() => setStep('form')}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.back')}
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginLeft: tokens.spacing.xs })}
+              >
+                <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
+              </Pressable>
+            ),
+            headerRight: confirmButton,
+          }}
+        />
+        <View style={{ flex: 1, padding: tokens.spacing.md }}>
+          <Text variant="heading2" style={{ marginBottom: tokens.spacing.xs }}>
+            {t('trips.create.member_picker_heading')}
+          </Text>
+          <Text variant="caption" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.lg }}>
+            {t('trips.create.member_picker_subtitle')}
+          </Text>
+          <FlatList
+            data={group.members}
+            keyExtractor={m => m.userId}
+            renderItem={({ item, index }) => (
+              <MemberPickerRow
+                member={item}
+                selected={selectedIds.has(item.userId)}
+                onToggle={() => toggleMember(item.userId)}
+                colorIndex={index}
+              />
+            )}
+            ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
+            showsVerticalScrollIndicator={false}
+          />
+          <ErrorBanner error={error} fallback={t('trips.create.error_fallback')} style={{ marginTop: tokens.spacing.md }} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
@@ -91,7 +236,7 @@ export function CreateTripScreen() {
             style={inputStyle}
             autoFocus
             returnKeyType="done"
-            onSubmitEditing={handleSubmit}
+            onSubmitEditing={handleFormNext}
             accessibilityLabel={t('trips.form.name_accessibility')}
           />
 

@@ -70,12 +70,14 @@ export const expenseMetadataSchema = z.object({
 
 export const expenseSchema = z.object({
   id: z.string(),
-  tripId: z.string(),
+  tripId: z.string().optional(),
+  groupId: z.string().optional(),
   description: z.string(),
   totalAmountCents: z.number().int(),
   currency: z.string(),
   paidByUserId: z.string(),
   createdAt: z.coerce.date(),
+  settledAt: z.coerce.date().nullable().default(null),
   splits: z.array(splitSchema),
   metadata: expenseMetadataSchema,
 });
@@ -94,18 +96,42 @@ export const tripSchema = z.object({
   inviteToken: z.string().optional(),
   status: z.enum(['active', 'settling', 'closed']).default('active'),
   closedAt: z.coerce.date().nullable().default(null),
+  groupId: z.string().optional(),
+});
+
+export const groupMemberSchema = z.object({
+  userId:      z.string(),
+  groupId:     z.string(),
+  displayName: z.string(),
+  joinedAt:    z.coerce.date(),
+  isGuest:     z.boolean(),
+  phone:       z.string().optional(),
+  email:       z.string().optional(),
+  avatarUrl:   z.string().optional(),
+});
+
+export const groupSchema = z.object({
+  id:          z.string(),
+  name:        z.string(),
+  currency:    z.string(),
+  ownerId:     z.string(),
+  createdAt:   z.coerce.date(),
+  members:     z.array(groupMemberSchema),
+  inviteToken: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
 // Inferred output types — used by the store's rehydration validator
 // ---------------------------------------------------------------------------
 
-export type SplitOutput = z.infer<typeof splitSchema>;
-export type TripMemberOutput = z.infer<typeof tripMemberSchema>;
-export type ExpenseOutput = z.infer<typeof expenseSchema>;
-export type TripOutput = z.infer<typeof tripSchema>;
-export type SettlementOutput = z.infer<typeof settlementSchema>;
-export type UserOutput = z.infer<typeof userSchema>;
+export type SplitOutput        = z.infer<typeof splitSchema>;
+export type TripMemberOutput   = z.infer<typeof tripMemberSchema>;
+export type ExpenseOutput      = z.infer<typeof expenseSchema>;
+export type TripOutput         = z.infer<typeof tripSchema>;
+export type SettlementOutput   = z.infer<typeof settlementSchema>;
+export type UserOutput         = z.infer<typeof userSchema>;
+export type GroupMemberOutput  = z.infer<typeof groupMemberSchema>;
+export type GroupOutput        = z.infer<typeof groupSchema>;
 
 // ---------------------------------------------------------------------------
 // safeParse — wraps Zod's safeParse in the project's Result type.

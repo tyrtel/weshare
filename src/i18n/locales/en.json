@@ -39,6 +39,8 @@
     "email_placeholder_example": "you@example.com",
     "email_accessibility": "Email address",
     "password_accessibility": "Password",
+    "show_password": "Show password",
+    "hide_password": "Hide password",
     "error_invalid_email": "Please enter a valid email address.",
     "error_password_too_short": "Password must be at least 6 characters.",
     "error_passwords_mismatch": "Passwords do not match.",
@@ -111,9 +113,106 @@
     }
   },
 
+  "home": {
+    "title": "Home",
+    "fab_label": "New"
+  },
+  "groups": {
+    "list": {
+      "section_title": "Groups",
+      "empty": "No groups yet. Tap + to create one."
+    },
+    "card": {
+      "you_owe": "You owe {{amount}}",
+      "you_are_owed": "You're owed {{amount}}",
+      "all_settled": "All settled",
+      "member_count_one": "{{count}} member",
+      "member_count_other": "{{count}} members",
+      "trip_count_one": "{{count}} trip",
+      "trip_count_other": "{{count}} trips"
+    },
+    "create": {
+      "fab_label": "New group",
+      "title": "New Group",
+      "heading": "Create a group",
+      "confirm_label": "Create",
+      "error_fallback": "Couldn't create group"
+    },
+    "edit": {
+      "title": "Edit Group",
+      "confirm_label": "Save",
+      "error_fallback": "Couldn't update group",
+      "members_label": "Members",
+      "guest_label": "Guest",
+      "owner_label": "Owner",
+      "add_member_button": "Add person",
+      "member_name_placeholder": "Display name",
+      "add_member_error": "Couldn't add member"
+    },
+    "form": {
+      "name_label": "Group name",
+      "name_placeholder": "e.g. Weekend Crew",
+      "name_accessibility": "Group name input",
+      "currency_label": "Default currency",
+      "currency_select_label": "Select currency",
+      "currency_select_heading": "Currency",
+      "currency_close_label": "Close currency picker"
+    },
+    "detail": {
+      "title": "Group",
+      "active_section": "Active",
+      "past_section": "Past",
+      "view_past": "View past items",
+      "hide_past": "Hide past items",
+      "fab_new_trip": "New trip",
+      "fab_new_expense": "New expense",
+      "fab_add_member": "Add person",
+      "empty_active": "No active items yet.",
+      "delete_title": "Delete group?",
+      "delete_message": "This will not delete the trips or expenses inside it.",
+      "delete_confirm": "Delete",
+      "settle_up": "Settle up"
+    },
+    "add_member": {
+      "title": "Add People",
+      "heading": "Add People",
+      "subtitle": "Add people to {{group_name}}.",
+      "member_count_one": "{{count}} person in this group",
+      "member_count_other": "{{count}} people in this group",
+      "name_placeholder": "Enter a name",
+      "add_button": "Add",
+      "duplicate_error": "Already in this group",
+      "add_error": "Could not add person. Please try again.",
+      "privacy_notice": "Phone and email are visible to all group members."
+    },
+    "settle": {
+      "title": "Settle up",
+      "subtitle": "Suggested transfers to clear all debts.",
+      "balances_section": "Balances",
+      "transfers_section": "Suggested transfers",
+      "even": "Even",
+      "all_settled": "Everyone is settled up.",
+      "settle_all_button": "Mark everything settled",
+      "settle_all_error": "Something went wrong. Some items may not have been settled.",
+      "confirm_title": "Mark everything settled?",
+      "confirm_message": "This will settle all group expenses and close all active trips in this group. This cannot be undone.",
+      "confirm_action": "Settle everything"
+    },
+    "expense": {
+      "add_title": "New Expense",
+      "add_heading": "Add expense",
+      "split_among_label": "Split among",
+      "split_equal_note": "Split equally between {{count}} members",
+      "settle_title": "Mark as settled?",
+      "settle_message": "This expense will be moved to past items.",
+      "settle_confirm": "Mark settled",
+      "settle_button": "Mark as settled"
+    }
+  },
   "trips": {
     "list": {
       "title": "Trips",
+      "section_title": "Trips",
       "empty_title": "No trips yet",
       "empty_body": "Tap New trip to start a shared trip with friends.",
       "error_load": "Couldn't load your trips.",
@@ -145,7 +244,10 @@
       "title": "New Trip",
       "heading": "New Trip",
       "confirm_label": "Confirm new trip",
-      "error_fallback": "Could not create trip. Try again."
+      "error_fallback": "Could not create trip. Try again.",
+      "member_picker_title": "Who's coming?",
+      "member_picker_heading": "Select members",
+      "member_picker_subtitle": "Choose which group members to include. All are selected by default."
     },
     "edit": {
       "title": "Edit Trip",
@@ -229,6 +331,8 @@
       "rate_unavailable": "Rate unavailable",
       "paid_by_label": "Paid by",
       "split_between_label": "Split between",
+      "split_equal_default_label": "Split equally",
+      "split_customize": "Customize…",
       "split_equal": "Equal",
       "split_proportional": "Proportional",
       "split_custom": "Custom",
@@ -243,7 +347,8 @@
       "save_label": "Save changes",
       "closed_add_guard": "This trip is closed. No new expenses can be added.",
       "closed_edit_guard": "This trip is closed. Expenses can no longer be edited.",
-      "entry_currency_label": "Entry currency"
+      "entry_currency_label": "Entry currency",
+      "group_currency_label": "Group currency"
     },
     "receipt": {
       "reading": "Reading receipt…",

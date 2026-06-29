@@ -14,6 +14,7 @@ const tripRowSchema = z.object({
   invite_token: z.string().nullable(),
   status:       z.enum(['active', 'settling', 'closed']).default('active'),
   closed_at:    z.string().nullable().default(null),
+  group_id:     z.string().nullable().optional(),
 });
 
 const memberRowSchema = z.object({
@@ -29,12 +30,14 @@ const memberRowSchema = z.object({
 
 const expenseRowSchema = z.object({
   id:                 z.string().min(1),
-  trip_id:            z.string().min(1),
+  trip_id:            z.string().nullable().optional(),
+  group_id:           z.string().nullable().optional(),
   description:        z.string().min(1),
   total_amount_cents: z.number().int(),
   currency:           z.string().min(1),
   paid_by_user_id:    z.string().min(1),
   created_at:         z.string(),
+  settled_at:         z.string().nullable().optional(),
   metadata:           z.record(z.unknown()).default({}),
 });
 
@@ -67,6 +70,26 @@ const splitRequestRowSchema = z.object({
   updated_at:                 z.string(),
 });
 
+const groupRowSchema = z.object({
+  id:           z.string().min(1),
+  name:         z.string().min(1),
+  currency:     z.string().min(1),
+  owner_id:     z.string().min(1),
+  created_at:   z.string(),
+  invite_token: z.string().nullable().optional(),
+});
+
+const groupMemberRowSchema = z.object({
+  group_id:     z.string().min(1),
+  user_id:      z.string().min(1),
+  display_name: z.string().min(1),
+  is_guest:     z.boolean(),
+  joined_at:    z.string(),
+  phone:        z.string().nullable().optional(),
+  email:        z.string().nullable().optional(),
+  avatar_url:   z.string().nullable().optional(),
+});
+
 // ── Inferred row types ────────────────────────────────────────────────────────
 
 export type TripRowParsed          = z.infer<typeof tripRowSchema>;
@@ -74,6 +97,8 @@ export type MemberRowParsed        = z.infer<typeof memberRowSchema>;
 export type ExpenseRowParsed       = z.infer<typeof expenseRowSchema>;
 export type SplitRowParsed         = z.infer<typeof splitRowSchema>;
 export type SplitRequestRowParsed  = z.infer<typeof splitRequestRowSchema>;
+export type GroupRowParsed         = z.infer<typeof groupRowSchema>;
+export type GroupMemberRowParsed   = z.infer<typeof groupMemberRowSchema>;
 
 // ── Parse helpers ─────────────────────────────────────────────────────────────
 
@@ -112,6 +137,14 @@ export function parseSplitRow(raw: unknown): Result<SplitRowParsed, AppError> {
 
 export function parseSplitRequestRow(raw: unknown): Result<SplitRequestRowParsed, AppError> {
   return parseRow(splitRequestRowSchema, raw, 'SplitRequest');
+}
+
+export function parseGroupRow(raw: unknown): Result<GroupRowParsed, AppError> {
+  return parseRow(groupRowSchema, raw, 'Group');
+}
+
+export function parseGroupMemberRow(raw: unknown): Result<GroupMemberRowParsed, AppError> {
+  return parseRow(groupMemberRowSchema, raw, 'GroupMember');
 }
 
 // ── Array helper ──────────────────────────────────────────────────────────────
