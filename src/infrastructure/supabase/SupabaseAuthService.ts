@@ -9,6 +9,7 @@ import type { IAuthService, AuthStateListener, Unsubscribe } from '../../core/in
 import type { User } from '../../core/models/User';
 import { supabase, supabaseUrl, pingSupabase } from './supabaseClient';
 import { LargeSecureStore } from './LargeSecureStore';
+import { canonicalizeEmail } from '../../core/utils/emailValidation';
 
 // Expo Router renders the root layout twice in concurrent mode, and Metro can
 // evaluate the same module file from two differently-resolved import paths,
@@ -212,11 +213,19 @@ export class SupabaseAuthService implements IAuthService {
     };
   }
 
-  private async _upsertUser(id: string, displayName: string, avatarUrl?: string): Promise<User> {
+  private async _upsertUser(
+    id: string,
+    displayName: string,
+    avatarUrl?: string,
+    email?: string,
+  ): Promise<User> {
+    const emailFields = email
+      ? { email, canonical_email: canonicalizeEmail(email) }
+      : {};
     const { data, error } = await supabase
       .from('users')
       .upsert(
-        { id, display_name: displayName, avatar_url: avatarUrl ?? null },
+        { id, display_name: displayName, avatar_url: avatarUrl ?? null, ...emailFields },
         { onConflict: 'id', ignoreDuplicates: false },
       )
       .select()
@@ -241,7 +250,7 @@ export class SupabaseAuthService implements IAuthService {
     try {
       const { data, error } = await SupabaseAuthService._withRetry(
         () => SupabaseAuthService._withTimeout(
-          supabase.auth.signInWithPassword({ email, password }),
+          supabase.auth.signInWithPassword({ email: email.trim(), password }),
           20_000,
           'Connection timed out — Supabase may be starting up, please try again',
         ),
@@ -267,6 +276,22 @@ export class SupabaseAuthService implements IAuthService {
     password: string,
     name: string,
   ): Promise<Result<User | { needsEmailConfirmation: true }, AppError>> {
+    const canonical = canonicalizeEmail(email);
+
+    // Fail fast before creating an unverified auth.users row.
+    // The UNIQUE constraint on users.canonical_email is the true enforcement;
+    // this RPC call just gives a better UX error before the OTP flow.
+    try {
+      const { data: taken, error: rpcError } = await supabase.rpc('canonical_email_taken', {
+        p_canonical: canonical,
+      });
+      if (!rpcError && taken) {
+        return err({ kind: 'AuthError', message: 'An account with this email inbox already exists.' });
+      }
+    } catch {
+      // RPC failure is non-fatal — proceed and let the DB constraint enforce dedup.
+    }
+
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return err({ kind: 'AuthError', message: error.message });
     if (!data.user) return err({ kind: 'AuthError', message: 'Account creation failed' });
@@ -279,7 +304,7 @@ export class SupabaseAuthService implements IAuthService {
     this._expiresAt = data.session.expires_at ?? 0;
     try {
       const user = await SupabaseAuthService._withTimeout(
-        this._upsertUser(data.user.id, name),
+        this._upsertUser(data.user.id, name, undefined, email),
         10_000,
         'Profile save timed out — please try again',
       );
@@ -309,7 +334,7 @@ export class SupabaseAuthService implements IAuthService {
     this._expiresAt = data.session?.expires_at ?? 0;
     try {
       const user = await SupabaseAuthService._withTimeout(
-        this._upsertUser(data.user.id, name),
+        this._upsertUser(data.user.id, name, undefined, data.user.email ?? undefined),
         10_000,
         'Profile save timed out — please try again',
       );
@@ -335,15 +360,28 @@ export class SupabaseAuthService implements IAuthService {
     }
   }
 
-  async sendPasswordReset(email: string): Promise<Result<void, AppError>> {
+  async sendPasswordReset(email: string): Promise<Result<{ resolvedEmail: string }, AppError>> {
+    const canonical = canonicalizeEmail(email);
+
+    // Look up the actual registered address for this inbox. A user who signed up
+    // as user+weshare@gmail.com can enter user@gmail.com and still receive the
+    // reset code at their registered plus address.
+    let resolvedEmail = email.trim();
+    try {
+      const { data } = await supabase.rpc('email_for_canonical', { p_canonical: canonical });
+      if (typeof data === 'string' && data.length > 0) resolvedEmail = data;
+    } catch {
+      // Non-fatal — fall back to whatever the user typed.
+    }
+
     try {
       const { error } = await SupabaseAuthService._withTimeout(
-        supabase.auth.resetPasswordForEmail(email),
+        supabase.auth.resetPasswordForEmail(resolvedEmail),
         20_000,
         'Connection timed out — please try again',
       );
       if (error) return err({ kind: 'AuthError', message: error.message });
-      return ok(undefined);
+      return ok({ resolvedEmail });
     } catch (e) {
       return err({ kind: 'AuthError', message: e instanceof Error ? e.message : 'Request failed' });
     }
@@ -445,7 +483,7 @@ export class SupabaseAuthService implements IAuthService {
       const displayName = userInfo.data?.user?.name ?? data.user.email?.split('@')[0] ?? 'User';
       const avatarUrl   = userInfo.data?.user?.photo ?? undefined;
       const user        = await SupabaseAuthService._withTimeout(
-        this._upsertUser(data.user.id, displayName, avatarUrl),
+        this._upsertUser(data.user.id, displayName, avatarUrl, data.user.email ?? undefined),
         10_000,
         'Profile save timed out — please try again',
       );
@@ -499,7 +537,7 @@ export class SupabaseAuthService implements IAuthService {
         || 'User';
 
       const user        = await SupabaseAuthService._withTimeout(
-        this._upsertUser(data.user.id, displayName),
+        this._upsertUser(data.user.id, displayName, undefined, data.user.email ?? undefined),
         10_000,
         'Profile save timed out — please try again',
       );

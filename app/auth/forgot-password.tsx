@@ -17,6 +17,7 @@ import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
 import { darkColors as C } from '../../src/theme/colors';
+import { validateAndNormalizeEmail } from '../../src/core/utils/emailValidation';
 
 export default function ForgotPasswordScreen() {
   const { t } = useTranslation();
@@ -29,11 +30,12 @@ export default function ForgotPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
 
   async function handleSend() {
-    if (!email.trim()) { setError(t('auth.forgot_password.error_email_empty')); return; }
+    const { original, error: emailError } = validateAndNormalizeEmail(email);
+    if (emailError === 'invalid_format') { setError(t('auth.error_invalid_email')); return; }
 
     setBusy(true);
     setError(null);
-    const result = await auth.sendPasswordReset(email.trim());
+    const result = await auth.sendPasswordReset(original);
     setBusy(false);
 
     if (!isOk(result)) {
@@ -42,7 +44,7 @@ export default function ForgotPasswordScreen() {
     }
 
     router.push(
-      `/auth/reset-password?email=${encodeURIComponent(email.trim())}` as Parameters<typeof router.push>[0],
+      `/auth/reset-password?email=${encodeURIComponent(result.value.resolvedEmail)}` as Parameters<typeof router.push>[0],
     );
   }
 

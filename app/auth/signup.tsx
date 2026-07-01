@@ -18,6 +18,7 @@ import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
 import { darkColors as C } from '../../src/theme/colors';
+import { validateAndNormalizeEmail } from '../../src/core/utils/emailValidation';
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
@@ -38,24 +39,28 @@ export default function SignUpScreen() {
   const passwordRef = useRef<TextInput>(null);
   const confirmRef  = useRef<TextInput>(null);
 
-  function validate(): string | null {
-    if (!name.trim())               return t('auth.sign_up.error_name_empty');
-    if (!email.trim())              return t('auth.sign_in.error_email_empty');
-    if (!email.includes('@'))       return t('auth.error_invalid_email');
-    if (!password)                  return t('auth.sign_up.error_password_empty');
-    if (password.length < 6)        return t('auth.error_password_too_short');
-    if (password !== confirm)       return t('auth.error_passwords_mismatch');
-    return null;
+  function validate(): { error: string | null; validEmail: string } {
+    if (!name.trim()) return { error: t('auth.sign_up.error_name_empty'), validEmail: '' };
+
+    const { original, error: emailError } = validateAndNormalizeEmail(email);
+    if (emailError === 'invalid_format')   return { error: t('auth.error_invalid_email'),    validEmail: '' };
+    if (emailError === 'disposable_domain') return { error: t('auth.error_disposable_email'), validEmail: '' };
+
+    if (!password)            return { error: t('auth.sign_up.error_password_empty'), validEmail: '' };
+    if (password.length < 6)  return { error: t('auth.error_password_too_short'),    validEmail: '' };
+    if (password !== confirm)  return { error: t('auth.error_passwords_mismatch'),    validEmail: '' };
+
+    return { error: null, validEmail: original };
   }
 
   async function handleCreate() {
-    const validationError = validate();
+    const { error: validationError, validEmail } = validate();
     if (validationError) { setError(validationError); return; }
 
     setBusy(true);
     setError(null);
 
-    const result = await auth.signUp(email.trim(), password, name.trim());
+    const result = await auth.signUp(validEmail, password, name.trim());
     setBusy(false);
 
     if (!isOk(result)) {
@@ -64,12 +69,10 @@ export default function SignUpScreen() {
     }
 
     if ('needsEmailConfirmation' in result.value) {
-      // Navigate to OTP screen, carrying email and name so verifyOtp can use them
       router.push(
-        `/auth/verify?email=${encodeURIComponent(email.trim())}&name=${encodeURIComponent(name.trim())}` as Parameters<typeof router.push>[0],
+        `/auth/verify?email=${encodeURIComponent(validEmail)}&name=${encodeURIComponent(name.trim())}` as Parameters<typeof router.push>[0],
       );
     } else {
-      // Email confirmation is disabled in Supabase — signed in directly
       router.replace('/' as Parameters<typeof router.replace>[0]);
     }
   }

@@ -5,6 +5,7 @@ import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { AUTH, TRIP_STORE } from '../../../core/di/tokens';
 import { groupFactory, groupMemberFactory } from '../../../__testUtils__/factories';
+import { generateId } from '../../../core/utils/generateId';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Group } from '../../../core/models/Group';
 import type { Trip } from '../../../core/models/Trip';
@@ -117,5 +118,31 @@ describe('useCreateTrip — group trip', () => {
 
     expect(trip?.groupId).toBeUndefined();
     expect(trip?.members).toHaveLength(1);
+  });
+
+  it('accepts guest members whose userId has a guest_ prefix', async () => {
+    // useAddGroupMember produces `guest_${generateId()}` for non-auth members.
+    // trip_members.user_id must accept this format (text, not uuid).
+    const guestId = `guest_${generateId()}`;
+    const guestMember = groupMemberFactory({
+      userId:      guestId,
+      groupId:     'g1',
+      displayName: 'Guest Friend',
+      isGuest:     true,
+    });
+
+    const { result } = renderHook(() => useCreateTrip(), { wrapper: makeWrapper(container) });
+
+    let trip: Trip | null = null;
+    await act(async () => {
+      trip = await result.current.createTrip('Guest Trip', 'EUR', {
+        groupId:              'g1',
+        selectedGroupMembers: [guestMember],
+      });
+    });
+
+    expect(trip).not.toBeNull();
+    expect(trip?.members.some(m => m.userId === guestId)).toBe(true);
+    expect(trip?.members.find(m => m.userId === guestId)?.isGuest).toBe(true);
   });
 });

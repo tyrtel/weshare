@@ -91,7 +91,7 @@ export class SupabaseGroupRepository implements IGroupRepository {
   }
 
   async saveGroup(group: Group): Promise<Result<Group, AppError>> {
-    const { data, error } = await supabase
+    const { error: groupError } = await supabase
       .from('groups')
       .insert({
         id:           group.id,
@@ -99,12 +99,28 @@ export class SupabaseGroupRepository implements IGroupRepository {
         currency:     group.currency,
         owner_id:     group.ownerId,
         invite_token: group.inviteToken ?? null,
-      })
-      .select('*, group_members(*)')
-      .single();
-    if (error) return err(toAppError(error, 'Group', group.id));
-    const raw = data as RawGroupWithMembers;
-    return rowToGroup(raw, raw.group_members ?? []);
+      });
+    if (groupError) return err(toAppError(groupError, 'Group', group.id));
+
+    if (group.members.length > 0) {
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .insert(
+          group.members.map(m => ({
+            user_id:      m.userId,
+            group_id:     group.id,
+            display_name: m.displayName,
+            is_guest:     m.isGuest,
+            joined_at:    m.joinedAt.toISOString(),
+            phone:        m.phone ?? null,
+            email:        m.email ?? null,
+            avatar_url:   m.avatarUrl ?? null,
+          })),
+        );
+      if (memberError) return err(toAppError(memberError, 'GroupMember', group.id));
+    }
+
+    return ok(group);
   }
 
   async updateGroup(group: Group): Promise<Result<Group, AppError>> {

@@ -97,6 +97,26 @@ describe('useCreateGroup', () => {
     if (fetched.ok) expect(fetched.value.name).toBe('Book Club');
   });
 
+  it('persists the creator as a member in storage', async () => {
+    const auth = container.resolve(AUTH);
+    const authResult = await auth.signIn('jay@example.com', 'password');
+    const userId = authResult.ok ? authResult.value.id : '';
+    const groupRepo = container.resolve(GROUP_REPO);
+
+    const { result } = renderHook(() => useCreateGroup(), { wrapper: makeWrapper(container) });
+
+    let group: import('../../../core/models/Group').Group | null = null;
+    await act(async () => { group = await result.current.createGroup('Book Club', 'EUR'); });
+
+    // Must re-read from storage to verify members were written, not just returned
+    const fetched = await groupRepo.getGroup(group!.id);
+    expect(fetched.ok).toBe(true);
+    if (fetched.ok) {
+      expect(fetched.value.members).toHaveLength(1);
+      expect(fetched.value.members[0].userId).toBe(userId);
+    }
+  });
+
   it('generates an inviteToken on the created group', async () => {
     const auth = container.resolve(AUTH);
     await auth.signIn('jay@example.com', 'password');

@@ -67,8 +67,8 @@ export class MockAuthService implements IAuthService {
     return ok(undefined);
   }
 
-  async sendPasswordReset(_email: string): Promise<Result<void, AppError>> {
-    return ok(undefined);
+  async sendPasswordReset(email: string): Promise<Result<{ resolvedEmail: string }, AppError>> {
+    return ok({ resolvedEmail: email.trim() });
   }
 
   async confirmPasswordReset(email: string, _token: string, _newPassword: string): Promise<Result<User, AppError>> {

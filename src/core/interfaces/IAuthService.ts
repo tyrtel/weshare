@@ -18,9 +18,11 @@ export interface IAuthService {
   signOut(): Promise<Result<void, AppError>>;
   signInWithGoogle(): Promise<Result<User, AppError>>;
   signInWithApple(): Promise<Result<User, AppError>>;
-  // Sends a password-reset OTP to the given email. Supabase returns ok
-  // regardless of whether the address is registered (prevents enumeration).
-  sendPasswordReset(email: string): Promise<Result<void, AppError>>;
+  // Sends a password-reset OTP. Accepts a base address or plus-addressed variant.
+  // Resolves against the canonical email index so user+tag@gmail.com and
+  // user@gmail.com both reach the same inbox. Returns the address actually used
+  // so the caller can forward it to the OTP confirmation screen.
+  sendPasswordReset(email: string): Promise<Result<{ resolvedEmail: string }, AppError>>;
   // Verifies the recovery OTP and sets a new password in one step. Signs
   // the user in on success.
   confirmPasswordReset(email: string, token: string, newPassword: string): Promise<Result<User, AppError>>;

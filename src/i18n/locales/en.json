@@ -42,6 +42,7 @@
     "show_password": "Show password",
     "hide_password": "Hide password",
     "error_invalid_email": "Please enter a valid email address.",
+    "error_disposable_email": "Please use a permanent email address.",
     "error_password_too_short": "Password must be at least 6 characters.",
     "error_passwords_mismatch": "Passwords do not match.",
     "welcome": {

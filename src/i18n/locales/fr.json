@@ -42,6 +42,7 @@
     "show_password": "Afficher le mot de passe",
     "hide_password": "Masquer le mot de passe",
     "error_invalid_email": "Veuillez saisir une adresse e-mail valide.",
+    "error_disposable_email": "Veuillez utiliser une adresse e-mail permanente.",
     "error_password_too_short": "Le mot de passe doit comporter au moins 6 caractères.",
     "error_passwords_mismatch": "Les mots de passe ne correspondent pas.",
     "welcome": {
