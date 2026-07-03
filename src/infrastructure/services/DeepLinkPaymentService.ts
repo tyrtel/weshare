@@ -10,6 +10,7 @@ const NATIVE_SCHEMES: Record<PaymentProvider, string | null> = {
   venmo:   'venmo://',
   lydia:   'lydia://',
   paypal:  null,   // always available via paypal.me web URL
+  wero:    'wero://',
   other:   null,   // always available as HTTPS fallback
 };
 
@@ -45,6 +46,10 @@ export class DeepLinkPaymentService implements IPaymentService {
       case 'paypal':
         // PayPal.me works as a web URL — no custom scheme needed.
         return `https://paypal.me/${handle}/${amount}`;
+
+      case 'wero':
+        // Wero P2P deep-link: handle is the recipient's phone in E.164 format.
+        return `wero://pay?phone=${handle}&amount=${amount}&currency=${currency}&label=WeShare`;
 
       case 'other':
         // Generic HTTPS fallback.

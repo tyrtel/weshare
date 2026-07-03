@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import type { PaymentProvider } from '../interfaces/IPaymentService';
@@ -82,6 +82,12 @@ async function _create(): Promise<ServiceContainer> {
   const { SupabaseGroupRepository } = await import(
     '../../infrastructure/supabase/SupabaseGroupRepository'
   );
+  const { SupabaseRecurringExpenseRepository } = await import(
+    '../../infrastructure/supabase/SupabaseRecurringExpenseRepository'
+  );
+  const { SupabaseNotificationService } = await import(
+    '../../infrastructure/supabase/SupabaseNotificationService'
+  );
 
   const tripRepo         = new SupabaseTripRepository();
   const memberRepo       = new SupabaseMemberRepository();
@@ -117,7 +123,9 @@ async function _create(): Promise<ServiceContainer> {
   container.register(RECEIPT_STORAGE,  new SupabaseReceiptStorage());
   container.register(EXCHANGE_RATE,    new ExchangeRateService());
   const groupRepo = new SupabaseGroupRepository();
-  container.register(GROUP_REPO,       groupRepo);
-  container.register(TRIP_STORE,       createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }));
+  container.register(GROUP_REPO,              groupRepo);
+  container.register(RECURRING_EXPENSE_REPO,  new SupabaseRecurringExpenseRepository());
+  container.register(NOTIFICATION_SERVICE,    new SupabaseNotificationService());
+  container.register(TRIP_STORE,              createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }));
   return container;
 }

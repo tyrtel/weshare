@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE,
 } from './tokens';
 import type { ITripRepository } from '../interfaces/ITripRepository';
 import type { IMemberRepository } from '../interfaces/IMemberRepository';
@@ -21,6 +21,8 @@ import type { IReceiptStorage } from '../interfaces/IReceiptStorage';
 import type { IExchangeRateService } from '../interfaces/IExchangeRateService';
 import type { TripSessionStoreApi } from '../../store/tripSessionStore';
 import type { IGroupRepository } from '../interfaces/IGroupRepository';
+import type { IRecurringExpenseRepository } from '../interfaces/IRecurringExpenseRepository';
+import type { INotificationService } from '../interfaces/INotificationService';
 
 export interface ContainerOverrides {
   tripRepo?:         ITripRepository;
@@ -40,7 +42,9 @@ export interface ContainerOverrides {
   receiptStorage?:   IReceiptStorage;
   exchangeRate?:     IExchangeRateService;
   tripStore?:        TripSessionStoreApi;
-  groupRepo?:        IGroupRepository;
+  groupRepo?:             IGroupRepository;
+  recurringExpenseRepo?:  IRecurringExpenseRepository;
+  notificationService?:   INotificationService;
 }
 
 /**
@@ -104,8 +108,12 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   const { MockExchangeRateService } = require('../../__mocks__/MockExchangeRateService');
   container.register(EXCHANGE_RATE,    overrides.exchangeRate    ?? new MockExchangeRateService());
   const { InMemoryGroupRepository } = require('../../__mocks__/InMemoryGroupRepository');
+  const { InMemoryRecurringExpenseRepository } = require('../../__mocks__/InMemoryRecurringExpenseRepository');
   const groupRepo = overrides.groupRepo ?? new InMemoryGroupRepository();
-  container.register(GROUP_REPO,       groupRepo);
+  container.register(GROUP_REPO,             groupRepo);
+  container.register(RECURRING_EXPENSE_REPO, overrides.recurringExpenseRepo ?? new InMemoryRecurringExpenseRepository());
+  const { MockNotificationService } = require('../../__mocks__/MockNotificationService');
+  container.register(NOTIFICATION_SERVICE,   overrides.notificationService  ?? new MockNotificationService());
   container.register(
     TRIP_STORE,
     overrides.tripStore ?? createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }),

@@ -5,6 +5,7 @@ import type { Split } from '../models/Split';
 import type { SplitRequest } from '../models/SplitRequest';
 import type { Group } from '../models/Group';
 import type { GroupMember } from '../models/GroupMember';
+import type { RecurringExpense } from '../models/RecurringExpense';
 import type { Result } from '../types/Result';
 import type { AppError } from '../types/AppError';
 
@@ -19,7 +20,8 @@ export interface TripSessionState {
   isHydrated: boolean;
   hydrationError: AppError | null;
   groups: Group[];
-  groupExpenses: Record<string, Expense[]>;   // keyed by groupId
+  groupExpenses: Record<string, Expense[]>;          // keyed by groupId
+  recurringExpenses: Record<string, RecurringExpense[]>; // keyed by groupId
 }
 
 export interface TripSessionActions {
@@ -80,6 +82,15 @@ export interface TripSessionActions {
   removeGroup(groupId: string): void;
   /** Append a new member to a cached group (no repo call). */
   addMemberToGroupInStore(groupId: string, member: GroupMember): void;
+
+  /** Replace the entire recurring expense list for a group in the cache (no repo call). */
+  setRecurringExpensesForGroup(groupId: string, items: RecurringExpense[]): void;
+  /** Append a newly-created recurring expense to the cache (no repo call). */
+  appendRecurringExpense(re: RecurringExpense): void;
+  /** Remove a recurring expense from the cache by id (no repo call). */
+  removeRecurringExpense(id: string): void;
+  /** Replace a recurring expense in the cache by id (no repo call). */
+  updateRecurringExpenseInStore(re: RecurringExpense): void;
 }
 
 export type ITripSessionStore = TripSessionState & TripSessionActions;

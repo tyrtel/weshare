@@ -17,6 +17,8 @@ import type { IReceiptStorage } from '../interfaces/IReceiptStorage';
 import type { IExchangeRateService } from '../interfaces/IExchangeRateService';
 import type { TripSessionStoreApi } from '../../store/tripSessionStore';
 import type { IGroupRepository } from '../interfaces/IGroupRepository';
+import type { IRecurringExpenseRepository } from '../interfaces/IRecurringExpenseRepository';
+import type { INotificationService } from '../interfaces/INotificationService';
 
 export const TRIP_REPO          = createToken<ITripRepository>('ITripRepository');
 export const MEMBER_REPO        = createToken<IMemberRepository>('IMemberRepository');
@@ -35,4 +37,6 @@ export const RECEIPT_PARSER     = createToken<IReceiptParser>('IReceiptParser');
 export const RECEIPT_STORAGE    = createToken<IReceiptStorage>('IReceiptStorage');
 export const EXCHANGE_RATE      = createToken<IExchangeRateService>('IExchangeRateService');
 export const TRIP_STORE         = createToken<TripSessionStoreApi>('TripSessionStore');
-export const GROUP_REPO         = createToken<IGroupRepository>('IGroupRepository');
+export const GROUP_REPO              = createToken<IGroupRepository>('IGroupRepository');
+export const RECURRING_EXPENSE_REPO  = createToken<IRecurringExpenseRepository>('IRecurringExpenseRepository');
+export const NOTIFICATION_SERVICE    = createToken<INotificationService>('INotificationService');

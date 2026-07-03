@@ -79,6 +79,29 @@ const groupRowSchema = z.object({
   invite_token: z.string().nullable().optional(),
 });
 
+const recurringExpenseRowSchema = z.object({
+  id:                   z.string().min(1),
+  group_id:             z.string().min(1),
+  description:          z.string().min(1),
+  total_amount_cents:   z.number().int(),
+  currency:             z.string().min(1),
+  paid_by_user_id:      z.string().min(1),
+  period:               z.enum(['weekly', 'biweekly', 'monthly', 'quarterly']),
+  start_date:           z.string(),
+  next_due_at:          z.string(),
+  last_spawned_at:      z.string().nullable(),
+  paused_at:            z.string().nullable(),
+  created_at:           z.string(),
+  created_by_user_id:   z.string().min(1),
+});
+
+const recurringExpenseSplitRowSchema = z.object({
+  id:                    z.string().min(1),
+  recurring_expense_id:  z.string().min(1),
+  user_id:               z.string().min(1),
+  amount_owed_cents:     z.number().int(),
+});
+
 const groupMemberRowSchema = z.object({
   group_id:     z.string().min(1),
   user_id:      z.string().min(1),
@@ -97,8 +120,10 @@ export type MemberRowParsed        = z.infer<typeof memberRowSchema>;
 export type ExpenseRowParsed       = z.infer<typeof expenseRowSchema>;
 export type SplitRowParsed         = z.infer<typeof splitRowSchema>;
 export type SplitRequestRowParsed  = z.infer<typeof splitRequestRowSchema>;
-export type GroupRowParsed         = z.infer<typeof groupRowSchema>;
-export type GroupMemberRowParsed   = z.infer<typeof groupMemberRowSchema>;
+export type GroupRowParsed               = z.infer<typeof groupRowSchema>;
+export type GroupMemberRowParsed         = z.infer<typeof groupMemberRowSchema>;
+export type RecurringExpenseRowParsed    = z.infer<typeof recurringExpenseRowSchema>;
+export type RecurringExpenseSplitRowParsed = z.infer<typeof recurringExpenseSplitRowSchema>;
 
 // ── Parse helpers ─────────────────────────────────────────────────────────────
 
@@ -145,6 +170,14 @@ export function parseGroupRow(raw: unknown): Result<GroupRowParsed, AppError> {
 
 export function parseGroupMemberRow(raw: unknown): Result<GroupMemberRowParsed, AppError> {
   return parseRow(groupMemberRowSchema, raw, 'GroupMember');
+}
+
+export function parseRecurringExpenseRow(raw: unknown): Result<RecurringExpenseRowParsed, AppError> {
+  return parseRow(recurringExpenseRowSchema, raw, 'RecurringExpense');
+}
+
+export function parseRecurringExpenseSplitRow(raw: unknown): Result<RecurringExpenseSplitRowParsed, AppError> {
+  return parseRow(recurringExpenseSplitRowSchema, raw, 'RecurringExpenseSplit');
 }
 
 // ── Array helper ──────────────────────────────────────────────────────────────

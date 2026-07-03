@@ -1,4 +1,4 @@
-export type PaymentProvider = 'revolut' | 'venmo' | 'lydia' | 'paypal' | 'other';
+export type PaymentProvider = 'revolut' | 'venmo' | 'lydia' | 'paypal' | 'wero' | 'other';
 
 export interface IPaymentService {
   // Builds a deep-link URL without opening it — pure string, no side effects.

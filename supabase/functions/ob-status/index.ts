@@ -4,10 +4,14 @@
  * Polls the OB aggregator for the current payment status.
  * Returns our internal SplitRequestStatus string.
  *
+ * Security:
+ *   - Requires a valid Supabase JWT in the Authorization header.
+ *
  * When TINK_CLIENT_ID is not set, returns 'pending' as a mock.
  */
 
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
+import { createUserClient } from '../_shared/supabase.ts';
 import { tinkGetPaymentStatus, tinkStatusToInternal } from '../_shared/tink.ts';
 
 const TINK_CLIENT_ID     = Deno.env.get('TINK_CLIENT_ID');
@@ -16,6 +20,22 @@ const TINK_CLIENT_SECRET = Deno.env.get('TINK_CLIENT_SECRET');
 Deno.serve(async (req: Request) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // ── Auth: require a valid Supabase JWT ──────────────────────────────────────
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return Response.json(
+      { error: 'Missing or invalid Authorization header' },
+      { status: 401, headers: corsHeaders },
+    );
+  }
+
+  const userClient = createUserClient(authHeader);
+  const { data: { user }, error: authError } = await userClient.auth.getUser();
+  if (authError || !user) {
+    console.warn('[ob-status] auth failed:', authError?.message);
+    return Response.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+  }
 
   try {
     const url        = new URL(req.url);

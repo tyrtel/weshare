@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Pressable, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,8 @@ import { Avatar } from '../../../src/components/ui';
 import { ErrorBanner } from '../../../src/components/ui/ErrorBanner';
 import { useGroupDetail } from '../../../src/features/groups/hooks/useGroupDetail';
 import { useSettleAllGroupDebts } from '../../../src/features/groups/hooks/useSettleAllGroupDebts';
+import { useService } from '../../../src/core/di/ServiceContext';
+import { PAYMENT } from '../../../src/core/di/tokens';
 import { useColors } from '../../../src/theme/colors';
 import { personColors } from '../../../src/theme/colors';
 import { tokens } from '../../../src/theme/tokens';
@@ -23,13 +25,24 @@ function getInitials(name: string): string {
 }
 
 export default function GroupSettlementScreen() {
-  const { t }   = useTranslation();
-  const colors  = useColors();
-  const router  = useRouter();
-  const { id }  = useLocalSearchParams<{ id: string }>();
+  const { t }          = useTranslation();
+  const colors         = useColors();
+  const router         = useRouter();
+  const { id }         = useLocalSearchParams<{ id: string }>();
+  const paymentService = useService(PAYMENT);
 
   const { group, settlements, memberBalances } = useGroupDetail(id);
   const { settleAll, loading, error }          = useSettleAllGroupDebts(id);
+
+  const handleWeroPay = async (phone: string, amountCents: number, currency: string, toName: string) => {
+    const url = paymentService.buildPaymentLink('wero', amountCents, currency, phone);
+    const canOpen = await Linking.canOpenURL(url).catch(() => false);
+    if (canOpen) {
+      await Linking.openURL(url).catch(() => undefined);
+    } else {
+      Alert.alert('Wero', t('groups.settle.wero_not_installed', { name: toName }));
+    }
+  };
 
   if (!group) return null;
 
@@ -127,6 +140,7 @@ export default function GroupSettlementScreen() {
               const toName    = toInfo?.member.displayName ?? s.toUserId;
               const fromPalette = personColors[(fromInfo?.index ?? 0) % personColors.length];
               const toPalette   = personColors[(toInfo?.index ?? 1) % personColors.length];
+              const toPhone = toInfo?.member.phone;
               return (
                 <Card key={i} style={{ marginBottom: tokens.spacing.sm }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -140,6 +154,28 @@ export default function GroupSettlementScreen() {
                       {formatCurrency(s.amountCents, s.currency)}
                     </Text>
                   </View>
+                  {toPhone != null && (
+                    <Pressable
+                      onPress={() => void handleWeroPay(toPhone, s.amountCents, s.currency, toName)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('groups.settle.pay_with_wero')}
+                      style={({ pressed }) => ({
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: tokens.spacing.xs,
+                        marginTop: tokens.spacing.sm,
+                        paddingTop: tokens.spacing.sm,
+                        borderTopWidth: 1,
+                        borderTopColor: colors.borderMuted,
+                        opacity: pressed ? 0.7 : 1,
+                      })}
+                    >
+                      <Ionicons name="wallet-outline" size={16} color={colors.primary.default} />
+                      <Text variant="label" color={colors.primary.default}>
+                        {t('groups.settle.pay_with_wero')}
+                      </Text>
+                    </Pressable>
+                  )}
                 </Card>
               );
             })}

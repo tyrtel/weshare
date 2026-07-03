@@ -16,6 +16,7 @@ import type { Split } from '../core/models/Split';
 import type { SplitRequest } from '../core/models/SplitRequest';
 import type { Group } from '../core/models/Group';
 import type { GroupMember } from '../core/models/GroupMember';
+import type { RecurringExpense } from '../core/models/RecurringExpense';
 import { ok, isOk, isErr } from '../core/types/Result';
 import {
   safeParse,
@@ -56,6 +57,7 @@ const INITIAL_STATE: TripSessionState = {
   hydrationError: null,
   groups: [],
   groupExpenses: {},
+  recurringExpenses: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -499,6 +501,44 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
         groups: state.groups.map(g =>
           g.id === groupId ? { ...g, members: [...g.members, member] } : g,
         ),
+      }));
+    },
+
+    // ── Recurring expenses ───────────────────────────────────────────────────
+
+    setRecurringExpensesForGroup(groupId: string, items: RecurringExpense[]): void {
+      set((state) => ({
+        recurringExpenses: { ...state.recurringExpenses, [groupId]: items },
+      }));
+    },
+
+    appendRecurringExpense(re: RecurringExpense): void {
+      set((state) => ({
+        recurringExpenses: {
+          ...state.recurringExpenses,
+          [re.groupId]: [...(state.recurringExpenses[re.groupId] ?? []), re],
+        },
+      }));
+    },
+
+    removeRecurringExpense(id: string): void {
+      set((state) => {
+        const updated: Record<string, RecurringExpense[]> = {};
+        for (const [gid, items] of Object.entries(state.recurringExpenses)) {
+          updated[gid] = items.filter(r => r.id !== id);
+        }
+        return { recurringExpenses: updated };
+      });
+    },
+
+    updateRecurringExpenseInStore(re: RecurringExpense): void {
+      set((state) => ({
+        recurringExpenses: {
+          ...state.recurringExpenses,
+          [re.groupId]: (state.recurringExpenses[re.groupId] ?? []).map(r =>
+            r.id === re.id ? re : r,
+          ),
+        },
       }));
     },
 

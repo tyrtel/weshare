@@ -39,4 +39,5 @@ export interface Expense {
   settledAt: Date | null; // group expenses only — null = active; Date = settled/off main view
   splits: Split[];
   metadata: ExpenseMetadata;
+  recurringExpenseId?: string; // set when spawned from a recurring_expenses template
 }

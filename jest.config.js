@@ -15,6 +15,7 @@ module.exports = {
     '^expo-haptics$': '<rootDir>/src/__mocks__/expo-haptics.ts',
     '^expo-localization$': '<rootDir>/src/__mocks__/expo-localization.ts',
     '^expo-secure-store$': '<rootDir>/src/__mocks__/expo-secure-store.ts',
+    '^expo-notifications$': '<rootDir>/src/__mocks__/expo-notifications.ts',
     '^react-native-reanimated$': '<rootDir>/src/__mocks__/reanimatedMock.js',
     '^react-native-gesture-handler$': '<rootDir>/src/__mocks__/gestureHandlerMock.js',
     '^@core/(.*)$': '<rootDir>/src/core/$1',

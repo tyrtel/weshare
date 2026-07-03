@@ -14,6 +14,7 @@ const PROVIDER_DISPLAY: Record<
   venmo:   { label: 'Venmo',   description: 'Open in Venmo app',             iconName: 'cash-outline' },
   lydia:   { label: 'Lydia',   description: 'Open in Lydia app',             iconName: 'phone-portrait-outline' },
   paypal:  { label: 'PayPal',  description: 'Send via PayPal.me',            iconName: 'logo-paypal' },
+  wero:    { label: 'Wero',    description: 'Open in Wero / banking app',    iconName: 'wallet-outline' },
   other:   { label: 'Other',   description: 'Use a generic payment link',    iconName: 'ellipsis-horizontal-circle-outline' },
 };
 

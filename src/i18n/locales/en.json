@@ -197,7 +197,9 @@
       "settle_all_error": "Something went wrong. Some items may not have been settled.",
       "confirm_title": "Mark everything settled?",
       "confirm_message": "This will settle all group expenses and close all active trips in this group. This cannot be undone.",
-      "confirm_action": "Settle everything"
+      "confirm_action": "Settle everything",
+      "pay_with_wero": "Pay with Wero",
+      "wero_not_installed": "Wero doesn't seem to be installed. Open your banking app and pay {{name}} manually."
     },
     "expense": {
       "add_title": "New Expense",
@@ -208,6 +210,23 @@
       "settle_message": "This expense will be moved to past items.",
       "settle_confirm": "Mark settled",
       "settle_button": "Mark as settled"
+    },
+    "recurring": {
+      "make_recurring_button": "Make recurring",
+      "sheet_title": "Set up recurring",
+      "sheet_subtitle": "Future copies will be added automatically on the chosen schedule.",
+      "period_label": "Repeats",
+      "period_weekly": "Every week",
+      "period_biweekly": "Every 2 weeks",
+      "period_monthly": "Every month",
+      "period_quarterly": "Every 3 months",
+      "start_date_label": "Starting from",
+      "prev_day_label": "Previous day",
+      "next_day_label": "Next day",
+      "confirm_button": "Set up recurring",
+      "success_title": "Done",
+      "success_message": "Recurring expense set up. Future copies will appear automatically.",
+      "error_fallback": "Couldn't set up recurring expense. Please try again."
     }
   },
   "trips": {

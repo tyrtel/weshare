@@ -5,6 +5,7 @@ import type { Split } from '../core/models/Split';
 import type { SplitRequest } from '../core/models/SplitRequest';
 import type { Group } from '../core/models/Group';
 import type { GroupMember } from '../core/models/GroupMember';
+import type { RecurringExpense, RecurringExpenseSplit } from '../core/models/RecurringExpense';
 
 export const TEST_DATE = new Date('2025-06-01T12:00:00Z');
 
@@ -79,6 +80,36 @@ export function splitFactory(overrides: Partial<Split> = {}): Split {
     userId: 'u1',
     amountOwedCents: 3000,
     amountPaidCents: 0,
+    ...overrides,
+  };
+}
+
+export function recurringExpenseSplitFactory(overrides: Partial<RecurringExpenseSplit> = {}): RecurringExpenseSplit {
+  return {
+    id:                 'res-1',
+    recurringExpenseId: 're-1',
+    userId:             'u1',
+    amountOwedCents:    3000,
+    ...overrides,
+  };
+}
+
+export function recurringExpenseFactory(overrides: Partial<RecurringExpense> = {}): RecurringExpense {
+  return {
+    id:               're-1',
+    groupId:          'g1',
+    description:      'Monthly rent',
+    totalAmountCents: 6000,
+    currency:         'EUR',
+    paidByUserId:     'u1',
+    period:           'monthly',
+    startDate:        TEST_DATE,
+    nextDueAt:        new Date('2025-07-01T00:00:00Z'),
+    lastSpawnedAt:    null,
+    pausedAt:         null,
+    createdAt:        TEST_DATE,
+    createdByUserId:  'u1',
+    splits:           [],
     ...overrides,
   };
 }

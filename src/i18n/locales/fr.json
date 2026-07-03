@@ -197,7 +197,9 @@
       "settle_all_error": "Une erreur s'est produite. Certains éléments n'ont peut-être pas été réglés.",
       "confirm_title": "Tout marquer comme réglé ?",
       "confirm_message": "Cela réglera toutes les dépenses du groupe et clôturera tous les voyages actifs. Cette action est irréversible.",
-      "confirm_action": "Tout régler"
+      "confirm_action": "Tout régler",
+      "pay_with_wero": "Payer avec Wero",
+      "wero_not_installed": "Wero ne semble pas installé. Ouvrez votre application bancaire et payez {{name}} manuellement."
     },
     "expense": {
       "add_title": "Nouvelle dépense",
@@ -208,6 +210,23 @@
       "settle_message": "Cette dépense sera déplacée vers les éléments passés.",
       "settle_confirm": "Marquer réglée",
       "settle_button": "Marquer comme réglée"
+    },
+    "recurring": {
+      "make_recurring_button": "Rendre récurrente",
+      "sheet_title": "Configurer la récurrence",
+      "sheet_subtitle": "Des copies futures seront ajoutées automatiquement selon le calendrier choisi.",
+      "period_label": "Se répète",
+      "period_weekly": "Chaque semaine",
+      "period_biweekly": "Toutes les 2 semaines",
+      "period_monthly": "Chaque mois",
+      "period_quarterly": "Tous les 3 mois",
+      "start_date_label": "À partir du",
+      "prev_day_label": "Jour précédent",
+      "next_day_label": "Jour suivant",
+      "confirm_button": "Configurer la récurrence",
+      "success_title": "Terminé",
+      "success_message": "Dépense récurrente configurée. Les copies futures apparaîtront automatiquement.",
+      "error_fallback": "Impossible de configurer la récurrence. Veuillez réessayer."
     }
   },
   "trips": {

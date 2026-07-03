@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Pressable, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
@@ -11,7 +11,9 @@ import { Avatar } from '../../../src/components/ui/Avatar';
 import { Divider } from '../../../src/components/ui/Divider';
 import { Card } from '../../../src/components/ui/Card';
 import { useSettleGroupExpense } from '../../../src/features/groups/hooks/useSettleGroupExpense';
-import { useTripSessionStore } from '../../../src/core/di/ServiceContext';
+import { MakeRecurringSheet } from '../../../src/features/groups/components/MakeRecurringSheet';
+import { useService, useTripSessionStore } from '../../../src/core/di/ServiceContext';
+import { AUTH } from '../../../src/core/di/tokens';
 import { useColors } from '../../../src/theme/colors';
 import { personColors } from '../../../src/theme/colors';
 import { tokens } from '../../../src/theme/tokens';
@@ -27,8 +29,10 @@ export default function GroupExpenseDetailScreen() {
   const { t }                                       = useTranslation();
   const router                                      = useRouter();
   const colors                                      = useColors();
+  const auth                                        = useService(AUTH);
   const { id, groupId }                             = useLocalSearchParams<{ id: string; groupId: string }>();
   const { settleGroupExpense, loading: settling }   = useSettleGroupExpense();
+  const [recurringSheetOpen, setRecurringSheetOpen] = useState(false);
 
   const expense = useTripSessionStore(s =>
     (s.groupExpenses[groupId] ?? []).find(e => e.id === id),
@@ -52,6 +56,8 @@ export default function GroupExpenseDetailScreen() {
   const payer     = memberMap.get(expense.paidByUserId);
   const payerName = payer?.displayName ?? 'Unknown';
 
+  const currentUserId = auth.currentUser()?.id ?? '';
+
   const handleSettle = () => {
     Alert.alert(
       t('groups.expense.settle_title'),
@@ -67,6 +73,11 @@ export default function GroupExpenseDetailScreen() {
         },
       ],
     );
+  };
+
+  const handleRecurringSuccess = () => {
+    setRecurringSheetOpen(false);
+    Alert.alert(t('groups.recurring.success_title'), t('groups.recurring.success_message'));
   };
 
   return (
@@ -156,7 +167,36 @@ export default function GroupExpenseDetailScreen() {
               : <Text variant="label" color="#ffffff">{t('groups.expense.settle_button')}</Text>}
           </Pressable>
         )}
+
+        {/* Make recurring */}
+        <Pressable
+          onPress={() => setRecurringSheetOpen(true)}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: tokens.spacing.xs,
+            marginTop: tokens.spacing.md,
+            paddingVertical: tokens.spacing.sm,
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Ionicons name="repeat-outline" size={16} color={colors.primary.default} />
+          <Text variant="label" color={colors.primary.default}>{t('groups.recurring.make_recurring_button')}</Text>
+        </Pressable>
       </ScrollView>
+
+      {recurringSheetOpen && (
+        <MakeRecurringSheet
+          visible={recurringSheetOpen}
+          expense={expense}
+          groupId={groupId}
+          createdByUserId={currentUserId}
+          onClose={() => setRecurringSheetOpen(false)}
+          onSuccess={handleRecurringSuccess}
+        />
+      )}
     </ScreenWrapper>
   );
 }
