@@ -11,16 +11,26 @@
 -- Postgres also blocks ALTER COLUMN when any policy on ANY table references
 -- the column through a subquery, so split_requests policies are included too.
 
--- Drop trip_members policies that reference user_id directly
+-- Drop every policy on every table whose subquery touches trip_members.user_id.
+-- Postgres blocks ALTER COLUMN when any such policy exists, even on other tables.
+
+-- trips
+DROP POLICY IF EXISTS "trips: members can read" ON public.trips;
+
+-- trip_members (direct column references)
 DROP POLICY IF EXISTS "trip_members: members can read"          ON public.trip_members;
 DROP POLICY IF EXISTS "trip_members: owner or self can insert"  ON public.trip_members;
 DROP POLICY IF EXISTS "trip_members: member can update own row" ON public.trip_members;
 
--- Drop splits policy whose subquery references trip_members.user_id.
+-- expenses
+DROP POLICY IF EXISTS "expenses: members can read"   ON public.expenses;
+DROP POLICY IF EXISTS "expenses: members can insert" ON public.expenses;
+
+-- splits
+DROP POLICY IF EXISTS "splits: members can read"   ON public.splits;
 DROP POLICY IF EXISTS "splits: members can insert" ON public.splits;
 
--- Drop split_requests policies whose subqueries reference trip_members.user_id.
--- Without these drops the ALTER below fails with SQLSTATE 0A000.
+-- split_requests
 DROP POLICY IF EXISTS "members can view trip split requests"   ON public.split_requests;
 DROP POLICY IF EXISTS "members can insert split requests"      ON public.split_requests;
 DROP POLICY IF EXISTS "members can update trip split requests" ON public.split_requests;
@@ -74,7 +84,66 @@ CREATE POLICY "trip_members: member can update own row"
     AND trip_id = trip_id
   );
 
--- Recreate splits policy with ::text cast on the trip_members join
+-- Recreate trips policy with ::text cast
+CREATE POLICY "trips: members can read"
+  ON public.trips FOR SELECT
+  USING (
+    owner_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM public.trip_members tm
+      WHERE tm.trip_id = trips.id AND tm.user_id = auth.uid()::text
+    )
+  );
+
+-- Recreate expenses policies with ::text cast
+CREATE POLICY "expenses: members can read"
+  ON public.expenses FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.trips t
+      WHERE t.id = expenses.trip_id
+        AND (
+          t.owner_id = auth.uid()
+          OR EXISTS (
+            SELECT 1 FROM public.trip_members tm
+            WHERE tm.trip_id = t.id AND tm.user_id = auth.uid()::text
+          )
+        )
+    )
+  );
+
+CREATE POLICY "expenses: members can insert"
+  ON public.expenses FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.trip_members tm
+      WHERE tm.trip_id = expenses.trip_id AND tm.user_id = auth.uid()::text
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.trips t
+      WHERE t.id = expenses.trip_id AND t.owner_id = auth.uid()
+    )
+  );
+
+-- Recreate splits: members can read with ::text cast
+CREATE POLICY "splits: members can read"
+  ON public.splits FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.expenses e
+      JOIN public.trips t ON t.id = e.trip_id
+      WHERE e.id = splits.expense_id
+        AND (
+          t.owner_id = auth.uid()
+          OR EXISTS (
+            SELECT 1 FROM public.trip_members tm
+            WHERE tm.trip_id = t.id AND tm.user_id = auth.uid()::text
+          )
+        )
+    )
+  );
+
+-- Recreate splits: members can insert with ::text cast
 CREATE POLICY "splits: members can insert"
   ON public.splits FOR INSERT
   WITH CHECK (
