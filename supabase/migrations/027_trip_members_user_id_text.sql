@@ -16,6 +16,9 @@ DROP POLICY IF EXISTS "trip_members: members can read"          ON public.trip_m
 DROP POLICY IF EXISTS "trip_members: owner or self can insert"  ON public.trip_members;
 DROP POLICY IF EXISTS "trip_members: member can update own row" ON public.trip_members;
 
+-- Drop splits policy whose subquery references trip_members.user_id.
+DROP POLICY IF EXISTS "splits: members can insert" ON public.splits;
+
 -- Drop split_requests policies whose subqueries reference trip_members.user_id.
 -- Without these drops the ALTER below fails with SQLSTATE 0A000.
 DROP POLICY IF EXISTS "members can view trip split requests"   ON public.split_requests;
@@ -69,6 +72,24 @@ CREATE POLICY "trip_members: member can update own row"
   WITH CHECK (
     user_id  = auth.uid()::text
     AND trip_id = trip_id
+  );
+
+-- Recreate splits policy with ::text cast on the trip_members join
+CREATE POLICY "splits: members can insert"
+  ON public.splits FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.expenses e
+      JOIN public.trips t ON t.id = e.trip_id
+      WHERE e.id = splits.expense_id
+        AND (
+          t.owner_id = auth.uid()
+          OR EXISTS (
+            SELECT 1 FROM public.trip_members tm
+            WHERE tm.trip_id = t.id AND tm.user_id = auth.uid()::text
+          )
+        )
+    )
   );
 
 -- Recreate split_requests policies with ::text cast to match the new column type
