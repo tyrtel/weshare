@@ -167,6 +167,7 @@
       "hide_past": "Masquer les éléments passés",
       "fab_new_trip": "Nouveau voyage",
       "fab_new_expense": "Nouvelle dépense",
+      "fab_new_recurring": "Dépense récurrente",
       "fab_add_member": "Ajouter une personne",
       "empty_active": "Aucun élément actif pour l'instant.",
       "delete_title": "Supprimer le groupe ?",

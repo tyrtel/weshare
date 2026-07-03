@@ -25,12 +25,15 @@ import { useSplitForm } from '../hooks/useSplitForm';
 import type { SplitFormEntry } from '../hooks/useSplitForm';
 import { useCurrencyRate } from '../hooks/useCurrencyRate';
 import { useCreateGroupExpense } from '../../groups/hooks/useCreateGroupExpense';
+import { MakeRecurringSheet } from '../../groups/components/MakeRecurringSheet';
 import { useTripDetail } from '../../trips/hooks/useTripDetail';
-import { useTripSessionStore } from '../../../core/di/ServiceContext';
+import { useTripSessionStore, useService } from '../../../core/di/ServiceContext';
+import { AUTH } from '../../../core/di/tokens';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import { CURRENCIES, currencyLabel, currencySymbol } from '../../../core/constants/currencies';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
+import type { Expense } from '../../../core/models/Expense';
 import type { ParsedReceiptLineItem } from '../../../core/models/ParsedReceipt';
 import type { SplitResult } from '../utils/splitCalculations';
 import type { TripMember } from '../../../core/models/TripMember';
@@ -82,12 +85,17 @@ function groupMembersAsTripMembers(members: GroupMember[]): TripMember[] {
 
 export function ExpenseFormScreen() {
   const { t } = useTranslation();
-  const { tripId, id: expenseId, groupId } = useLocalSearchParams<{ tripId?: string; id?: string; groupId?: string }>();
+  const { tripId, id: expenseId, groupId, recurring } = useLocalSearchParams<{ tripId?: string; id?: string; groupId?: string; recurring?: string }>();
   const router  = useRouter();
   const colors  = useColors();
+  const auth    = useService(AUTH);
 
-  const isGroupMode = !!groupId && !tripId && !expenseId;
-  const mode        = expenseId ? 'edit' : 'add';
+  const isGroupMode    = !!groupId && !tripId && !expenseId;
+  const isRecurring    = isGroupMode && recurring === 'true';
+  const mode           = expenseId ? 'edit' : 'add';
+
+  const [recurringSheetOpen,  setRecurringSheetOpen]  = useState(false);
+  const [savedForRecurring,   setSavedForRecurring]   = useState<Expense | null>(null);
 
   // ── Data loading ─────────────────────────────────────────────────────────────
 
@@ -243,6 +251,11 @@ export function ExpenseFormScreen() {
     let saved = null;
     if (isGroupMode) {
       saved = await createGroupExpense(input);
+      if (saved && isRecurring) {
+        setSavedForRecurring(saved);
+        setRecurringSheetOpen(true);
+        return;
+      }
     } else if (mode === 'add') {
       saved = await addExpense(input);
     } else if (expense) {
@@ -559,6 +572,27 @@ export function ExpenseFormScreen() {
         >
           {formBody}
         </ClosedTripGuard>
+      )}
+
+      {/* Recurring setup sheet — shown after expense creation when launched from recurring FAB */}
+      {isRecurring && recurringSheetOpen && savedForRecurring && (
+        <MakeRecurringSheet
+          visible={recurringSheetOpen}
+          expense={savedForRecurring}
+          groupId={groupId!}
+          createdByUserId={auth.currentUser()?.id ?? ''}
+          onClose={() => {
+            setRecurringSheetOpen(false);
+            if (router.canGoBack()) router.back();
+            else router.replace('/(tabs)');
+          }}
+          onSuccess={() => {
+            setRecurringSheetOpen(false);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            if (router.canGoBack()) router.back();
+            else router.replace('/(tabs)');
+          }}
+        />
       )}
 
       {/* Currency dropdown overlay */}

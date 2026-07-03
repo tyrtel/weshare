@@ -7,11 +7,20 @@
 --
 -- All policies that compare user_id against auth.uid() (which returns uuid)
 -- are dropped and recreated with an explicit ::text cast so the types match.
+--
+-- Postgres also blocks ALTER COLUMN when any policy on ANY table references
+-- the column through a subquery, so split_requests policies are included too.
 
--- Drop policies that reference user_id without a cast
+-- Drop trip_members policies that reference user_id directly
 DROP POLICY IF EXISTS "trip_members: members can read"          ON public.trip_members;
 DROP POLICY IF EXISTS "trip_members: owner or self can insert"  ON public.trip_members;
 DROP POLICY IF EXISTS "trip_members: member can update own row" ON public.trip_members;
+
+-- Drop split_requests policies whose subqueries reference trip_members.user_id.
+-- Without these drops the ALTER below fails with SQLSTATE 0A000.
+DROP POLICY IF EXISTS "members can view trip split requests"   ON public.split_requests;
+DROP POLICY IF EXISTS "members can insert split requests"      ON public.split_requests;
+DROP POLICY IF EXISTS "members can update trip split requests" ON public.split_requests;
 
 -- Change the column (existing UUID values round-trip perfectly through ::text)
 ALTER TABLE public.trip_members
@@ -32,7 +41,7 @@ AS $$
   );
 $$;
 
--- Recreate policies with explicit ::text cast on auth.uid()
+-- Recreate trip_members policies with explicit ::text cast on auth.uid()
 CREATE POLICY "trip_members: members can read"
   ON public.trip_members FOR SELECT
   USING (
@@ -60,4 +69,40 @@ CREATE POLICY "trip_members: member can update own row"
   WITH CHECK (
     user_id  = auth.uid()::text
     AND trip_id = trip_id
+  );
+
+-- Recreate split_requests policies with ::text cast to match the new column type
+CREATE POLICY "members can view trip split requests"
+  ON public.split_requests FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.trip_members
+      WHERE trip_members.trip_id = split_requests.trip_id
+        AND trip_members.user_id = auth.uid()::text
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.trips
+      WHERE trips.id = split_requests.trip_id
+        AND trips.owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "members can insert split requests"
+  ON public.split_requests FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.trip_members
+      WHERE trip_members.trip_id = split_requests.trip_id
+        AND trip_members.user_id = auth.uid()::text
+    )
+  );
+
+CREATE POLICY "members can update trip split requests"
+  ON public.split_requests FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.trip_members
+      WHERE trip_members.trip_id = split_requests.trip_id
+        AND trip_members.user_id = auth.uid()::text
+    )
   );

@@ -62,24 +62,27 @@ export default function GroupDetailScreen() {
 
   const fabRotation = useSharedValue(0);
   // One progress value per FAB item (0 = hidden, 1 = visible).
-  // Ordered top-to-bottom in the UI: trip (0), expense (1), add-member (2).
+  // Ordered top-to-bottom in the UI: trip (0), expense (1), recurring (2), add-member (3).
   // On open: slide up bottom-first; on close: collapse top-first.
   const item0 = useSharedValue(0);
   const item1 = useSharedValue(0);
   const item2 = useSharedValue(0);
+  const item3 = useSharedValue(0);
 
   useEffect(() => {
     fabRotation.value = withSpring(fabOpen ? 45 : 0, { damping: 15, stiffness: 200 });
     if (fabOpen) {
-      item2.value = withSpring(1, FAB_SPRING);
-      item1.value = withDelay(55, withSpring(1, FAB_SPRING));
-      item0.value = withDelay(110, withSpring(1, FAB_SPRING));
+      item3.value = withSpring(1, FAB_SPRING);
+      item2.value = withDelay(55, withSpring(1, FAB_SPRING));
+      item1.value = withDelay(110, withSpring(1, FAB_SPRING));
+      item0.value = withDelay(165, withSpring(1, FAB_SPRING));
     } else {
       item0.value = withSpring(0, FAB_SPRING);
       item1.value = withDelay(55, withSpring(0, FAB_SPRING));
       item2.value = withDelay(110, withSpring(0, FAB_SPRING));
+      item3.value = withDelay(165, withSpring(0, FAB_SPRING));
     }
-  }, [fabOpen, fabRotation, item0, item1, item2]);
+  }, [fabOpen, fabRotation, item0, item1, item2, item3]);
 
   const fabIconStyle  = useAnimatedStyle(() => ({ transform: [{ rotate: `${fabRotation.value}deg` }] }));
   const fabItem0Style = useAnimatedStyle(() => ({
@@ -94,6 +97,10 @@ export default function GroupDetailScreen() {
     opacity:   item2.value,
     transform: [{ translateY: interpolate(item2.value, [0, 1], [20, 0]) }],
   }));
+  const fabItem3Style = useAnimatedStyle(() => ({
+    opacity:   item3.value,
+    transform: [{ translateY: interpolate(item3.value, [0, 1], [20, 0]) }],
+  }));
 
   if (!group) return null;
 
@@ -107,6 +114,11 @@ export default function GroupDetailScreen() {
   const handleNewExpense = () => {
     setFabOpen(false);
     router.push(`/group/expense/add?groupId=${group.id}` as Parameters<typeof router.push>[0]);
+  };
+
+  const handleNewRecurringExpense = () => {
+    setFabOpen(false);
+    router.push(`/group/expense/add?groupId=${group.id}&recurring=true` as Parameters<typeof router.push>[0]);
   };
 
   const handleAddMember = () => {
@@ -320,8 +332,26 @@ export default function GroupDetailScreen() {
             </Pressable>
           </Animated.View>
 
-          {/* Item 2 — Add Member (bottom, appears first) */}
+          {/* Item 2 — Recurring Expense */}
           <Animated.View style={fabItem2Style} pointerEvents={fabOpen ? 'auto' : 'none'}>
+            <Pressable
+              onPress={handleNewRecurringExpense}
+              accessibilityRole="button"
+              accessibilityLabel={t('groups.detail.fab_new_recurring')}
+              style={({ pressed }) => ({
+                flexDirection: 'row', alignItems: 'center',
+                backgroundColor: colors.surface, borderRadius: tokens.radius.pill,
+                paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm,
+                ...tokens.shadow.md, opacity: pressed ? 0.8 : 1, gap: tokens.spacing.xs,
+              })}
+            >
+              <Ionicons name="repeat-outline" size={18} color={colors.primary.default} />
+              <Text variant="label" color={colors.primary.default}>{t('groups.detail.fab_new_recurring')}</Text>
+            </Pressable>
+          </Animated.View>
+
+          {/* Item 3 — Add Member (bottom, appears first) */}
+          <Animated.View style={fabItem3Style} pointerEvents={fabOpen ? 'auto' : 'none'}>
             <Pressable
               onPress={handleAddMember}
               accessibilityRole="button"

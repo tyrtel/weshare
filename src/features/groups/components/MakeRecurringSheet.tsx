@@ -27,15 +27,13 @@ const PERIODS: { key: RecurrencePeriod; labelKey: string }[] = [
   { key: 'quarterly', labelKey: 'groups.recurring.period_quarterly' },
 ];
 
-function todayMidnightLocal(): Date {
+function todayMidnightUTC(): Date {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
 function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
 export function MakeRecurringSheet({
@@ -48,7 +46,7 @@ export function MakeRecurringSheet({
 }: MakeRecurringSheetProps) {
   const { t }    = useTranslation();
   const colors   = useColors();
-  const today    = todayMidnightLocal();
+  const today    = todayMidnightUTC();
 
   const [period,    setPeriod]    = useState<RecurrencePeriod>('monthly');
   const [startDate, setStartDate] = useState<Date>(today);
