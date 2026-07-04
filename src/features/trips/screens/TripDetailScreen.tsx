@@ -1,21 +1,27 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, FlatList, Pressable, RefreshControl } from 'react-native';
+import { View, FlatList, Pressable, RefreshControl, StyleSheet, Share } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
 import { TripDetailSkeleton } from '../../../components/skeletons/TripDetailSkeleton';
 import { Text } from '../../../components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { ExpenseRow } from '../components/ExpenseRow';
 import { TripFAB } from '../components/TripFAB';
 import { TripListHeader } from '../components/TripListHeader';
+import { LedgerBars } from '../../../components/ui/LedgerBars';
 import { useTripDetail } from '../hooks/useTripDetail';
 import { useService } from '../../../core/di/ServiceContext';
-import { TRIP_STORE } from '../../../core/di/tokens';
+import { TRIP_STORE, AUTH } from '../../../core/di/tokens';
 import { confirm } from '../../../core/utils/confirm';
-import { useColors } from '../../../theme/colors';
-import { tokens } from '../../../theme/tokens';
+import { useColors, ledgerColors } from '../../../theme/colors';
+import { tokens, ledgerRadius, ledgerShadow } from '../../../theme/tokens';
+import { useActiveTheme } from '../../../core/ThemeContext';
+import { formatCurrency } from '../../../core/utils/formatCurrency';
+import { computeMemberNetBalances } from '../../../core/logic/settlement';
 import type { Expense } from '../../../core/models/Expense';
 
 function PlateIllustration() {
@@ -78,6 +84,9 @@ export function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
   const colors  = useColors();
+  const activeTheme = useActiveTheme();
+  const isLedger = activeTheme === 'ledger';
+  const auth = useService(AUTH);
   const { trip, expenses, loading, error, refetch } = useTripDetail(id);
   const [refreshing,       setRefreshing]       = useState(false);
   const [showAllExpenses,  setShowAllExpenses]  = useState(false);
@@ -128,6 +137,171 @@ export function TripDetailScreen() {
             {error?.kind === 'NotFoundError' ? t('trips.detail.error_not_found') : t('trips.detail.error_load')}
           </Text>
         </View>
+      </ScreenWrapper>
+    );
+  }
+
+  if (isLedger && trip) {
+    const total = expenses.reduce((s, e) => s + e.amountCents, 0);
+    const perHead = trip.members.length > 0 ? Math.round(total / trip.members.length) : 0;
+
+    const memberBalancesList = computeMemberNetBalances(trip.members, expenses);
+    const currentUserId = auth.currentUser()?.id ?? '';
+    const myBalance = memberBalancesList.find(b => b.userId === currentUserId)?.balanceCents ?? 0;
+
+    const balancesRecord = Object.fromEntries(memberBalancesList.map(b => [b.userId, b.balanceCents]));
+    const membersForBars = trip.members.map(m => ({
+      userId: m.userId,
+      displayName: m.displayName,
+      avatarUrl: m.avatarUrl,
+    }));
+
+    const handleInvite = () => Share.share({ message: `Join "${trip.name}" on WeShare` });
+
+    return (
+      <ScreenWrapper>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.background }}>
+          {/* Title row */}
+          <View style={tripStyles.titleRow}>
+            <Pressable onPress={() => router.back()} hitSlop={10}>
+              <Feather name="chevron-left" size={26} color={ledgerColors.text.primary} />
+            </Pressable>
+            <View style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={tripStyles.title} numberOfLines={1}>
+                {trip.emoji ?? '✈️'}{'  '}{trip.name}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => router.push(`/trip/edit?id=${trip.id}` as Parameters<typeof router.push>[0])}
+              hitSlop={10}
+            >
+              <Feather name="edit-2" size={18} color={ledgerColors.text.secondary} />
+            </Pressable>
+          </View>
+        </SafeAreaView>
+
+        <FlatList
+          data={visibleExpenses}
+          keyExtractor={item => item.id}
+          renderItem={({ item, index }) => (
+            <Pressable
+              key={item.id}
+              onPress={() => handleExpensePress(item)}
+              style={({ pressed }) => [tripStyles.expenseRow, { opacity: pressed ? 0.8 : 1 }]}
+            >
+              <View style={tripStyles.iconTile}>
+                <Feather name="file-text" size={16} color={ledgerColors.primary.default} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={tripStyles.expTitle} numberOfLines={1}>{item.description}</Text>
+                <Text style={tripStyles.expMeta}>
+                  {trip.members.find(m => m.userId === item.paidByUserId)?.displayName ?? 'Unknown'} paid · {item.splitMode ?? 'equal'}
+                </Text>
+              </View>
+              <Text style={tripStyles.expAmount}>
+                {formatCurrency(item.amountCents, trip.currency)}
+              </Text>
+            </Pressable>
+          )}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 80 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={ledgerColors.primary.default}
+              colors={[ledgerColors.primary.default]}
+            />
+          }
+          ListHeaderComponent={
+            <View style={{ backgroundColor: ledgerColors.background }}>
+              {/* Stat strip card */}
+              <View style={[tripStyles.card, { marginBottom: 20, marginTop: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={tripStyles.stat}>
+                    <Text style={tripStyles.statLabel}>TRIP TOTAL</Text>
+                    <Text style={tripStyles.statValue}>{formatCurrency(total, trip.currency)}</Text>
+                  </View>
+                  <View style={tripStyles.statDivider} />
+                  <View style={tripStyles.stat}>
+                    <Text style={tripStyles.statLabel}>PER PERSON</Text>
+                    <Text style={tripStyles.statValue}>{formatCurrency(perHead, trip.currency)}</Text>
+                  </View>
+                  <View style={tripStyles.statDivider} />
+                  <View style={tripStyles.stat}>
+                    <Text style={tripStyles.statLabel}>YOUR NET</Text>
+                    <Text style={[tripStyles.statValue, {
+                      color: myBalance >= 0 ? ledgerColors.success.default : ledgerColors.error.default,
+                    }]}>
+                      {myBalance >= 0 ? '+' : '−'}{formatCurrency(Math.abs(myBalance), trip.currency)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={tripStyles.hairline} />
+                <LedgerBars balances={balancesRecord} members={membersForBars} />
+                {trip.status !== 'closed' && expenses.length > 0 && (
+                  <Pressable
+                    onPress={handleSettleUp}
+                    style={({ pressed }) => [tripStyles.settleBtn, { opacity: pressed ? 0.85 : 1, marginTop: 12 }]}
+                  >
+                    <Feather name="check-circle" size={16} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Settle trip</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {/* Participants row */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+                {trip.members.map((m, i) => (
+                  <View key={m.userId} style={{ alignItems: 'center', gap: 4 }}>
+                    <View style={{
+                      width: 44, height: 44, borderRadius: 22,
+                      backgroundColor: ledgerColors.primary.subtle,
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Text style={{ fontSize: 18, fontWeight: '600', color: ledgerColors.primary.default }}>
+                        {m.displayName.trim().charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, fontWeight: '500', color: ledgerColors.text.primary }}>
+                      {m.displayName.split(' ')[0]}
+                    </Text>
+                  </View>
+                ))}
+                <Pressable onPress={handleInvite} style={{ alignItems: 'center', gap: 4 }}>
+                  <View style={tripStyles.inviteCircle}>
+                    <Feather name="user-plus" size={18} color={ledgerColors.primary.default} />
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: '500', color: ledgerColors.primary.default }}>Invite</Text>
+                </Pressable>
+              </View>
+
+              {/* Expenses section header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+                <Text style={tripStyles.sectionTitle}>Expenses</Text>
+                {trip.status !== 'closed' && (
+                  <Pressable onPress={handleAddExpense} hitSlop={8}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>Add</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Text style={{ color: ledgerColors.text.tertiary, fontSize: 13 }}>No expenses yet</Text>
+            </View>
+          }
+        />
+
+        {trip.status !== 'closed' && (
+          <TripFAB
+            isExtended={expenses.length === 0}
+            onAddExpense={handleAddExpense}
+            onAddPeople={() => router.push(`/add-participant?tripId=${trip.id}`)}
+          />
+        )}
       </ScreenWrapper>
     );
   }
@@ -206,3 +380,42 @@ export function TripDetailScreen() {
     </ScreenWrapper>
   );
 }
+
+const tripStyles = StyleSheet.create({
+  titleRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 12,
+  },
+  title: { fontSize: 20, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3 },
+  card: {
+    backgroundColor: ledgerColors.surface,
+    borderRadius: ledgerRadius.card,
+    padding: 16,
+    ...ledgerShadow.card,
+  },
+  stat: { flex: 1, alignItems: 'center', gap: 4 },
+  statLabel: { fontSize: 10, fontWeight: '600', color: ledgerColors.text.secondary, textTransform: 'uppercase', letterSpacing: 0.6 },
+  statValue: { fontSize: 20, fontWeight: '700', color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
+  statDivider: { width: 1, height: 34, backgroundColor: ledgerColors.border },
+  hairline: { height: 1, backgroundColor: ledgerColors.border, marginVertical: 12 },
+  settleBtn: {
+    flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 13, borderRadius: ledgerRadius.md,
+    backgroundColor: ledgerColors.primary.default,
+  },
+  inviteCircle: {
+    width: 44, height: 44, borderRadius: 22,
+    borderWidth: 1.5, borderStyle: 'dashed', borderColor: ledgerColors.primary.default,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: ledgerColors.primary.subtle,
+  },
+  expenseRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  iconTile: {
+    width: 36, height: 36, borderRadius: ledgerRadius.sm,
+    backgroundColor: ledgerColors.primary.subtle, alignItems: 'center', justifyContent: 'center',
+  },
+  expTitle: { fontSize: 14.5, fontWeight: '500', color: ledgerColors.text.primary },
+  expMeta: { fontSize: 12, color: ledgerColors.text.secondary, marginTop: 2 },
+  expAmount: { fontSize: 15, fontWeight: '500', color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3 },
+});
