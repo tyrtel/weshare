@@ -14,6 +14,7 @@ import { UniversalTabBar } from '../src/components/ui/UniversalTabBar';
 import * as Sentry from '@sentry/react-native';
 import { useTranslation } from 'react-i18next';
 import { darkColors } from '../src/theme/colors';
+import { ThemeProvider } from '../src/core/ThemeContext';
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -201,6 +202,7 @@ export default Sentry.wrap(function RootLayout() {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
       <SafeAreaProvider>
         <ServiceProvider>
           <AuthGate>
@@ -244,6 +246,7 @@ export default Sentry.wrap(function RootLayout() {
           </AuthGate>
         </ServiceProvider>
       </SafeAreaProvider>
+      </ThemeProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

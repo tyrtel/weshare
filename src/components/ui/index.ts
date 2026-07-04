@@ -6,3 +6,7 @@ export { Badge } from './Badge';
 export { Divider } from './Divider';
 export { ScreenWrapper } from './ScreenWrapper';
 export { ReceiptCameraButton } from './ReceiptCameraButton';
+export { LedgerBars } from './LedgerBars';
+export { BalancePill } from './BalancePill';
+export { Segmented } from './Segmented';
+export { ActivityDot } from './ActivityDot';
