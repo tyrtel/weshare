@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Pressable, Platform } from 'react-native';
+import { View, ScrollView, Pressable, Platform, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { ZoomIn, FadeIn, useSharedValue, useAnimatedStyle, withSpring, withDelay, interpolate } from 'react-native-reanimated';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenWrapper } from '../../src/components/ui/ScreenWrapper';
 import { TAB_BAR_HEIGHT } from '../../src/components/ui/UniversalTabBar';
 import { Text } from '../../src/components/ui/Text';
@@ -12,9 +13,10 @@ import { TripCard } from '../../src/features/trips/components/TripCard';
 import { GroupExpenseCard } from '../../src/features/groups/components/GroupExpenseCard';
 import { useGroupDetail } from '../../src/features/groups/hooks/useGroupDetail';
 import { useTripSessionStore } from '../../src/core/di/ServiceContext';
-import { useColors } from '../../src/theme/colors';
-import { personColors } from '../../src/theme/colors';
-import { tokens } from '../../src/theme/tokens';
+import { useActiveTheme } from '../../src/core/ThemeContext';
+import { useColors, personColors, ledgerColors } from '../../src/theme/colors';
+import { tokens, ledgerRadius, ledgerShadow } from '../../src/theme/tokens';
+import { LedgerBars } from '../../src/components/ui/LedgerBars';
 import { formatCurrency } from '../../src/core/utils/formatCurrency';
 import type { Trip } from '../../src/core/models/Trip';
 import type { Expense } from '../../src/core/models/Expense';
@@ -138,6 +140,258 @@ export default function GroupDetailScreen() {
   const maxVisible = 5;
   const visible    = group.members.slice(0, maxVisible);
   const overflow   = group.members.length - visible.length;
+
+  const activeTheme = useActiveTheme();
+  const isLedger = activeTheme === 'ledger';
+
+  if (isLedger) {
+    const balancesRecord = Object.fromEntries(memberBalances.map(b => [b.userId, b.balanceCents]));
+    const membersForBars = group.members.map(m => ({
+      userId: m.userId,
+      displayName: m.displayName,
+      avatarUrl: m.avatarUrl,
+    }));
+
+    return (
+      <View style={{ flex: 1, backgroundColor: ledgerColors.background }}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.background }}>
+          {/* Title row */}
+          <View style={lgStyles.titleRow}>
+            <Pressable onPress={() => router.back()} hitSlop={10}>
+              <Feather name="chevron-left" size={26} color={ledgerColors.text.primary} />
+            </Pressable>
+            <Text style={lgStyles.title} numberOfLines={1}>
+              {group.emoji ?? '👥'}{'  '}{group.name}
+            </Text>
+            <Pressable
+              onPress={() => router.push(`/group/edit?id=${group.id}` as Parameters<typeof router.push>[0])}
+              hitSlop={10}
+            >
+              <Feather name="settings" size={20} color={ledgerColors.text.secondary} />
+            </Pressable>
+          </View>
+        </SafeAreaView>
+
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 80 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Balances card */}
+          <View style={lgStyles.card}>
+            <Text style={lgStyles.cardLabel}>BALANCES</Text>
+            {memberBalances.some(b => b.balanceCents !== 0) ? (
+              <LedgerBars balances={balancesRecord} members={membersForBars} />
+            ) : (
+              <Text style={{ color: ledgerColors.text.tertiary, fontSize: 13, paddingVertical: 8 }}>
+                All settled
+              </Text>
+            )}
+            <View style={lgStyles.hairline} />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {settlements.length > 0 && (
+                <Pressable
+                  onPress={() => router.push(`/group/settle/${group.id}` as Parameters<typeof router.push>[0])}
+                  style={({ pressed }) => [lgStyles.primaryBtn, { opacity: pressed ? 0.85 : 1 }]}
+                >
+                  <Feather name="check-circle" size={16} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Settle up</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          {/* Active trips */}
+          {activeTrips.length > 0 && (
+            <>
+              <View style={lgStyles.sectionRow}>
+                <Text style={lgStyles.sectionTitle}>Trips</Text>
+                <Pressable onPress={handleNewTrip} hitSlop={8}>
+                  <Text style={lgStyles.sectionAction}>New trip</Text>
+                </Pressable>
+              </View>
+              {activeTrips.map(trip => (
+                <Pressable
+                  key={trip.id}
+                  onPress={() => handleTripPress(trip)}
+                  style={({ pressed }) => [lgStyles.card, { opacity: pressed ? 0.85 : 1, marginBottom: 12 }]}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={lgStyles.expTitle}>{trip.emoji ?? '✈️'}{'  '}{trip.name}</Text>
+                    <Feather name="chevron-right" size={18} color={ledgerColors.text.tertiary} />
+                  </View>
+                </Pressable>
+              ))}
+            </>
+          )}
+
+          {/* Active expenses */}
+          {activeGroupExpenses.length > 0 && (
+            <>
+              <View style={lgStyles.sectionRow}>
+                <Text style={lgStyles.sectionTitle}>Expenses</Text>
+                <Pressable onPress={handleNewExpense} hitSlop={8}>
+                  <Text style={lgStyles.sectionAction}>Add</Text>
+                </Pressable>
+              </View>
+              <View style={lgStyles.card}>
+                {activeGroupExpenses.map((expense, i) => {
+                  const payer = group.members.find(m => m.userId === expense.paidByUserId);
+                  return (
+                    <View key={expense.id}>
+                      {i > 0 && <View style={lgStyles.rowDivider} />}
+                      <Pressable
+                        style={lgStyles.expenseRow}
+                        onPress={() => handleExpensePress(expense)}
+                      >
+                        <View style={lgStyles.iconTile}>
+                          <Feather name="file-text" size={16} color={ledgerColors.primary.default} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={lgStyles.expTitle} numberOfLines={1}>{expense.description}</Text>
+                          <Text style={lgStyles.expMeta}>
+                            {payer ? payer.displayName : 'Unknown'} paid
+                          </Text>
+                        </View>
+                        <Text style={lgStyles.expAmount}>
+                          {formatCurrency(expense.amountCents, group.currency)}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          {/* Members section */}
+          <View style={lgStyles.sectionRow}>
+            <Text style={lgStyles.sectionTitle}>Members</Text>
+            <Pressable onPress={handleAddMember} hitSlop={8}>
+              <Text style={lgStyles.sectionAction}>Invite</Text>
+            </Pressable>
+          </View>
+          <View style={[lgStyles.card, { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }]}>
+            {group.members.map((member, i) => {
+              const pc = personColors[i % personColors.length];
+              return (
+                <View key={member.userId} style={lgStyles.memberChip}>
+                  <Avatar
+                    initials={member.displayName.trim().charAt(0).toUpperCase()}
+                    bg={pc.text}
+                    size="sm"
+                    url={member.avatarUrl}
+                  />
+                  <Text style={lgStyles.memberName} numberOfLines={1}>{member.displayName}</Text>
+                </View>
+              );
+            })}
+            <Pressable
+              style={[lgStyles.memberChip, { backgroundColor: ledgerColors.primary.subtle }]}
+              onPress={handleAddMember}
+            >
+              <Feather name="link" size={15} color={ledgerColors.primary.default} />
+              <Text style={[lgStyles.memberName, { color: ledgerColors.primary.default }]}>Invite link</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+
+        {/* FAB speed-dial */}
+        <View style={{ position: 'absolute', bottom: tokens.spacing.xl, right: tokens.spacing.md, alignItems: 'flex-end', zIndex: 20 }}>
+          <View style={{ marginBottom: tokens.spacing.sm, alignItems: 'flex-end', gap: tokens.spacing.sm }}>
+            {/* Item 0 — New Trip (top, appears last) */}
+            <Animated.View style={fabItem0Style} pointerEvents={fabOpen ? 'auto' : 'none'}>
+              <Pressable
+                onPress={handleNewTrip}
+                accessibilityRole="button"
+                accessibilityLabel={t('groups.detail.fab_new_trip')}
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center',
+                  backgroundColor: colors.surface, borderRadius: tokens.radius.pill,
+                  paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm,
+                  ...tokens.shadow.md, opacity: pressed ? 0.8 : 1, gap: tokens.spacing.xs,
+                })}
+              >
+                <Ionicons name="airplane-outline" size={18} color={colors.primary.default} />
+                <Text variant="label" color={colors.primary.default}>{t('groups.detail.fab_new_trip')}</Text>
+              </Pressable>
+            </Animated.View>
+
+            {/* Item 1 — New Expense */}
+            <Animated.View style={fabItem1Style} pointerEvents={fabOpen ? 'auto' : 'none'}>
+              <Pressable
+                onPress={handleNewExpense}
+                accessibilityRole="button"
+                accessibilityLabel={t('groups.detail.fab_new_expense')}
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center',
+                  backgroundColor: colors.surface, borderRadius: tokens.radius.pill,
+                  paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm,
+                  ...tokens.shadow.md, opacity: pressed ? 0.8 : 1, gap: tokens.spacing.xs,
+                })}
+              >
+                <Ionicons name="receipt-outline" size={18} color={colors.primary.default} />
+                <Text variant="label" color={colors.primary.default}>{t('groups.detail.fab_new_expense')}</Text>
+              </Pressable>
+            </Animated.View>
+
+            {/* Item 2 — Recurring Expense */}
+            <Animated.View style={fabItem2Style} pointerEvents={fabOpen ? 'auto' : 'none'}>
+              <Pressable
+                onPress={handleNewRecurringExpense}
+                accessibilityRole="button"
+                accessibilityLabel={t('groups.detail.fab_new_recurring')}
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center',
+                  backgroundColor: colors.surface, borderRadius: tokens.radius.pill,
+                  paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm,
+                  ...tokens.shadow.md, opacity: pressed ? 0.8 : 1, gap: tokens.spacing.xs,
+                })}
+              >
+                <Ionicons name="repeat-outline" size={18} color={colors.primary.default} />
+                <Text variant="label" color={colors.primary.default}>{t('groups.detail.fab_new_recurring')}</Text>
+              </Pressable>
+            </Animated.View>
+
+            {/* Item 3 — Add Member (bottom, appears first) */}
+            <Animated.View style={fabItem3Style} pointerEvents={fabOpen ? 'auto' : 'none'}>
+              <Pressable
+                onPress={handleAddMember}
+                accessibilityRole="button"
+                accessibilityLabel={t('groups.detail.fab_add_member')}
+                style={({ pressed }) => ({
+                  flexDirection: 'row', alignItems: 'center',
+                  backgroundColor: colors.surface, borderRadius: tokens.radius.pill,
+                  paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm,
+                  ...tokens.shadow.md, opacity: pressed ? 0.8 : 1, gap: tokens.spacing.xs,
+                })}
+              >
+                <Ionicons name="person-add-outline" size={18} color={colors.primary.default} />
+                <Text variant="label" color={colors.primary.default}>{t('groups.detail.fab_add_member')}</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          <Animated.View entering={Platform.OS !== 'web' ? ZoomIn.delay(200).duration(300).springify() : undefined}>
+            <Pressable
+              onPress={() => setFabOpen(o => !o)}
+              accessibilityRole="button"
+              accessibilityLabel="Open actions"
+              style={({ pressed }) => ({
+                width: FAB_SIZE, height: FAB_SIZE, borderRadius: FAB_SIZE / 2,
+                backgroundColor: colors.primary.default,
+                alignItems: 'center', justifyContent: 'center',
+                opacity: pressed ? 0.8 : 1, ...tokens.shadow.lg,
+              })}
+            >
+              <Animated.View style={fabIconStyle}>
+                <Ionicons name="add" size={24} color="#ffffff" />
+              </Animated.View>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <ScreenWrapper>
@@ -390,3 +644,50 @@ export default function GroupDetailScreen() {
     </ScreenWrapper>
   );
 }
+
+const lgStyles = StyleSheet.create({
+  titleRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 12,
+  },
+  title: { fontSize: 20, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3, flex: 1, textAlign: 'center' },
+  card: {
+    backgroundColor: ledgerColors.surface,
+    borderRadius: ledgerRadius.card,
+    padding: 16,
+    marginBottom: 0,
+    ...ledgerShadow.card,
+  },
+  cardLabel: {
+    fontSize: 12, fontWeight: '600', color: ledgerColors.text.secondary,
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8,
+  },
+  hairline: { height: 1, backgroundColor: ledgerColors.border, marginVertical: 12 },
+  primaryBtn: {
+    flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 13, borderRadius: ledgerRadius.md,
+    backgroundColor: ledgerColors.primary.default,
+  },
+  sectionRow: {
+    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
+    marginTop: 24, marginBottom: 12,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3 },
+  sectionAction: { fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default },
+  expenseRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  rowDivider: { height: 1, backgroundColor: ledgerColors.border, marginLeft: 48 },
+  iconTile: {
+    width: 36, height: 36, borderRadius: ledgerRadius.sm,
+    backgroundColor: ledgerColors.primary.subtle,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  expTitle: { fontSize: 14.5, fontWeight: '500', color: ledgerColors.text.primary },
+  expMeta: { fontSize: 12, color: ledgerColors.text.secondary, marginTop: 2 },
+  expAmount: { fontSize: 15, fontWeight: '500', color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
+  memberChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: ledgerColors.background, borderRadius: ledgerRadius.pill,
+    paddingVertical: 6, paddingLeft: 6, paddingRight: 14,
+  },
+  memberName: { fontSize: 13, fontWeight: '500', color: ledgerColors.text.primary },
+});

@@ -39,6 +39,12 @@ import type { SplitResult } from '../utils/splitCalculations';
 import type { TripMember } from '../../../core/models/TripMember';
 import type { GroupMember } from '../../../core/models/GroupMember';
 import { useTranslation } from 'react-i18next';
+import { useActiveTheme } from '../../../core/ThemeContext';
+import { Feather } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ledgerColors } from '../../../theme/colors';
+import { ledgerRadius, ledgerShadow } from '../../../theme/tokens';
+import { Segmented } from '../../../components/ui/Segmented';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -141,6 +147,7 @@ export function ExpenseFormScreen() {
   const [dirty,               setDirty]               = useState(false);
   const [receiptPath,         setReceiptPath]         = useState<string | undefined>(undefined);
   const [splitExpanded,       setSplitExpanded]       = useState(mode === 'edit');
+  const [rawAmount,           setRawAmount]           = useState('');
 
   // Render-phase initialisation — fires once when the necessary data arrives.
   if (!initialised) {
@@ -282,6 +289,12 @@ export function ExpenseFormScreen() {
     fontSize:        tokens.fontSize.md,
   } as const;
 
+  // ── Theme ─────────────────────────────────────────────────────────────────────
+
+  const activeTheme = useActiveTheme();
+  const isLedger = activeTheme === 'ledger';
+  const expenseCurrency = entryCurrency || contextCurrency;
+
   // ── Loading state ────────────────────────────────────────────────────────────
 
   const isLoading = isGroupMode
@@ -300,6 +313,314 @@ export function ExpenseFormScreen() {
           <ActivityIndicator size="large" color={colors.primary.default} />
         </View>
       </ScreenWrapper>
+    );
+  }
+
+  // ── Ledger layout ─────────────────────────────────────────────────────────────
+
+  if (isLedger) {
+    return (
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: ledgerColors.background }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.background }}>
+          <View style={addStyles.titleRow}>
+            <Pressable onPress={() => router.back()} hitSlop={10}>
+              <Feather name="x" size={24} color={ledgerColors.text.primary} />
+            </Pressable>
+            <Text style={addStyles.screenTitle}>Expense</Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </SafeAreaView>
+
+        <ScrollView
+          contentContainerStyle={{ padding: 20, paddingBottom: 80 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Amount + title card */}
+          <View style={addStyles.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
+              <Text style={addStyles.currency}>{currencySymbol(expenseCurrency)}</Text>
+              <TextInput
+                style={addStyles.amountInput}
+                value={rawAmount}
+                onChangeText={v => {
+                  setRawAmount(v);
+                  setTotalAmountCents(Math.round((parseFloat(v) || 0) * 100));
+                }}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={ledgerColors.text.tertiary}
+              />
+            </View>
+            <TextInput
+              style={addStyles.titleInput}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="What was it for?"
+              placeholderTextColor={ledgerColors.text.tertiary}
+            />
+          </View>
+
+          {/* Paid by */}
+          <Text style={addStyles.fieldLabel}>Paid by</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {contextMembers.map(m => {
+              const active = paidByUserId === m.userId;
+              return (
+                <Pressable
+                  key={m.userId}
+                  onPress={() => setPaidByUserId(m.userId)}
+                  style={[addStyles.payerChip, active && addStyles.payerChipActive]}
+                >
+                  <View style={{
+                    width: 22, height: 22, borderRadius: 11,
+                    backgroundColor: active ? 'rgba(255,255,255,0.3)' : ledgerColors.primary.subtle,
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: active ? '#fff' : ledgerColors.primary.default }}>
+                      {m.displayName.trim().charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={[addStyles.payerName, active && { color: '#fff' }]}>
+                    {m.displayName.split(' ')[0]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Split mode segmented control */}
+          <Text style={addStyles.fieldLabel}>Split</Text>
+          <Segmented
+            value={split.splitMode}
+            onChange={k => split.handleSetMode(k as SplitMode)}
+            options={[
+              { key: 'equal',        label: 'Evenly' },
+              { key: 'proportional', label: 'Shares' },
+              { key: 'custom',       label: 'Exact' },
+              { key: 'itemized',     label: 'Items' },
+            ]}
+          />
+
+          <View style={{ height: 12 }} />
+
+          {/* Equal mode */}
+          {split.splitMode === 'equal' && (
+            <View style={addStyles.card}>
+              {split.splitEntries.map((entry, i) => {
+                const member = contextMembers.find(m => m.userId === entry.userId);
+                if (!member) return null;
+                const includedCount = split.splitEntries.filter(e => e.included).length;
+                const share = entry.included && includedCount > 0
+                  ? Math.round(totalAmountCents / includedCount)
+                  : 0;
+                return (
+                  <View key={entry.userId}>
+                    {i > 0 && <View style={addStyles.rowDivider} />}
+                    <Pressable style={addStyles.splitRow} onPress={() => split.handleToggleMember(entry.userId)}>
+                      <View style={[addStyles.check, entry.included && addStyles.checkOn]}>
+                        {entry.included && <Feather name="check" size={13} color="#fff" />}
+                      </View>
+                      <View style={{
+                        width: 30, height: 30, borderRadius: 15,
+                        backgroundColor: ledgerColors.primary.subtle,
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>
+                          {member.displayName.trim().charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={addStyles.splitName}>{member.displayName}</Text>
+                      <Text style={[addStyles.splitAmount, { color: entry.included ? ledgerColors.text.primary : ledgerColors.text.tertiary }]}>
+                        {formatCurrency(share, expenseCurrency)}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Proportional (shares) mode */}
+          {split.splitMode === 'proportional' && (
+            <View style={addStyles.card}>
+              {split.splitEntries.map((entry, i) => {
+                const member = contextMembers.find(m => m.userId === entry.userId);
+                if (!member) return null;
+                const w = split.weights[entry.userId] ?? 1;
+                const includedEntries = split.splitEntries.filter(e => e.included);
+                const totalWeights = includedEntries.reduce((s, e) => s + (split.weights[e.userId] ?? 1), 0) || 1;
+                const share = entry.included ? Math.round(totalAmountCents * w / totalWeights) : 0;
+                return (
+                  <View key={entry.userId}>
+                    {i > 0 && <View style={addStyles.rowDivider} />}
+                    <View style={addStyles.splitRow}>
+                      <View style={{
+                        width: 30, height: 30, borderRadius: 15,
+                        backgroundColor: ledgerColors.primary.subtle,
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>
+                          {member.displayName.trim().charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={addStyles.splitName}>{member.displayName}</Text>
+                        <Text style={{ fontSize: 12, color: ledgerColors.text.secondary, marginTop: 1 }}>
+                          {w} share{w === 1 ? '' : 's'} · {Math.round(100 * w / totalWeights)}%
+                        </Text>
+                      </View>
+                      <Text style={addStyles.splitAmount}>{formatCurrency(share, expenseCurrency)}</Text>
+                      <View style={addStyles.stepper}>
+                        <Pressable style={addStyles.stepBtn} onPress={() => split.handleChangeWeight(entry.userId, Math.max(0, w - 1))}>
+                          <Feather name="minus" size={15} color={ledgerColors.text.primary} />
+                        </Pressable>
+                        <Text style={addStyles.stepVal}>{w}</Text>
+                        <Pressable style={addStyles.stepBtn} onPress={() => split.handleChangeWeight(entry.userId, w + 1)}>
+                          <Feather name="plus" size={15} color={ledgerColors.text.primary} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Custom (exact) mode */}
+          {split.splitMode === 'custom' && (
+            <View style={addStyles.card}>
+              {split.splitEntries.map((entry, i) => {
+                const member = contextMembers.find(m => m.userId === entry.userId);
+                if (!member) return null;
+                const displayVal = entry.customAmountCents != null && entry.customAmountCents > 0
+                  ? (entry.customAmountCents / 100).toFixed(2) : '';
+                return (
+                  <View key={entry.userId}>
+                    {i > 0 && <View style={addStyles.rowDivider} />}
+                    <View style={addStyles.splitRow}>
+                      <View style={{
+                        width: 30, height: 30, borderRadius: 15,
+                        backgroundColor: ledgerColors.primary.subtle,
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>
+                          {member.displayName.trim().charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={[addStyles.splitName, { flex: 1 }]}>{member.displayName}</Text>
+                      <View style={addStyles.exactBox}>
+                        <Text style={{ fontSize: 14, color: ledgerColors.text.secondary }}>
+                          {currencySymbol(expenseCurrency)}
+                        </Text>
+                        <TextInput
+                          style={addStyles.exactInput}
+                          keyboardType="decimal-pad"
+                          placeholder="0.00"
+                          placeholderTextColor={ledgerColors.text.tertiary}
+                          value={displayVal}
+                          onChangeText={v => split.handleChangeAmount(entry.userId, Math.round((parseFloat(v) || 0) * 100))}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+              <View style={{ height: 1, backgroundColor: ledgerColors.border, marginVertical: 8 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 13, fontWeight: '500', color: ledgerColors.text.secondary }}>
+                  {split.remainder === 0 ? 'Fully assigned' : 'Left to assign'}
+                </Text>
+                <Text style={[addStyles.splitAmount, {
+                  color: split.remainder === 0 ? ledgerColors.success.default : ledgerColors.error.default,
+                }]}>
+                  {formatCurrency(Math.abs(split.remainder), expenseCurrency)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Itemized mode */}
+          {split.splitMode === 'itemized' && (
+            <View style={[addStyles.card, { padding: 20 }]}>
+              <Text style={[addStyles.fieldLabel, { textAlign: 'center', marginTop: 0, marginBottom: 4 }]}>
+                {description.toUpperCase() || 'RECEIPT'}
+              </Text>
+              <Text style={{ fontSize: 11.5, color: ledgerColors.text.tertiary, textAlign: 'center', marginBottom: 8 }}>
+                tap a member to assign them to each item
+              </Text>
+              <View style={{ borderBottomWidth: 1, borderStyle: 'dashed', borderColor: ledgerColors.borderMuted, marginBottom: 12 }} />
+              {split.lineItems.map(item => (
+                <View key={item.id} style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '500', color: ledgerColors.text.primary, flexShrink: 1 }} numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                    <View style={{ flex: 1, borderBottomWidth: 1, borderStyle: 'dotted', borderColor: ledgerColors.borderMuted }} />
+                    <Text style={{ fontSize: 14, color: ledgerColors.text.primary }}>
+                      {formatCurrency(item.amountCents, expenseCurrency)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                    {contextMembers.map(m => {
+                      const on = item.assignedUserIds.includes(m.userId);
+                      return (
+                        <Pressable
+                          key={m.userId}
+                          onPress={() => split.toggleMemberInItem(item.id, m.userId)}
+                          style={{
+                            width: 28, height: 28, borderRadius: 14,
+                            borderWidth: 1.5,
+                            borderColor: on ? ledgerColors.primary.default : ledgerColors.borderMuted,
+                            backgroundColor: on ? ledgerColors.primary.subtle : ledgerColors.background,
+                            alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: on ? ledgerColors.primary.default : ledgerColors.text.secondary }}>
+                            {m.displayName.trim().charAt(0).toUpperCase()}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+              <Pressable
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
+                onPress={split.addLineItem}
+              >
+                <Feather name="plus" size={14} color={ledgerColors.primary.default} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>Add item</Text>
+              </Pressable>
+            </View>
+          )}
+
+          <View style={{ height: 20 }} />
+
+          {/* Save button */}
+          <Pressable
+            onPress={isValid ? handleSubmit : undefined}
+            disabled={!isValid || saving}
+            style={({ pressed }) => [
+              addStyles.saveBtn,
+              { opacity: (!isValid || saving) ? 0.5 : pressed ? 0.85 : 1 },
+            ]}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Feather name="check" size={18} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Save expense</Text>
+              </>
+            )}
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -657,5 +978,67 @@ const styles = StyleSheet.create({
   },
   sheet: {
     overflow: 'hidden',
+  },
+});
+
+const addStyles = StyleSheet.create({
+  titleRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 12,
+  },
+  screenTitle: { fontSize: 19, fontWeight: '700', color: ledgerColors.text.primary },
+  card: {
+    backgroundColor: ledgerColors.surface,
+    borderRadius: ledgerRadius.card,
+    padding: 16,
+    ...ledgerShadow.card,
+  },
+  currency: { fontSize: 26, fontWeight: '500', color: ledgerColors.text.secondary },
+  amountInput: {
+    fontSize: 44, fontWeight: '700', color: ledgerColors.text.primary,
+    minWidth: 140, textAlign: 'center',
+  },
+  titleInput: {
+    fontSize: 15, color: ledgerColors.text.primary, textAlign: 'center',
+    borderTopWidth: 1, borderColor: ledgerColors.border,
+    paddingTop: 12, marginTop: 8,
+  },
+  fieldLabel: {
+    fontSize: 12, fontWeight: '600', color: ledgerColors.text.secondary,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+    marginTop: 20, marginBottom: 8,
+  },
+  payerChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: ledgerColors.surface, borderWidth: 1, borderColor: ledgerColors.borderMuted,
+    borderRadius: ledgerRadius.pill, paddingVertical: 6, paddingLeft: 6, paddingRight: 13,
+    ...ledgerShadow.card,
+  },
+  payerChipActive: { backgroundColor: ledgerColors.primary.default, borderColor: ledgerColors.primary.default },
+  payerName: { fontSize: 13.5, fontWeight: '500', color: ledgerColors.text.primary },
+  splitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  rowDivider: { height: 1, backgroundColor: ledgerColors.border },
+  splitName: { fontSize: 14.5, fontWeight: '500', color: ledgerColors.text.primary, flex: 1 },
+  splitAmount: { fontSize: 14, fontWeight: '500', color: ledgerColors.text.primary },
+  check: {
+    width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: ledgerColors.borderMuted,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkOn: { backgroundColor: ledgerColors.primary.default, borderColor: ledgerColors.primary.default },
+  stepper: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: ledgerColors.background, borderRadius: ledgerRadius.pill, marginLeft: 8,
+  },
+  stepBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  stepVal: { fontSize: 14, fontWeight: '600', color: ledgerColors.text.primary, width: 20, textAlign: 'center' },
+  exactBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    backgroundColor: ledgerColors.background, borderRadius: ledgerRadius.sm, paddingHorizontal: 10, height: 38,
+  },
+  exactInput: { fontSize: 15, fontWeight: '500', color: ledgerColors.text.primary, minWidth: 62, textAlign: 'right' },
+  saveBtn: {
+    flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 15, borderRadius: ledgerRadius.md,
+    backgroundColor: ledgerColors.primary.default,
   },
 });
