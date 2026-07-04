@@ -97,6 +97,52 @@ export const lightColors = {
   },
 } as const;
 
+// ── Ledger palette ────────────────────────────────────────────────────────────
+
+export const ledgerColors = {
+  background: '#F2F5F1',
+  surface: '#FFFFFF',
+  surfaceAlt: '#F2F5F1',
+  border: '#E4EAE3',
+  borderMuted: '#CBD5CD',
+
+  text: {
+    primary: '#182420',
+    secondary: '#5C6B63',
+    tertiary: '#95A29B',
+    inverse: '#FFFFFF',
+  },
+
+  primary: {
+    default: '#0E6B4F',
+    light: '#12946A',
+    dim: '#0A4A38',
+    subtle: '#E2F1EA',
+  },
+
+  error: {
+    default: '#D9532B',
+    bg: '#FBE7DE',
+  },
+
+  warning: {
+    default: '#F2C94C',
+    bg: '#FFF8E1',
+  },
+
+  success: {
+    default: '#12946A',
+    bg: '#DDF2E9',
+  },
+
+  simulation: {
+    bg: '#fff8e1',
+    text: '#b45309',
+  },
+
+  butter: '#F2C94C',
+} as const;
+
 // ── Person / data-viz colors ──────────────────────────────────────────────────
 // ColorBrewer Dark2 qualitative palette (colorbrewer2.org).
 // Text values are the canonical Dark2 hex codes; bg values are very-dark
@@ -128,7 +174,8 @@ export function personColorFor(
   const idx = members.findIndex(m => m.userId === userId);
   return personColors[(idx === -1 ? 0 : idx) % personColors.length];
 }
-export type ColorPalette = typeof darkColors | typeof lightColors;
+
+export type ColorPalette = typeof darkColors | typeof lightColors | typeof ledgerColors;
 
 // ── Pure selector (testable without mocking react-native) ────────────────────
 

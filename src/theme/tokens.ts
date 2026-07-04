@@ -51,6 +51,24 @@ export const shadow = {
   },
 } as const;
 
+export const ledgerRadius = {
+  sm: 10,
+  md: 14,
+  card: 20,
+  xl: 28,
+  pill: 999,
+} as const;
+
+export const ledgerShadow = {
+  card: {
+    shadowColor: '#182420',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+} as const;
+
 // Stacked item-pile layout constants (from design system)
 export const pillStack = {
   height: 44,
@@ -65,4 +83,6 @@ export const tokens = {
   fontWeight,
   shadow,
   pillStack,
+  ledgerRadius,
+  ledgerShadow,
 } as const;
