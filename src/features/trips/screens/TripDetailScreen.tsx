@@ -13,12 +13,14 @@ import { ExpenseRow } from '../components/ExpenseRow';
 import { TripFAB } from '../components/TripFAB';
 import { TripListHeader } from '../components/TripListHeader';
 import { LedgerBars } from '../../../components/ui/LedgerBars';
+import { BalanceViewSelector } from '../../../components/ui/BalanceViewSelector';
+import { useBalanceView } from '../../../core/hooks/useBalanceView';
 import { useTripDetail } from '../hooks/useTripDetail';
 import { useService } from '../../../core/di/ServiceContext';
 import { TRIP_STORE, AUTH } from '../../../core/di/tokens';
 import { confirm } from '../../../core/utils/confirm';
 import { useColors, ledgerColors } from '../../../theme/colors';
-import { tokens, ledgerRadius, ledgerShadow } from '../../../theme/tokens';
+import { tokens, ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
 import { useActiveTheme } from '../../../core/ThemeContext';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import { computeMemberNetBalances } from '../../../core/logic/settlement';
@@ -86,6 +88,7 @@ export function TripDetailScreen() {
   const colors  = useColors();
   const activeTheme = useActiveTheme();
   const isLedger = activeTheme === 'ledger';
+  const { trip: tripBalanceView, setTrip: setTripBalanceView } = useBalanceView();
   const auth = useService(AUTH);
   const { trip, expenses, loading, error, refetch } = useTripDetail(id);
   const [refreshing,       setRefreshing]       = useState(false);
@@ -239,7 +242,13 @@ export function TripDetailScreen() {
                   </View>
                 </View>
                 <View style={tripStyles.hairline} />
-                <LedgerBars balances={balancesRecord} members={membersForBars} />
+                <BalanceViewSelector
+                  balances={balancesRecord}
+                  members={membersForBars}
+                  viewMode={tripBalanceView}
+                  onChangeView={setTripBalanceView}
+                  currency={trip.currency}
+                />
                 {trip.status !== 'closed' && expenses.length > 0 && (
                   <Pressable
                     onPress={handleSettleUp}
@@ -386,7 +395,7 @@ const tripStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
   },
-  title: { fontSize: 20, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3 },
+  title: { fontFamily: ledgerFonts.display, fontSize: 20, color: ledgerColors.text.primary, letterSpacing: -0.3 },
   card: {
     backgroundColor: ledgerColors.surface,
     borderRadius: ledgerRadius.card,
@@ -395,7 +404,7 @@ const tripStyles = StyleSheet.create({
   },
   stat: { flex: 1, alignItems: 'center', gap: 4 },
   statLabel: { fontSize: 10, fontWeight: '600', color: ledgerColors.text.secondary, textTransform: 'uppercase', letterSpacing: 0.6 },
-  statValue: { fontSize: 20, fontWeight: '700', color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
+  statValue: { fontFamily: ledgerFonts.display, fontSize: 20, color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
   statDivider: { width: 1, height: 34, backgroundColor: ledgerColors.border },
   hairline: { height: 1, backgroundColor: ledgerColors.border, marginVertical: 12 },
   settleBtn: {
@@ -416,6 +425,6 @@ const tripStyles = StyleSheet.create({
   },
   expTitle: { fontSize: 14.5, fontWeight: '500', color: ledgerColors.text.primary },
   expMeta: { fontSize: 12, color: ledgerColors.text.secondary, marginTop: 2 },
-  expAmount: { fontSize: 15, fontWeight: '500', color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3 },
+  expAmount: { fontFamily: ledgerFonts.displaySemibold, fontSize: 15, color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
+  sectionTitle: { fontFamily: ledgerFonts.display, fontSize: 18, color: ledgerColors.text.primary, letterSpacing: -0.3 },
 });

@@ -1,5 +1,15 @@
 import '../src/i18n'; // initialise i18next before any component renders
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useFonts } from 'expo-font';
+import {
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+} from '@expo-google-fonts/inter';
 import { View, Text, ScrollView, Alert } from 'react-native';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -199,6 +209,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default Sentry.wrap(function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    'SpaceGrotesk-SemiBold': SpaceGrotesk_600SemiBold,
+    'SpaceGrotesk-Bold': SpaceGrotesk_700Bold,
+    'Inter-Regular': Inter_400Regular,
+    'Inter-Medium': Inter_500Medium,
+    'Inter-SemiBold': Inter_600SemiBold,
+  });
+
+  if (!fontsLoaded) return <AppLoadingScreen />;
+
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>

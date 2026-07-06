@@ -19,7 +19,7 @@ import { useGroups } from '../../src/features/groups/hooks/useGroups';
 import { useService } from '../../src/core/di/ServiceContext';
 import { AUTH } from '../../src/core/di/tokens';
 import { useColors, ledgerColors } from '../../src/theme/colors';
-import { tokens, ledgerRadius, ledgerShadow } from '../../src/theme/tokens';
+import { tokens, ledgerRadius, ledgerShadow, ledgerFonts } from '../../src/theme/tokens';
 import { useActiveTheme } from '../../src/core/ThemeContext';
 import { formatCurrency } from '../../src/core/utils/formatCurrency';
 import type { Trip } from '../../src/core/models/Trip';
@@ -448,8 +448,8 @@ const ledgerStyles = StyleSheet.create({
     paddingBottom: 16,
   },
   heroSub: { fontSize: 14, color: ledgerColors.text.secondary, marginBottom: 2 },
-  heroAmount: { fontSize: 32, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  heroLabel: { fontSize: 18, fontWeight: '700', color: ledgerColors.text.primary },
+  heroAmount: { fontFamily: ledgerFonts.display, fontSize: 32, fontVariant: ['tabular-nums'] },
+  heroLabel: { fontFamily: ledgerFonts.display, fontSize: 18, color: ledgerColors.text.primary },
   profileBtn: {
     width: 42, height: 42, borderRadius: 21,
     backgroundColor: ledgerColors.surface,
@@ -460,7 +460,7 @@ const ledgerStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
     marginTop: 8, marginBottom: 12,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3 },
+  sectionTitle: { fontFamily: ledgerFonts.display, fontSize: 18, color: ledgerColors.text.primary, letterSpacing: -0.3 },
   sectionAction: { fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default },
   card: {
     backgroundColor: ledgerColors.surface,

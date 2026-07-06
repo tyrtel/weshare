@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA cron;
+
 -- Push device token registry
 CREATE TABLE device_tokens (
   id          text        PRIMARY KEY,

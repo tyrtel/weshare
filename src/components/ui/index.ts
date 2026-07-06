@@ -10,3 +10,5 @@ export { LedgerBars } from './LedgerBars';
 export { BalancePill } from './BalancePill';
 export { Segmented } from './Segmented';
 export { ActivityDot } from './ActivityDot';
+export { Money } from './Money';
+export { BalanceViewSelector } from './BalanceViewSelector';

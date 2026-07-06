@@ -69,6 +69,14 @@ export const ledgerShadow = {
   },
 } as const;
 
+export const ledgerFonts = {
+  display: 'SpaceGrotesk-Bold',
+  displaySemibold: 'SpaceGrotesk-SemiBold',
+  body: 'Inter-Regular',
+  bodyMedium: 'Inter-Medium',
+  bodySemibold: 'Inter-SemiBold',
+} as const;
+
 // Stacked item-pile layout constants (from design system)
 export const pillStack = {
   height: 44,
@@ -85,4 +93,5 @@ export const tokens = {
   pillStack,
   ledgerRadius,
   ledgerShadow,
+  ledgerFonts,
 } as const;

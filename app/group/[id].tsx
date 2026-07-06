@@ -15,8 +15,10 @@ import { useGroupDetail } from '../../src/features/groups/hooks/useGroupDetail';
 import { useTripSessionStore } from '../../src/core/di/ServiceContext';
 import { useActiveTheme } from '../../src/core/ThemeContext';
 import { useColors, personColors, ledgerColors } from '../../src/theme/colors';
-import { tokens, ledgerRadius, ledgerShadow } from '../../src/theme/tokens';
+import { tokens, ledgerRadius, ledgerShadow, ledgerFonts } from '../../src/theme/tokens';
 import { LedgerBars } from '../../src/components/ui/LedgerBars';
+import { BalanceViewSelector } from '../../src/components/ui/BalanceViewSelector';
+import { useBalanceView } from '../../src/core/hooks/useBalanceView';
 import { formatCurrency } from '../../src/core/utils/formatCurrency';
 import type { Trip } from '../../src/core/models/Trip';
 import type { Expense } from '../../src/core/models/Expense';
@@ -143,6 +145,7 @@ export default function GroupDetailScreen() {
 
   const activeTheme = useActiveTheme();
   const isLedger = activeTheme === 'ledger';
+  const { group: groupBalanceView, setGroup: setGroupBalanceView } = useBalanceView();
 
   if (isLedger) {
     const balancesRecord = Object.fromEntries(memberBalances.map(b => [b.userId, b.balanceCents]));
@@ -180,7 +183,13 @@ export default function GroupDetailScreen() {
           <View style={lgStyles.card}>
             <Text style={lgStyles.cardLabel}>BALANCES</Text>
             {memberBalances.some(b => b.balanceCents !== 0) ? (
-              <LedgerBars balances={balancesRecord} members={membersForBars} />
+              <BalanceViewSelector
+                balances={balancesRecord}
+                members={membersForBars}
+                viewMode={groupBalanceView}
+                onChangeView={setGroupBalanceView}
+                currency={group.currency}
+              />
             ) : (
               <Text style={{ color: ledgerColors.text.tertiary, fontSize: 13, paddingVertical: 8 }}>
                 All settled
@@ -650,7 +659,7 @@ const lgStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
   },
-  title: { fontSize: 20, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3, flex: 1, textAlign: 'center' },
+  title: { fontFamily: ledgerFonts.display, fontSize: 20, color: ledgerColors.text.primary, letterSpacing: -0.3, flex: 1, textAlign: 'center' },
   card: {
     backgroundColor: ledgerColors.surface,
     borderRadius: ledgerRadius.card,
@@ -672,7 +681,7 @@ const lgStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
     marginTop: 24, marginBottom: 12,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: ledgerColors.text.primary, letterSpacing: -0.3 },
+  sectionTitle: { fontFamily: ledgerFonts.display, fontSize: 18, color: ledgerColors.text.primary, letterSpacing: -0.3 },
   sectionAction: { fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default },
   expenseRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   rowDivider: { height: 1, backgroundColor: ledgerColors.border, marginLeft: 48 },
@@ -683,7 +692,7 @@ const lgStyles = StyleSheet.create({
   },
   expTitle: { fontSize: 14.5, fontWeight: '500', color: ledgerColors.text.primary },
   expMeta: { fontSize: 12, color: ledgerColors.text.secondary, marginTop: 2 },
-  expAmount: { fontSize: 15, fontWeight: '500', color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
+  expAmount: { fontFamily: ledgerFonts.displaySemibold, fontSize: 15, color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
   memberChip: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: ledgerColors.background, borderRadius: ledgerRadius.pill,

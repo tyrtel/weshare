@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ledgerColors } from '../../theme/colors';
-import { ledgerRadius } from '../../theme/tokens';
+import { ledgerRadius, ledgerFonts } from '../../theme/tokens';
 import { formatCurrency } from '../../core/utils/formatCurrency';
 
 interface BalancePillProps {
@@ -37,8 +37,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   text: {
+    fontFamily: ledgerFonts.displaySemibold,
     fontSize: 13,
-    fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
 });

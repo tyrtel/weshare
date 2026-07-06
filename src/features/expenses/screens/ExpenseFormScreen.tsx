@@ -43,7 +43,7 @@ import { useActiveTheme } from '../../../core/ThemeContext';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ledgerColors } from '../../../theme/colors';
-import { ledgerRadius, ledgerShadow } from '../../../theme/tokens';
+import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
 import { Segmented } from '../../../components/ui/Segmented';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -986,16 +986,17 @@ const addStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
   },
-  screenTitle: { fontSize: 19, fontWeight: '700', color: ledgerColors.text.primary },
+  screenTitle: { fontFamily: ledgerFonts.display, fontSize: 19, color: ledgerColors.text.primary },
   card: {
     backgroundColor: ledgerColors.surface,
     borderRadius: ledgerRadius.card,
     padding: 16,
     ...ledgerShadow.card,
   },
-  currency: { fontSize: 26, fontWeight: '500', color: ledgerColors.text.secondary },
+  currency: { fontFamily: ledgerFonts.displaySemibold, fontSize: 26, color: ledgerColors.text.secondary },
   amountInput: {
-    fontSize: 44, fontWeight: '700', color: ledgerColors.text.primary,
+    fontFamily: ledgerFonts.display,
+    fontSize: 44, color: ledgerColors.text.primary,
     minWidth: 140, textAlign: 'center',
   },
   titleInput: {
@@ -1019,7 +1020,7 @@ const addStyles = StyleSheet.create({
   splitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   rowDivider: { height: 1, backgroundColor: ledgerColors.border },
   splitName: { fontSize: 14.5, fontWeight: '500', color: ledgerColors.text.primary, flex: 1 },
-  splitAmount: { fontSize: 14, fontWeight: '500', color: ledgerColors.text.primary },
+  splitAmount: { fontFamily: ledgerFonts.displaySemibold, fontSize: 14, color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
   check: {
     width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: ledgerColors.borderMuted,
     alignItems: 'center', justifyContent: 'center',

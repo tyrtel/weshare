@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Avatar } from './Avatar';
 import { ledgerColors } from '../../theme/colors';
-import { ledgerRadius } from '../../theme/tokens';
+import { ledgerRadius, ledgerFonts } from '../../theme/tokens';
 import { formatCurrency } from '../../core/utils/formatCurrency';
 
 interface LedgerBarsProps {
@@ -85,8 +85,8 @@ const styles = StyleSheet.create({
     width: 92,
   },
   name: {
+    fontFamily: ledgerFonts.bodyMedium,
     fontSize: 13,
-    fontWeight: '500',
     color: ledgerColors.text.primary,
     flexShrink: 1,
   },
@@ -123,8 +123,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   amountText: {
+    fontFamily: ledgerFonts.displaySemibold,
     fontSize: 13,
-    fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
 });

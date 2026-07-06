@@ -84,3 +84,49 @@ The main `SectionList` has no `RefreshControl`.  Add `refetch` to `useGroups`, t
 ## 18. `Button` component — add `loading` prop and adopt in RolloverScreen  [x]
 **Files:** `src/components/ui/Button.tsx`, `src/features/settlement/screens/RolloverScreen.tsx`
 `Button` exists with spring animation and accessibility but is used nowhere.  Add `loading` prop (shows `ActivityIndicator`), then replace the custom `Pressable` in `ConfirmStep` with `<Button>`.
+
+---
+
+## Ledger Skin — user-selectable second theme
+
+Packages derived from `docs/ledger-theme-analysis.md`.  All packages (L1–L10) complete.
+
+## L1. Token layer  [x]
+**Files:** `src/theme/colors.ts`, `src/theme/tokens.ts`, `src/theme/index.ts`
+`ledgerColors` palette (mist bg, paper surface, ink text, spruce primary, owed green, owes coral, butter dot).  `ledgerRadius` (sm/md/card/xl/pill) and `ledgerShadow.card`.  All exported from `src/theme/index.ts`.
+
+## L2. ThemeContext + theme toggle  [x]
+**Files:** `src/core/ThemeContext.tsx`, `app/_layout.tsx`, `app/(tabs)/balance.tsx`
+`ThemeProvider` wraps the app.  Persists choice to `expo-secure-store`.  Hooks: `useActiveTheme()`, `useSetTheme()`, `useThemeColors()`.  Default/Ledger toggle added to the balance tab header.
+
+## L3. Typography — Space Grotesk + Inter fonts  [x]
+**Files:** `app/_layout.tsx`, `src/theme/tokens.ts`, `src/components/ui/Money.tsx`, ledger screens and components
+Installed `@expo-google-fonts/space-grotesk` (SemiBold + Bold) and `@expo-google-fonts/inter` (Regular + Medium + SemiBold).  `useFonts()` wired in `RootLayout`; blocks render until loaded.  `ledgerFonts` token map added to `tokens.ts`.  `Money` primitive (SpaceGrotesk-Bold, tabular-nums).  Applied in `LedgerBars`, `BalancePill`, hero amounts on Home/Group/Trip/Expense ledger layouts, and auth screen app name.
+
+## L4. New shared UI components  [x]
+**Files:** `src/components/ui/LedgerBars.tsx`, `src/components/ui/BalancePill.tsx`, `src/components/ui/Segmented.tsx`, `src/components/ui/ActivityDot.tsx`, `src/components/ui/index.ts`
+`LedgerBars` — diverging bar chart (green right / coral left, animated).  `BalancePill` — signed balance badge with color semantics.  `Segmented` — pill-style tab switcher.  `ActivityDot` — 6px butter circle.
+
+## L5. Home screen ledger layout  [x]
+**Files:** `app/(tabs)/index.tsx`
+Conditional `isLedger` branch.  Hero header with overall net position (sum of groupSummaries).  Trip cards with Unsettled coral pill.  Group cards with emoji tile, ActivityDot, BalancePill.  Ledger FAB + speed-dial.
+
+## L6. Group detail screen ledger layout  [x]
+**Files:** `app/group/[id].tsx`
+Conditional `isLedger` branch.  Title row with back/emoji/name/settings.  Balances card with LedgerBars + Settle up button.  Trip rows, expense rows with icon tiles.  Members section with avatar chips + invite link chip.  FAB speed-dial preserved.
+
+## L7. Trip detail screen ledger layout  [x]
+**Files:** `src/features/trips/screens/TripDetailScreen.tsx`
+Conditional `isLedger` branch.  Stat strip card (Trip total / Per person / Your net).  LedgerBars below stat strip.  Settle trip button.  Participants avatar row + dashed-border invite circle.  Icon tile expense list.
+
+## L8. Add expense screen ledger layout  [x]
+**Files:** `src/features/expenses/screens/ExpenseFormScreen.tsx`
+Conditional `isLedger` branch.  Large centered amount + title card.  Payer avatar chips.  Segmented split mode control (Evenly / Shares / Exact / Items).  All four split mode panels.  Full-width Save button.  Existing default form untouched.
+
+## L9. Auth screen ledger skin  [x]
+**Files:** `app/auth/index.tsx`
+Mist background, paper card for the form section (white bg, ledgerRadius.card, shadow), spruce primary button, ledger border colors on inputs and social buttons.  All auth flows (email, Google, Apple) and business logic unchanged.
+
+## L10. Balance view toggle  [x]
+**Files:** `src/core/hooks/useBalanceView.ts`, `src/components/ui/BalanceViewSelector.tsx`, `app/group/[id].tsx`, `src/features/trips/screens/TripDetailScreen.tsx`
+Zustand store (`useBalanceView`) holds separate `group` and `trip` view mode preferences — persists across navigation within a session.  `BalanceViewSelector` shared component renders the `Segmented` toggle (Bars/List/Bubbles) above the selected view: Bars = LedgerBars, List = avatar + name + signed amount rows (Inter Medium / SpaceGrotesk SemiBold), Bubbles = scrollable avatar circles with colored ring borders and amount labels.  Both screens wired to their respective store slice.
