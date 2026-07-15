@@ -71,7 +71,7 @@ export function PayoutSection({ settlements, members, currency }: PayoutSectionP
             >
               {/* Debtor */}
               <View style={{ alignItems: 'center', minWidth: 56 }}>
-                <Avatar initials={fromName} bg={fromClr.text} size="md" />
+                <Avatar initials={fromName} bg={fromClr.bg} size="md" />
                 <Text
                   variant="caption"
                   color={colors.text.secondary}
@@ -91,7 +91,7 @@ export function PayoutSection({ settlements, members, currency }: PayoutSectionP
 
               {/* Creditor */}
               <View style={{ alignItems: 'center', minWidth: 56 }}>
-                <Avatar initials={toName} bg={toClr.text} size="md" />
+                <Avatar initials={toName} bg={toClr.bg} size="md" />
                 <Text
                   variant="caption"
                   color={colors.text.secondary}

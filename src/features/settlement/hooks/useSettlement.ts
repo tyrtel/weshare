@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { TRIP_STORE, AUTH } from '../../../core/di/tokens';
 import { calculateSettlements } from '../../../core/logic/settlement';
+import type { LedgerPayment } from '../../../core/logic/settlement';
 import { useStripePoller } from './useStripePoller';
 import { selectExpenses, selectMembers, selectSplitRequests } from '../../../store/selectors';
 import type { Settlement } from '../../../core/models/Settlement';
@@ -47,9 +48,25 @@ export function useSettlement(tripId: string) {
   // Memoised: calculateSettlements is O(members × expenses); nameMap/requestMap
   // allocate new Maps. None of these need to run unless their inputs change.
 
+  // The ledger's credit side — only completed SplitRequests count as real
+  // payments. Every completed row between a pair counts, not just the latest
+  // (see requestMap below, which is a separate "latest status for display"
+  // concept and stays that way on purpose).
+  const completedPayments = useMemo<LedgerPayment[]>(
+    () => splitRequests
+      .filter(r => r.status === 'paid' || r.status === 'completed')
+      .map(r => ({
+        payerUserId: r.payerUserId,
+        payeeUserId: r.requesterUserId,
+        amountCents: r.amountCents,
+        currency:    r.currency,
+      })),
+    [splitRequests],
+  );
+
   const rawSettlements = useMemo(
-    () => calculateSettlements(members, expenses),
-    [members, expenses],
+    () => calculateSettlements(members, expenses, completedPayments),
+    [members, expenses, completedPayments],
   );
 
   const nameMap = useMemo(

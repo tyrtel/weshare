@@ -1,41 +1,27 @@
-// Test the pure getColors(scheme) selector — no react-native mock required.
-// useColors() is a thin wrapper around getColors(useColorScheme()); the hook
-// itself is tested implicitly through the component snapshot tests.
-
-import { getColors, darkColors, lightColors, personColors } from '../colors';
+import { getColors, ledgerColors, personColors } from '../colors';
 
 describe('getColors()', () => {
-  it('returns dark palette for scheme "dark"', () => {
-    expect(getColors('dark')).toBe(darkColors);
+  it('always returns ledgerColors regardless of scheme', () => {
+    expect(getColors('dark')).toBe(ledgerColors);
+    expect(getColors('light')).toBe(ledgerColors);
+    expect(getColors(null)).toBe(ledgerColors);
+    expect(getColors(undefined)).toBe(ledgerColors);
   });
 
-  it('returns dark palette for null (no system preference)', () => {
-    expect(getColors(null)).toBe(darkColors);
+  it('ledger background is mist #F2F5F1', () => {
+    expect(ledgerColors.background).toBe('#F2F5F1');
   });
 
-  it('returns dark palette for undefined', () => {
-    expect(getColors(undefined)).toBe(darkColors);
+  it('ledger surface is paper #FFFFFF', () => {
+    expect(ledgerColors.surface).toBe('#FFFFFF');
   });
 
-  it('returns light palette for scheme "light"', () => {
-    expect(getColors('light')).toBe(lightColors);
+  it('ledger primary is spruce #0E6B4F', () => {
+    expect(ledgerColors.primary.default).toBe('#0E6B4F');
   });
 
-  it('dark background is the design-system navy #1a1a2e', () => {
-    expect(darkColors.background).toBe('#1a1a2e');
-  });
-
-  it('primary teal is #1D9E75 in both schemes', () => {
-    expect(darkColors.primary.default).toBe('#1D9E75');
-    expect(lightColors.primary.default).toBe('#1D9E75');
-  });
-
-  it('dark palette has distinct surface and background', () => {
-    expect(darkColors.surface).not.toBe(darkColors.background);
-  });
-
-  it('light palette has white surface', () => {
-    expect(lightColors.surface).toBe('#ffffff');
+  it('ledger palette has distinct surface and background', () => {
+    expect(ledgerColors.surface).not.toBe(ledgerColors.background);
   });
 });
 

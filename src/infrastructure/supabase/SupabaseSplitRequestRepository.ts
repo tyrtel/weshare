@@ -15,7 +15,8 @@ function rowToSplitRequest(raw: unknown): Result<SplitRequest, AppError> {
   const row = parsed.value;
   return ok({
     id:                  row.id,
-    tripId:              row.trip_id,
+    tripId:              row.trip_id ?? undefined,
+    groupId:             row.group_id ?? undefined,
     requesterUserId:     row.requester_user_id,
     payerUserId:         row.payer_user_id,
     amountCents:         row.amount_cents,
@@ -55,12 +56,23 @@ export class SupabaseSplitRequestRepository implements ISplitRequestRepository {
     return mapRows(data as unknown[], rowToSplitRequest);
   }
 
+  async getSplitRequestsForGroup(groupId: string): Promise<Result<SplitRequest[], AppError>> {
+    const { data, error } = await supabase
+      .from('split_requests')
+      .select()
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false });
+    if (error) return err(toAppError(error, 'SplitRequest'));
+    return mapRows(data as unknown[], rowToSplitRequest);
+  }
+
   async saveSplitRequest(req: SplitRequest): Promise<Result<SplitRequest, AppError>> {
     const { data, error } = await supabase
       .from('split_requests')
       .insert({
         id:                     req.id,
-        trip_id:                req.tripId,
+        trip_id:                req.tripId ?? null,
+        group_id:               req.groupId ?? null,
         requester_user_id:      req.requesterUserId,
         payer_user_id:          req.payerUserId,
         amount_cents:           req.amountCents,

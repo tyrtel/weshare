@@ -96,7 +96,7 @@ export function GroupCard({ group, index, tripCount, summary, onPress }: GroupCa
                   key={member.userId}
                   style={{ marginLeft: i === 0 ? 0 : tokens.pillStack.overlapOffset, zIndex: visible.length - i }}
                 >
-                  <Avatar initials={getInitials(member.displayName)} bg={palette.text} url={member.avatarUrl} size="sm" />
+                  <Avatar initials={getInitials(member.displayName)} bg={palette.bg} url={member.avatarUrl} size="sm" />
                 </View>
               );
             })}

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Image } from 'react-native';
 import { Text } from './Text';
 
-type AvatarSize = 'sm' | 'md' | 'lg';
+type AvatarSize = 'xs' | 'sm' | 'md' | 'lg';
 
-const dimensionMap: Record<AvatarSize, number> = { sm: 28, md: 36, lg: 44 };
-const fontSizeMap:  Record<AvatarSize, number> = { sm: 14, md: 17, lg: 21 };
+const dimensionMap: Record<AvatarSize, number> = { xs: 22, sm: 28, md: 36, lg: 44 };
+const fontSizeMap:  Record<AvatarSize, number> = { xs: 11, sm: 14, md: 17, lg: 21 };
 
 interface AvatarProps {
   initials: string;

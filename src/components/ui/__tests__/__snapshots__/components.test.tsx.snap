@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`dark theme Avatar lg 1`] = `
+exports[`ledger theme Avatar lg 1`] = `
 <View
   style={
     {
@@ -18,12 +18,13 @@ exports[`dark theme Avatar lg 1`] = `
     style={
       [
         {
+          "fontFamily": "Inter-Regular",
           "fontSize": 15,
           "fontWeight": "400",
           "lineHeight": 22,
         },
         {
-          "color": "#e8e8f5",
+          "color": "#182420",
         },
         {
           "color": "#ffffff",
@@ -40,7 +41,7 @@ exports[`dark theme Avatar lg 1`] = `
 </View>
 `;
 
-exports[`dark theme Avatar md 1`] = `
+exports[`ledger theme Avatar md 1`] = `
 <View
   style={
     {
@@ -58,12 +59,13 @@ exports[`dark theme Avatar md 1`] = `
     style={
       [
         {
+          "fontFamily": "Inter-Regular",
           "fontSize": 15,
           "fontWeight": "400",
           "lineHeight": 22,
         },
         {
-          "color": "#e8e8f5",
+          "color": "#182420",
         },
         {
           "color": "#ffffff",
@@ -80,7 +82,7 @@ exports[`dark theme Avatar md 1`] = `
 </View>
 `;
 
-exports[`dark theme Avatar sm 1`] = `
+exports[`ledger theme Avatar sm 1`] = `
 <View
   style={
     {
@@ -98,12 +100,13 @@ exports[`dark theme Avatar sm 1`] = `
     style={
       [
         {
+          "fontFamily": "Inter-Regular",
           "fontSize": 15,
           "fontWeight": "400",
           "lineHeight": 22,
         },
         {
-          "color": "#e8e8f5",
+          "color": "#182420",
         },
         {
           "color": "#ffffff",
@@ -120,7 +123,7 @@ exports[`dark theme Avatar sm 1`] = `
 </View>
 `;
 
-exports[`dark theme Badge custom 1`] = `
+exports[`ledger theme Badge custom 1`] = `
 <View
   style={
     {
@@ -136,6 +139,7 @@ exports[`dark theme Badge custom 1`] = `
     style={
       [
         {
+          "fontFamily": "Inter-Regular",
           "fontSize": 11,
           "fontWeight": "400",
           "lineHeight": 16,
@@ -152,12 +156,12 @@ exports[`dark theme Badge custom 1`] = `
 </View>
 `;
 
-exports[`dark theme Badge default 1`] = `
+exports[`ledger theme Badge default 1`] = `
 <View
   style={
     {
       "alignSelf": "flex-start",
-      "backgroundColor": "#0d2520",
+      "backgroundColor": "#E2F1EA",
       "borderRadius": 22,
       "paddingHorizontal": 8,
       "paddingVertical": 2,
@@ -168,12 +172,13 @@ exports[`dark theme Badge default 1`] = `
     style={
       [
         {
+          "fontFamily": "Inter-Regular",
           "fontSize": 11,
           "fontWeight": "400",
           "lineHeight": 16,
         },
         {
-          "color": "#24c28e",
+          "color": "#12946A",
         },
         undefined,
       ]
@@ -184,7 +189,7 @@ exports[`dark theme Badge default 1`] = `
 </View>
 `;
 
-exports[`dark theme Button danger 1`] = `
+exports[`ledger theme Button danger 1`] = `
 <View
   style={
     {
@@ -230,7 +235,7 @@ exports[`dark theme Button danger 1`] = `
     style={
       {
         "alignItems": "center",
-        "backgroundColor": "#2d1414",
+        "backgroundColor": "#FBE7DE",
         "borderColor": undefined,
         "borderRadius": 22,
         "borderWidth": 0,
@@ -244,12 +249,13 @@ exports[`dark theme Button danger 1`] = `
       style={
         [
           {
+            "fontFamily": "Inter-Medium",
             "fontSize": 13,
             "fontWeight": "500",
             "lineHeight": 18,
           },
           {
-            "color": "#f87171",
+            "color": "#D9532B",
           },
           undefined,
         ]
@@ -261,7 +267,7 @@ exports[`dark theme Button danger 1`] = `
 </View>
 `;
 
-exports[`dark theme Button disabled 1`] = `
+exports[`ledger theme Button disabled 1`] = `
 <View
   style={
     {
@@ -307,7 +313,7 @@ exports[`dark theme Button disabled 1`] = `
     style={
       {
         "alignItems": "center",
-        "backgroundColor": "#1D9E75",
+        "backgroundColor": "#0E6B4F",
         "borderColor": undefined,
         "borderRadius": 22,
         "borderWidth": 0,
@@ -321,6 +327,7 @@ exports[`dark theme Button disabled 1`] = `
       style={
         [
           {
+            "fontFamily": "Inter-Medium",
             "fontSize": 13,
             "fontWeight": "500",
             "lineHeight": 18,
@@ -338,7 +345,7 @@ exports[`dark theme Button disabled 1`] = `
 </View>
 `;
 
-exports[`dark theme Button ghost 1`] = `
+exports[`ledger theme Button ghost 1`] = `
 <View
   style={
     {
@@ -385,7 +392,7 @@ exports[`dark theme Button ghost 1`] = `
       {
         "alignItems": "center",
         "backgroundColor": "transparent",
-        "borderColor": "#1D9E75",
+        "borderColor": "#0E6B4F",
         "borderRadius": 22,
         "borderWidth": 1,
         "opacity": 1,
@@ -398,12 +405,13 @@ exports[`dark theme Button ghost 1`] = `
       style={
         [
           {
+            "fontFamily": "Inter-Medium",
             "fontSize": 13,
             "fontWeight": "500",
             "lineHeight": 18,
           },
           {
-            "color": "#1D9E75",
+            "color": "#0E6B4F",
           },
           undefined,
         ]
@@ -415,7 +423,7 @@ exports[`dark theme Button ghost 1`] = `
 </View>
 `;
 
-exports[`dark theme Button primary 1`] = `
+exports[`ledger theme Button primary 1`] = `
 <View
   style={
     {
@@ -461,7 +469,7 @@ exports[`dark theme Button primary 1`] = `
     style={
       {
         "alignItems": "center",
-        "backgroundColor": "#1D9E75",
+        "backgroundColor": "#0E6B4F",
         "borderColor": undefined,
         "borderRadius": 22,
         "borderWidth": 0,
@@ -475,6 +483,7 @@ exports[`dark theme Button primary 1`] = `
       style={
         [
           {
+            "fontFamily": "Inter-Medium",
             "fontSize": 13,
             "fontWeight": "500",
             "lineHeight": 18,
@@ -492,7 +501,7 @@ exports[`dark theme Button primary 1`] = `
 </View>
 `;
 
-exports[`dark theme Button sm 1`] = `
+exports[`ledger theme Button sm 1`] = `
 <View
   style={
     {
@@ -538,7 +547,7 @@ exports[`dark theme Button sm 1`] = `
     style={
       {
         "alignItems": "center",
-        "backgroundColor": "#1D9E75",
+        "backgroundColor": "#0E6B4F",
         "borderColor": undefined,
         "borderRadius": 22,
         "borderWidth": 0,
@@ -552,6 +561,7 @@ exports[`dark theme Button sm 1`] = `
       style={
         [
           {
+            "fontFamily": "Inter-Medium",
             "fontSize": 13,
             "fontWeight": "500",
             "lineHeight": 18,
@@ -569,12 +579,12 @@ exports[`dark theme Button sm 1`] = `
 </View>
 `;
 
-exports[`dark theme Card 1`] = `
+exports[`ledger theme Card 1`] = `
 <View
   style={
     [
       {
-        "backgroundColor": "#16213e",
+        "backgroundColor": "#FFFFFF",
         "borderRadius": 18,
         "boxShadow": "0px 1px 2px rgba(0, 0, 0, 0.15)",
         "elevation": 2,
@@ -588,12 +598,13 @@ exports[`dark theme Card 1`] = `
     style={
       [
         {
+          "fontFamily": "Inter-Regular",
           "fontSize": 15,
           "fontWeight": "400",
           "lineHeight": 22,
         },
         {
-          "color": "#e8e8f5",
+          "color": "#182420",
         },
         undefined,
       ]
@@ -604,7 +615,7 @@ exports[`dark theme Card 1`] = `
 </View>
 `;
 
-exports[`dark theme Card pressable 1`] = `
+exports[`ledger theme Card pressable 1`] = `
 <View
   accessibilityState={
     {
@@ -638,7 +649,7 @@ exports[`dark theme Card pressable 1`] = `
   style={
     [
       {
-        "backgroundColor": "#16213e",
+        "backgroundColor": "#FFFFFF",
         "borderRadius": 18,
         "boxShadow": "0px 1px 2px rgba(0, 0, 0, 0.15)",
         "elevation": 2,
@@ -652,12 +663,13 @@ exports[`dark theme Card pressable 1`] = `
     style={
       [
         {
+          "fontFamily": "Inter-Regular",
           "fontSize": 15,
           "fontWeight": "400",
           "lineHeight": 22,
         },
         {
-          "color": "#e8e8f5",
+          "color": "#182420",
         },
         undefined,
       ]
@@ -668,12 +680,12 @@ exports[`dark theme Card pressable 1`] = `
 </View>
 `;
 
-exports[`dark theme Divider 1`] = `
+exports[`ledger theme Divider 1`] = `
 <View
   style={
     [
       {
-        "backgroundColor": "#2a2a4a",
+        "backgroundColor": "#E4EAE3",
         "height": 1,
       },
       undefined,
@@ -682,7 +694,7 @@ exports[`dark theme Divider 1`] = `
 />
 `;
 
-exports[`dark theme ScreenWrapper 1`] = `
+exports[`ledger theme ScreenWrapper 1`] = `
 <View
   edges={
     [
@@ -694,7 +706,7 @@ exports[`dark theme ScreenWrapper 1`] = `
   style={
     [
       {
-        "backgroundColor": "#1a1a2e",
+        "backgroundColor": "#F2F5F1",
         "flex": 1,
       },
       undefined,
@@ -705,12 +717,13 @@ exports[`dark theme ScreenWrapper 1`] = `
     style={
       [
         {
+          "fontFamily": "Inter-Regular",
           "fontSize": 15,
           "fontWeight": "400",
           "lineHeight": 22,
         },
         {
-          "color": "#e8e8f5",
+          "color": "#182420",
         },
         undefined,
       ]
@@ -721,17 +734,18 @@ exports[`dark theme ScreenWrapper 1`] = `
 </View>
 `;
 
-exports[`dark theme Text body 1`] = `
+exports[`ledger theme Text body 1`] = `
 <Text
   style={
     [
       {
+        "fontFamily": "Inter-Regular",
         "fontSize": 15,
         "fontWeight": "400",
         "lineHeight": 22,
       },
       {
-        "color": "#e8e8f5",
+        "color": "#182420",
       },
       undefined,
     ]
@@ -741,17 +755,18 @@ exports[`dark theme Text body 1`] = `
 </Text>
 `;
 
-exports[`dark theme Text caption 1`] = `
+exports[`ledger theme Text caption 1`] = `
 <Text
   style={
     [
       {
+        "fontFamily": "Inter-Regular",
         "fontSize": 11,
         "fontWeight": "400",
         "lineHeight": 16,
       },
       {
-        "color": "#e8e8f5",
+        "color": "#182420",
       },
       undefined,
     ]
@@ -761,17 +776,18 @@ exports[`dark theme Text caption 1`] = `
 </Text>
 `;
 
-exports[`dark theme Text heading1 1`] = `
+exports[`ledger theme Text heading1 1`] = `
 <Text
   style={
     [
       {
+        "fontFamily": "SpaceGrotesk-Bold",
         "fontSize": 30,
         "fontWeight": "700",
         "lineHeight": 36,
       },
       {
-        "color": "#e8e8f5",
+        "color": "#182420",
       },
       undefined,
     ]
@@ -781,17 +797,18 @@ exports[`dark theme Text heading1 1`] = `
 </Text>
 `;
 
-exports[`dark theme Text heading2 1`] = `
+exports[`ledger theme Text heading2 1`] = `
 <Text
   style={
     [
       {
+        "fontFamily": "SpaceGrotesk-Bold",
         "fontSize": 24,
         "fontWeight": "700",
         "lineHeight": 30,
       },
       {
-        "color": "#e8e8f5",
+        "color": "#182420",
       },
       undefined,
     ]
@@ -801,17 +818,39 @@ exports[`dark theme Text heading2 1`] = `
 </Text>
 `;
 
-exports[`dark theme Text label 1`] = `
+exports[`ledger theme Text heading3 1`] = `
 <Text
   style={
     [
       {
+        "fontFamily": "SpaceGrotesk-SemiBold",
+        "fontSize": 20,
+        "fontWeight": "600",
+        "lineHeight": 26,
+      },
+      {
+        "color": "#182420",
+      },
+      undefined,
+    ]
+  }
+>
+  Section
+</Text>
+`;
+
+exports[`ledger theme Text label 1`] = `
+<Text
+  style={
+    [
+      {
+        "fontFamily": "Inter-Medium",
         "fontSize": 13,
         "fontWeight": "500",
         "lineHeight": 18,
       },
       {
-        "color": "#e8e8f5",
+        "color": "#182420",
       },
       undefined,
     ]
@@ -821,357 +860,23 @@ exports[`dark theme Text label 1`] = `
 </Text>
 `;
 
-exports[`dark theme Text mono 1`] = `
+exports[`ledger theme Text mono 1`] = `
 <Text
   style={
     [
       {
-        "fontFamily": "monospace",
+        "fontFamily": "SpaceGrotesk-Bold",
         "fontSize": 13,
-        "fontWeight": "400",
+        "fontWeight": "700",
         "lineHeight": 18,
       },
       {
-        "color": "#e8e8f5",
+        "color": "#182420",
       },
       undefined,
     ]
   }
 >
   €12.50
-</Text>
-`;
-
-exports[`light theme Avatar md 1`] = `
-<View
-  style={
-    {
-      "alignItems": "center",
-      "backgroundColor": "#2d2260",
-      "borderRadius": 18,
-      "height": 36,
-      "justifyContent": "center",
-      "overflow": "hidden",
-      "width": 36,
-    }
-  }
->
-  <Text
-    style={
-      [
-        {
-          "fontSize": 15,
-          "fontWeight": "400",
-          "lineHeight": 22,
-        },
-        {
-          "color": "#1a1a2e",
-        },
-        {
-          "color": "#ffffff",
-          "fontSize": 17,
-          "fontWeight": "600",
-          "includeFontPadding": false,
-          "lineHeight": 19,
-        },
-      ]
-    }
-  >
-    J
-  </Text>
-</View>
-`;
-
-exports[`light theme Badge default 1`] = `
-<View
-  style={
-    {
-      "alignSelf": "flex-start",
-      "backgroundColor": "#e6f5f0",
-      "borderRadius": 22,
-      "paddingHorizontal": 8,
-      "paddingVertical": 2,
-    }
-  }
->
-  <Text
-    style={
-      [
-        {
-          "fontSize": 11,
-          "fontWeight": "400",
-          "lineHeight": 16,
-        },
-        {
-          "color": "#24c28e",
-        },
-        undefined,
-      ]
-    }
-  >
-    Assigned
-  </Text>
-</View>
-`;
-
-exports[`light theme Button ghost 1`] = `
-<View
-  style={
-    {
-      "transform": [
-        {
-          "scale": 1,
-        },
-      ],
-    }
-  }
->
-  <View
-    accessibilityRole="button"
-    accessibilityState={
-      {
-        "busy": undefined,
-        "checked": undefined,
-        "disabled": false,
-        "expanded": undefined,
-        "selected": undefined,
-      }
-    }
-    accessibilityValue={
-      {
-        "max": undefined,
-        "min": undefined,
-        "now": undefined,
-        "text": undefined,
-      }
-    }
-    accessible={true}
-    collapsable={false}
-    focusable={true}
-    onBlur={[Function]}
-    onClick={[Function]}
-    onFocus={[Function]}
-    onResponderGrant={[Function]}
-    onResponderMove={[Function]}
-    onResponderRelease={[Function]}
-    onResponderTerminate={[Function]}
-    onResponderTerminationRequest={[Function]}
-    onStartShouldSetResponder={[Function]}
-    style={
-      {
-        "alignItems": "center",
-        "backgroundColor": "transparent",
-        "borderColor": "#1D9E75",
-        "borderRadius": 22,
-        "borderWidth": 1,
-        "opacity": 1,
-        "paddingHorizontal": 16,
-        "paddingVertical": 8,
-      }
-    }
-  >
-    <Text
-      style={
-        [
-          {
-            "fontSize": 13,
-            "fontWeight": "500",
-            "lineHeight": 18,
-          },
-          {
-            "color": "#1D9E75",
-          },
-          undefined,
-        ]
-      }
-    >
-      Cancel
-    </Text>
-  </View>
-</View>
-`;
-
-exports[`light theme Button primary 1`] = `
-<View
-  style={
-    {
-      "transform": [
-        {
-          "scale": 1,
-        },
-      ],
-    }
-  }
->
-  <View
-    accessibilityRole="button"
-    accessibilityState={
-      {
-        "busy": undefined,
-        "checked": undefined,
-        "disabled": false,
-        "expanded": undefined,
-        "selected": undefined,
-      }
-    }
-    accessibilityValue={
-      {
-        "max": undefined,
-        "min": undefined,
-        "now": undefined,
-        "text": undefined,
-      }
-    }
-    accessible={true}
-    collapsable={false}
-    focusable={true}
-    onBlur={[Function]}
-    onClick={[Function]}
-    onFocus={[Function]}
-    onResponderGrant={[Function]}
-    onResponderMove={[Function]}
-    onResponderRelease={[Function]}
-    onResponderTerminate={[Function]}
-    onResponderTerminationRequest={[Function]}
-    onStartShouldSetResponder={[Function]}
-    style={
-      {
-        "alignItems": "center",
-        "backgroundColor": "#1D9E75",
-        "borderColor": undefined,
-        "borderRadius": 22,
-        "borderWidth": 0,
-        "opacity": 1,
-        "paddingHorizontal": 16,
-        "paddingVertical": 8,
-      }
-    }
-  >
-    <Text
-      style={
-        [
-          {
-            "fontSize": 13,
-            "fontWeight": "500",
-            "lineHeight": 18,
-          },
-          {
-            "color": "#ffffff",
-          },
-          undefined,
-        ]
-      }
-    >
-      Pay
-    </Text>
-  </View>
-</View>
-`;
-
-exports[`light theme Card 1`] = `
-<View
-  style={
-    [
-      {
-        "backgroundColor": "#ffffff",
-        "borderRadius": 18,
-        "boxShadow": "0px 1px 2px rgba(0, 0, 0, 0.15)",
-        "elevation": 2,
-        "padding": 16,
-      },
-      undefined,
-    ]
-  }
->
-  <Text
-    style={
-      [
-        {
-          "fontSize": 15,
-          "fontWeight": "400",
-          "lineHeight": 22,
-        },
-        {
-          "color": "#1a1a2e",
-        },
-        undefined,
-      ]
-    }
-  >
-    Content
-  </Text>
-</View>
-`;
-
-exports[`light theme Divider 1`] = `
-<View
-  style={
-    [
-      {
-        "backgroundColor": "#e2e4ed",
-        "height": 1,
-      },
-      undefined,
-    ]
-  }
-/>
-`;
-
-exports[`light theme ScreenWrapper 1`] = `
-<View
-  edges={
-    [
-      "top",
-      "left",
-      "right",
-    ]
-  }
-  style={
-    [
-      {
-        "backgroundColor": "#f8f9fc",
-        "flex": 1,
-      },
-      undefined,
-    ]
-  }
->
-  <Text
-    style={
-      [
-        {
-          "fontSize": 15,
-          "fontWeight": "400",
-          "lineHeight": 22,
-        },
-        {
-          "color": "#1a1a2e",
-        },
-        undefined,
-      ]
-    }
-  >
-    Screen
-  </Text>
-</View>
-`;
-
-exports[`light theme Text body 1`] = `
-<Text
-  style={
-    [
-      {
-        "fontSize": 15,
-        "fontWeight": "400",
-        "lineHeight": 22,
-      },
-      {
-        "color": "#1a1a2e",
-      },
-      undefined,
-    ]
-  }
->
-  Hello
 </Text>
 `;

@@ -5,6 +5,13 @@ module.exports = {
     '**/__tests__/**/*.test.ts',
     '**/__tests__/**/*.test.tsx',
   ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.claude/worktrees/',
+  ],
+  modulePathIgnorePatterns: [
+    '/.claude/worktrees/',
+  ],
   // Allow Jest to transform Expo and React Native packages written as ESM.
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|expo-contacts)',

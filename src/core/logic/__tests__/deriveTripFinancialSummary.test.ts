@@ -50,15 +50,21 @@ describe('deriveTripFinancialSummary', () => {
     expect(result).toEqual({ direction: 'owed', amountCents: 2000 });
   });
 
-  it('returns "even" and amountCents=0 when all splits are settled', () => {
+  it('returns "even" and amountCents=0 once ledger payments cover every debt', () => {
+    // Split.amountPaidCents/settledAt are no longer read by the balance math —
+    // "fully paid" is expressed as completed ledger payments now.
     const splits = [
-      splitFactory({ id: 's-u1', expenseId: 'e1', userId: 'u1', amountOwedCents: 2000, amountPaidCents: 2000 }), // fully paid
-      splitFactory({ id: 's-u2', expenseId: 'e1', userId: 'u2', amountOwedCents: 2000, amountPaidCents: 2000 }), // fully paid
-      splitFactory({ id: 's-u3', expenseId: 'e1', userId: 'u3', amountOwedCents: 2000, amountPaidCents: 2000 }), // fully paid
+      splitFactory({ id: 's-u1', expenseId: 'e1', userId: 'u1', amountOwedCents: 2000 }),
+      splitFactory({ id: 's-u2', expenseId: 'e1', userId: 'u2', amountOwedCents: 2000 }),
+      splitFactory({ id: 's-u3', expenseId: 'e1', userId: 'u3', amountOwedCents: 2000 }),
     ];
     const expenses = [expenseFactory({ id: 'e1', paidByUserId: 'u1', splits, totalAmountCents: 6000 })];
+    const payments = [
+      { payerUserId: 'u2', payeeUserId: 'u1', amountCents: 2000, currency: 'EUR' },
+      { payerUserId: 'u3', payeeUserId: 'u1', amountCents: 2000, currency: 'EUR' },
+    ];
 
-    const result = deriveTripFinancialSummary(MEMBERS, expenses, 'u2');
+    const result = deriveTripFinancialSummary(MEMBERS, expenses, 'u2', payments);
     expect(result).toEqual({ direction: 'even', amountCents: 0 });
   });
 

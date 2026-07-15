@@ -3,12 +3,10 @@ import { View, Image, ActivityIndicator, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { tokens } from '../../theme/tokens';
-import { darkColors } from '../../theme/colors';
+import { ledgerColors } from '../../theme/colors';
 
-// Uses darkColors directly (no hook) — this component renders before ServiceProvider.
-// Values match the native splash background so there is no colour flash on startup.
-const BG      = darkColors.background;
-const PRIMARY = darkColors.primary.default;
+const BG      = ledgerColors.background;
+const PRIMARY = ledgerColors.primary.default;
 
 interface AppLoadingScreenProps {
   message?:       string;
@@ -29,7 +27,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
 
       {error ? (
         <>
-          <Text variant="body" style={{ color: darkColors.text.secondary, textAlign: 'center', marginBottom: tokens.spacing.md }}>
+          <Text variant="body" style={{ color: ledgerColors.text.secondary, textAlign: 'center', marginBottom: tokens.spacing.md }}>
             {error}
           </Text>
           {onRetry && (
@@ -56,7 +54,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
           {message && (
             <Text
               variant="caption"
-              style={{ color: darkColors.text.secondary, marginTop: tokens.spacing.md, textAlign: 'center' }}
+              style={{ color: ledgerColors.text.secondary, marginTop: tokens.spacing.md, textAlign: 'center' }}
             >
               {message}
             </Text>
@@ -77,7 +75,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
             opacity: pressed ? 0.7 : 0.35,
           })}
         >
-          <Text variant="caption" style={{ color: darkColors.text.secondary }}>{t('common.debug.reset_auth_button')}</Text>
+          <Text variant="caption" style={{ color: ledgerColors.text.secondary }}>{t('common.debug.reset_auth_button')}</Text>
         </Pressable>
       )}
     </View>

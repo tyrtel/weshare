@@ -1,50 +1,34 @@
 import React from 'react';
-import { render, screen, act, waitFor } from '@testing-library/react-native';
+import { screen, waitFor } from '@testing-library/react-native';
+import { mockExpoRouterModule, mockVectorIconsModule, mockSafeAreaModule, mockSvgModule } from '../../../__testUtils__/standardMocks';
 
 jest.mock('../../../core/utils/confirm', () => ({
   confirm: jest.fn(() => Promise.resolve(false)),
 }));
 
-// expo-router — useLocalSearchParams is a jest.fn() so each test can configure it.
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
-  useLocalSearchParams: jest.fn(() => ({ id: 't1' })),
-  Stack: { Screen: () => null },
-}));
+jest.mock('expo-router', () => mockExpoRouterModule());
 
 // Avoid touching the real data hook — just control what the screen sees.
 jest.mock('../hooks/useTripDetail', () => ({
   useTripDetail: jest.fn(),
 }));
 
-jest.mock('react-native-safe-area-context', () => {
-  const { View } = require('react-native');
-  return {
-    SafeAreaView: View,
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-  };
-});
-
-jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
-
-jest.mock('react-native-svg', () => {
-  const { View } = require('react-native');
-  return { __esModule: true, default: View, Svg: View, Path: View, G: View, Circle: View };
-});
+jest.mock('react-native-safe-area-context', () => mockSafeAreaModule());
+jest.mock('@expo/vector-icons', () => mockVectorIconsModule());
+jest.mock('react-native-svg', () => mockSvgModule());
 
 import { TripDetailScreen } from '../screens/TripDetailScreen';
 import { useTripDetail } from '../hooks/useTripDetail';
 import { useLocalSearchParams } from 'expo-router';
-import { ServiceContext } from '../../../core/di/ServiceContext';
+import { renderScreen } from '../../../__testUtils__/renderScreen';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { AUTH, SHARE, TRIP_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { AUTH, TRIP_REPO, SPLIT_REQUEST_REPO } from '../../../core/di/tokens';
 import { confirm } from '../../../core/utils/confirm';
-import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { MockShareService } from '../../../__mocks__/MockShareService';
+import { splitFactory, splitRequestFactory } from '../../../__testUtils__/factories';
+import type { InMemorySplitRequestRepository } from '../../../__mocks__/InMemorySplitRequestRepository';
 
 const mockUseTripDetail        = useTripDetail as jest.Mock;
 const mockUseLocalSearchParams = useLocalSearchParams as jest.Mock;
-const mockConfirm              = confirm as jest.Mock;
 
 const NOW = new Date('2025-06-01T12:00:00Z');
 
@@ -60,50 +44,31 @@ const BASE_TRIP = {
   closedAt: null,
 };
 
-function makeWrapper(container: ServiceContainer) {
-  return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(ServiceContext.Provider, { value: container }, children);
-  };
-}
-
-
-// ---------------------------------------------------------------------------
-// Settle button — status-aware rendering
-// ---------------------------------------------------------------------------
-
 const EXPENSE = {
   id: 'e1', tripId: 't1', description: 'Hotel',
   totalAmountCents: 10000, currency: 'EUR',
   paidByUserId: 'u1', createdAt: NOW, splits: [], metadata: {},
 };
 
+// ---------------------------------------------------------------------------
+// Settle button — status-aware rendering
+// ---------------------------------------------------------------------------
+
 describe('TripDetailScreen — settle button', () => {
   beforeEach(() => {
     mockUseLocalSearchParams.mockReturnValue({ id: 't1' });
   });
 
-  it('shows "Settle Up" when status is active and there are expenses', () => {
+  it('shows "Settle trip" when status is active and there are expenses', () => {
     mockUseTripDetail.mockReturnValue({
       trip: { ...BASE_TRIP, status: 'active' },
       expenses: [EXPENSE],
       loading: false, error: null, refetch: jest.fn(),
     });
 
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
+    renderScreen(<TripDetailScreen />, createTestContainer());
 
-    expect(screen.getByText('Settle Up')).toBeTruthy();
-  });
-
-  it('shows "Settling in progress" when status is settling', () => {
-    mockUseTripDetail.mockReturnValue({
-      trip: { ...BASE_TRIP, status: 'settling' },
-      expenses: [EXPENSE],
-      loading: false, error: null, refetch: jest.fn(),
-    });
-
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
-
-    expect(screen.getByText('Settling in progress')).toBeTruthy();
+    expect(screen.getByText('Settle trip')).toBeTruthy();
   });
 
   it('hides the settle button when status is closed', () => {
@@ -113,10 +78,9 @@ describe('TripDetailScreen — settle button', () => {
       loading: false, error: null, refetch: jest.fn(),
     });
 
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
+    renderScreen(<TripDetailScreen />, createTestContainer());
 
-    expect(screen.queryByText('Settle Up')).toBeNull();
-    expect(screen.queryByText('Settling in progress')).toBeNull();
+    expect(screen.queryByText('Settle trip')).toBeNull();
   });
 
   it('hides the settle button when there are no expenses', () => {
@@ -126,12 +90,12 @@ describe('TripDetailScreen — settle button', () => {
       loading: false, error: null, refetch: jest.fn(),
     });
 
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
+    renderScreen(<TripDetailScreen />, createTestContainer());
 
-    expect(screen.queryByText('Settle Up')).toBeNull();
+    expect(screen.queryByText('Settle trip')).toBeNull();
   });
 
-  it('pressing "Settle Up" navigates without changing trip status', async () => {
+  it('pressing "Settle trip" navigates without changing trip status', async () => {
     const { fireEvent } = require('@testing-library/react-native');
 
     const container = createTestContainer();
@@ -147,127 +111,67 @@ describe('TripDetailScreen — settle button', () => {
       loading: false, error: null, refetch: jest.fn(),
     });
 
-    render(<TripDetailScreen />, { wrapper: makeWrapper(container) });
+    renderScreen(<TripDetailScreen />, container);
 
-    fireEvent.press(screen.getByText('Settle Up'));
+    fireEvent.press(screen.getByText('Settle trip'));
 
-    // No confirm should fire — locking now happens from SettlementScreen FAB.
-    expect(mockConfirm).not.toHaveBeenCalled();
+    // No confirm should fire — settlement happens from SettlementScreen.
+    expect(confirm).not.toHaveBeenCalled();
 
-    // Trip status must remain 'active' — navigate only, no status change here.
+    // Trip status must remain 'active' — navigate only.
     const stored = await tripRepo.getTrip('t1');
     expect(stored.ok && stored.value.status).toBe('active');
   });
 });
 
 // ---------------------------------------------------------------------------
-// ClosedTripBanner vs BalanceBubblesSection
+// "YOUR NET" — reflects completed ledger payments, not just raw expense debits
 // ---------------------------------------------------------------------------
 
-describe('TripDetailScreen — closed trip banner', () => {
+describe('TripDetailScreen — YOUR NET reflects the ledger', () => {
   beforeEach(() => {
     mockUseLocalSearchParams.mockReturnValue({ id: 't1' });
   });
 
-  it('renders ClosedTripBanner when status is closed', () => {
-    mockUseTripDetail.mockReturnValue({
-      trip: { ...BASE_TRIP, status: 'closed' as const, closedAt: new Date('2026-05-28T10:00:00Z') },
-      expenses: [],
-      loading: false, error: null, refetch: jest.fn(),
-    });
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
-    expect(screen.getByTestId('closed-trip-banner')).toBeTruthy();
-  });
-
-  it('does not render ClosedTripBanner when status is active', () => {
-    mockUseTripDetail.mockReturnValue({
-      trip: { ...BASE_TRIP, status: 'active' as const },
-      expenses: [],
-      loading: false, error: null, refetch: jest.fn(),
-    });
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
-    expect(screen.queryByTestId('closed-trip-banner')).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Close Trip button
-// ---------------------------------------------------------------------------
-
-describe('TripDetailScreen — close trip button', () => {
-  beforeEach(() => {
-    mockUseLocalSearchParams.mockReturnValue({ id: 't1' });
-    mockConfirm.mockResolvedValue(false);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('shows the close-trip button when status is active', () => {
-    mockUseTripDetail.mockReturnValue({
-      trip: { ...BASE_TRIP, status: 'active' },
-      expenses: [], loading: false, error: null, refetch: jest.fn(),
-    });
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
-    expect(screen.getByTestId('close-trip-button')).toBeTruthy();
-  });
-
-  it('shows the close-trip button when status is settling', () => {
-    mockUseTripDetail.mockReturnValue({
-      trip: { ...BASE_TRIP, status: 'settling' },
-      expenses: [], loading: false, error: null, refetch: jest.fn(),
-    });
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
-    expect(screen.getByTestId('close-trip-button')).toBeTruthy();
-  });
-
-  it('hides the close-trip button when status is closed', () => {
-    mockUseTripDetail.mockReturnValue({
-      trip: { ...BASE_TRIP, status: 'closed' },
-      expenses: [], loading: false, error: null, refetch: jest.fn(),
-    });
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
-    expect(screen.queryByTestId('close-trip-button')).toBeNull();
-  });
-
-  it('shows "Close Trip?" confirm when close button is pressed', () => {
-    const { fireEvent } = require('@testing-library/react-native');
-    mockUseTripDetail.mockReturnValue({
-      trip: { ...BASE_TRIP, status: 'active' },
-      expenses: [], loading: false, error: null, refetch: jest.fn(),
-    });
-    render(<TripDetailScreen />, { wrapper: makeWrapper(createTestContainer()) });
-    fireEvent.press(screen.getByTestId('close-trip-button'));
-    expect(mockConfirm).toHaveBeenCalledTimes(1);
-    expect(mockConfirm.mock.calls[0][0]).toBe('Close Trip?');
-  });
-
-  it('calls setTripStatus("closed") when close is confirmed', async () => {
-    const { fireEvent } = require('@testing-library/react-native');
-    mockConfirm.mockResolvedValue(true);
-
+  it('drops to zero once a completed payment covers the current user\'s debt', async () => {
     const container = createTestContainer();
-    const auth      = container.resolve(AUTH);
-    await auth.signIn('jay@example.com', 'password');
+    const auth = container.resolve(AUTH);
+    const signedIn = await auth.signIn('jay@example.com', 'password');
+    const currentUserId = signedIn.ok ? signedIn.value.id : '';
 
-    const tripRepo = container.resolve(TRIP_REPO);
-    await tripRepo.saveTrip({ ...BASE_TRIP, status: 'active' });
-    const storeApi = container.resolve(TRIP_STORE);
-    await storeApi.getState().loadTripDetail('t1');
+    const trip = {
+      ...BASE_TRIP,
+      members: [
+        { userId: currentUserId, tripId: 't1', displayName: 'Jay', joinedAt: NOW, isGuest: false },
+        { userId: 'u2', tripId: 't1', displayName: 'Marie', joinedAt: NOW, isGuest: false },
+      ],
+    };
+    // Marie paid €100; Jay owes Marie €50.
+    const expense = {
+      ...EXPENSE,
+      paidByUserId: 'u2',
+      splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId: currentUserId, amountOwedCents: 5000 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 5000 }),
+      ],
+    };
+
+    (container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository).seed([
+      splitRequestFactory({ id: 'r1', tripId: 't1', payerUserId: currentUserId, requesterUserId: 'u2', amountCents: 5000, status: 'completed' }),
+    ]);
 
     mockUseTripDetail.mockReturnValue({
-      trip: { ...BASE_TRIP, status: 'active' },
-      expenses: [], loading: false, error: null, refetch: jest.fn(),
+      trip, expenses: [expense], loading: false, error: null, refetch: jest.fn(),
     });
 
-    render(<TripDetailScreen />, { wrapper: makeWrapper(container) });
+    renderScreen(<TripDetailScreen />, container);
 
-    fireEvent.press(screen.getByTestId('close-trip-button'));
-
-    await waitFor(async () => {
-      const storedTrip = await tripRepo.getTrip('t1');
-      expect(storedTrip.ok && storedTrip.value.status).toBe('closed');
-    });
+    // "+€0.00" shows up more than once (the stat card's "YOUR NET" plus each
+    // member's own row in the balance selector below it, since the payment
+    // zeroes out both sides of the pair) — assert it renders at all rather
+    // than pin down which specific element, and assert the pre-payment
+    // negative figure ("−€50.00") is gone.
+    await waitFor(() => expect(screen.getAllByText('+€0.00').length).toBeGreaterThan(0));
+    expect(screen.queryByText('−€50.00')).toBeNull();
   });
 });

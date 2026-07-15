@@ -12,7 +12,7 @@ import { useAddExpense } from '../hooks/useAddExpense';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import {
-  TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO,
+  TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
 } from '../../../core/di/tokens';
 import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
 import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepository';
@@ -100,7 +100,11 @@ describe('cache invalidation — addExpense', () => {
 // ── 8.1.2 — updateRequestStatus → latestRequest updates without refetch ───────
 
 describe('cache invalidation — updateRequestStatus', () => {
-  it('updates latestRequest on the affected settlement without refetch', async () => {
+  // A 'completed' SplitRequest is a completed ledger entry now (see core/logic/
+  // settlement.ts's LedgerPayment credit filter) — the settlement it fully
+  // covers disappears from the list instead of persisting with an updated
+  // status label, unlike before.
+  it('clears the settlement once the request completes, without a refetch', async () => {
     const splits = [
       splitFactory({ id: 's1', expenseId: 'e1', userId: 'jay', amountOwedCents: 5000 }),
       splitFactory({ id: 's2', expenseId: 'e1', userId: 'marie', amountOwedCents: 5000 }),
@@ -136,12 +140,16 @@ describe('cache invalidation — updateRequestStatus', () => {
       await result.current.updateRequestStatus(liveReq, 'completed');
     });
 
-    // Store updated via updateSplitRequest — no refetch called.
+    // Store updated via updateSplitRequest — no refetch called. The completed
+    // payment fully covers marie's debt, so her settlement row disappears.
     await waitFor(() => {
       const after = result.current.settlements.find(
         (s) => s.fromUserId === 'marie' && s.toUserId === 'jay',
       );
-      expect(after?.latestRequest?.status).toBe('completed');
+      expect(after).toBeUndefined();
     });
+
+    const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequest(liveReq.id);
+    expect(stored.ok && stored.value.status).toBe('completed');
   });
 });

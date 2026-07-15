@@ -14,3 +14,13 @@ export function formatCurrency(minorUnits: number, currency: string): string {
     currency,
   }).format(minorUnits / getMinorUnitMultiplier(currency));
 }
+
+/**
+ * Format an FX rate for display, e.g. "1 JPY = 0.0062 EUR" — trims to 4
+ * decimal places but keeps at least one, since rates for currencies like
+ * JPY are small enough that 2 decimals would round to 0.00.
+ */
+export function formatRate(rate: number): string {
+  const trimmed = rate.toFixed(4).replace(/\.?0+$/, '');
+  return trimmed.includes('.') ? trimmed : `${trimmed}.0`;
+}

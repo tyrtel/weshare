@@ -234,24 +234,35 @@ describe('useSettlement — SplitRequest tracking', () => {
     expect(marieRow?.latestRequest?.status).toBe('pending');
   });
 
-  it('markDebtPaid creates a new SplitRequest with status paid when none exists', async () => {
+  // A 'paid' SplitRequest is a completed ledger entry now (see core/logic/
+  // settlement.ts's LedgerPayment credit filter) — marking a debt paid
+  // actually clears it from the settlement list instead of leaving a
+  // same-amount row with an updated status label, unlike before.
+  it('markDebtPaid creates a completed SplitRequest and clears the settlement', async () => {
     const container = createTestContainer();
     seedBasic(container);
 
     const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.settlements.find(s => s.fromUserId === 'marie')).toBeTruthy();
 
     await act(async () => {
       await result.current.markDebtPaid('marie', 'jay');
     });
 
-    const marieRow = result.current.settlements.find(s => s.fromUserId === 'marie');
-    expect(marieRow?.latestRequest?.status).toBe('paid');
-    expect(marieRow?.latestRequest?.payerUserId).toBe('marie');
-    expect(marieRow?.latestRequest?.requesterUserId).toBe('jay');
+    await waitFor(() => {
+      expect(result.current.settlements.find(s => s.fromUserId === 'marie')).toBeUndefined();
+    });
+
+    const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequestsForTrip('t1');
+    expect(stored.ok).toBe(true);
+    if (!stored.ok) return;
+    const created = stored.value.find(r => r.payerUserId === 'marie' && r.requesterUserId === 'jay');
+    expect(created?.status).toBe('paid');
+    expect(created?.amountCents).toBe(2500);
   });
 
-  it('markDebtPaid updates an existing owed request to paid', async () => {
+  it('markDebtPaid updates an existing owed request to paid and clears the settlement', async () => {
     const container = createTestContainer();
     seedBasic(container);
 
@@ -265,9 +276,12 @@ describe('useSettlement — SplitRequest tracking', () => {
       await result.current.markDebtPaid('marie', 'jay');
     });
 
-    const marieRow = result.current.settlements.find(s => s.fromUserId === 'marie');
-    expect(marieRow?.latestRequest?.status).toBe('paid');
-    expect(marieRow?.latestRequest?.id).toBe('req-1');
+    await waitFor(() => {
+      expect(result.current.settlements.find(s => s.fromUserId === 'marie')).toBeUndefined();
+    });
+
+    const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequest('req-1');
+    expect(stored.ok && stored.value.status).toBe('paid');
   });
 
   it('markDebtOwed reverts a paid request back to owed', async () => {

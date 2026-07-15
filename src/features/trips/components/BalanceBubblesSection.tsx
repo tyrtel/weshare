@@ -176,7 +176,7 @@ function ListRows({ sorted, currency, members }: {
           >
             <Avatar
               initials={member.displayName}
-              bg={palette.text}
+              bg={palette.bg}
               size="sm"
               url={member.avatarUrl}
             />

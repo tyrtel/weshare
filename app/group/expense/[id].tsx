@@ -9,12 +9,13 @@ import { Text } from '../../../src/components/ui/Text';
 import { Badge } from '../../../src/components/ui/Badge';
 import { Avatar } from '../../../src/components/ui/Avatar';
 import { Divider } from '../../../src/components/ui/Divider';
-import { Card } from '../../../src/components/ui/Card';
+import { ExpensePaidByCard } from '../../../src/components/ui/ExpensePaidByCard';
+import { ExpenseReceiptSection } from '../../../src/components/ui/ExpenseReceiptSection';
 import { useSettleGroupExpense } from '../../../src/features/groups/hooks/useSettleGroupExpense';
 import { MakeRecurringSheet } from '../../../src/features/groups/components/MakeRecurringSheet';
 import { useService, useTripSessionStore } from '../../../src/core/di/ServiceContext';
 import { AUTH } from '../../../src/core/di/tokens';
-import { useColors } from '../../../src/theme/colors';
+import { useColors, personColorFor } from '../../../src/theme/colors';
 import { personColors } from '../../../src/theme/colors';
 import { tokens } from '../../../src/theme/tokens';
 import { formatCurrency } from '../../../src/core/utils/formatCurrency';
@@ -105,21 +106,17 @@ export default function GroupExpenseDetailScreen() {
           </Text>
         </View>
 
+        {/* Receipt image — tap to view fullscreen */}
+        <ExpenseReceiptSection receiptPath={expense.metadata?.receiptUrl} />
+
         {/* Paid by */}
-        <Card style={{ marginBottom: tokens.spacing.md }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar
-              initials={getInitials(payerName)}
-              bg={personColors[0].text}
-              url={payer?.avatarUrl}
-              size="md"
-            />
-            <View style={{ marginLeft: tokens.spacing.sm }}>
-              <Text variant="caption" color={colors.text.secondary}>{t('expenses.detail.paid_by_label')}</Text>
-              <Text variant="body">{payerName}</Text>
-            </View>
-          </View>
-        </Card>
+        <ExpensePaidByCard
+          payerName={payerName}
+          payerColor={personColorFor(expense.paidByUserId, group.members).bg}
+          avatarUrl={payer?.avatarUrl}
+          label={t('expenses.detail.paid_by_label')}
+          style={{ marginBottom: tokens.spacing.md }}
+        />
 
         {/* Splits */}
         {expense.splits.length > 0 && (
@@ -134,7 +131,7 @@ export default function GroupExpenseDetailScreen() {
               return (
                 <View key={split.id}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: tokens.spacing.sm }}>
-                    <Avatar initials={getInitials(name)} bg={palette.text} url={member?.avatarUrl} size="sm" />
+                    <Avatar initials={getInitials(name)} bg={palette.bg} url={member?.avatarUrl} size="sm" />
                     <Text variant="body" style={{ flex: 1, marginLeft: tokens.spacing.sm }} numberOfLines={1}>{name}</Text>
                     <Text variant="label" color={colors.text.primary}>
                       {formatCurrency(split.amountOwedCents, expense.currency)}

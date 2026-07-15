@@ -13,8 +13,9 @@ jest.mock('react-native/Libraries/Components/Clipboard/Clipboard', () => ({
 }));
 
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act, screen } from '@testing-library/react-native';
 import * as ExpoContacts from 'expo-contacts';
+import { useRouter } from 'expo-router';
 import { AddParticipantScreen } from '../screens/AddParticipantScreen';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
@@ -35,15 +36,10 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-jest.mock('expo-router', () => ({
-  Stack: { Screen: () => null },
-  useLocalSearchParams: () => ({ tripId: 't1' }),
-  useRouter: () => ({ back: jest.fn(), push: jest.fn() }),
-  useFocusEffect: (cb: Parameters<typeof import('react').useEffect>[0]) => {
-    const { useEffect } = require('react');
-    useEffect(cb, []);
-  },
-}));
+jest.mock('expo-router', () => {
+  const { mockExpoRouterModule } = require('../../../__testUtils__/standardMocks');
+  return { ...mockExpoRouterModule(), useLocalSearchParams: () => ({ tripId: 't1' }) };
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -252,5 +248,21 @@ describe('AddParticipantScreen — invite link', () => {
     const { queryByLabelText } = await renderScreen(container);
 
     expect(queryByLabelText('Share invite')).toBeNull();
+  });
+});
+
+// ── Section D: Done button ────────────────────────────────────────────────────
+
+describe('AddParticipantScreen — done button', () => {
+  it('replaces to the trip detail screen when pressed', async () => {
+    const container = createTestContainer();
+    await container.resolve(TRIP_REPO).saveTrip(tripFactory());
+
+    await renderScreen(container);
+
+    await act(async () => { fireEvent.press(screen.getByLabelText('Done')); });
+
+    const router = useRouter();
+    expect(router.replace).toHaveBeenCalledWith('/trip/t1');
   });
 });

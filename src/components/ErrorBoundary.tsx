@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { ledgerColors } from '../theme/colors';
+import { ledgerRadius } from '../theme/tokens';
 
 interface Props {
   children: React.ReactNode;
@@ -51,34 +53,37 @@ export class ErrorBoundary extends React.Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: ledgerColors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
   card: {
-    backgroundColor: '#16213e',
-    borderRadius: 18,
+    backgroundColor: ledgerColors.surface,
+    borderRadius: ledgerRadius.card,
     padding: 24,
     width: '100%',
-    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.25)',
-    elevation: 8,
+    shadowColor: '#182420',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   title: {
-    color: '#f87171',
+    color: ledgerColors.error.default,
     fontSize: 17,
     fontWeight: '700',
     marginBottom: 8,
   },
   message: {
-    color: '#a0a0b8',
+    color: ledgerColors.text.secondary,
     fontSize: 13,
     marginBottom: 24,
     lineHeight: 19,
   },
   button: {
-    backgroundColor: '#1D9E75',
-    borderRadius: 22,
+    backgroundColor: ledgerColors.primary.default,
+    borderRadius: ledgerRadius.md,
     paddingVertical: 12,
     alignItems: 'center',
   },

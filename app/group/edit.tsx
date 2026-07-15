@@ -6,6 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../src/components/ui/ScreenWrapper';
 import { ErrorBanner } from '../../src/components/ui/ErrorBanner';
 import { Avatar } from '../../src/components/ui';
+import { CurrencyPicker } from '../../src/components/ui/CurrencyPicker';
+import { HeaderConfirmButton } from '../../src/components/ui/HeaderConfirmButton';
+import { LabeledTextInput } from '../../src/components/ui/LabeledTextInput';
 import { Text } from '../../src/components/ui/Text';
 import { useEditGroup } from '../../src/features/groups/hooks/useEditGroup';
 import { useDeleteGroup } from '../../src/features/groups/hooks/useDeleteGroup';
@@ -14,8 +17,6 @@ import { useTripSessionStore } from '../../src/core/di/ServiceContext';
 import { useColors } from '../../src/theme/colors';
 import { personColors } from '../../src/theme/colors';
 import { tokens } from '../../src/theme/tokens';
-import { CURRENCIES, currencyLabel } from '../../src/core/constants/currencies';
-import { StyleSheet } from 'react-native';
 
 export default function EditGroupScreen() {
   const { t }     = useTranslation();
@@ -28,11 +29,10 @@ export default function EditGroupScreen() {
   const { editGroup,   loading: editLoading,   error: editError }   = useEditGroup();
   const { deleteGroup, loading: deleteLoading, error: deleteError } = useDeleteGroup();
 
-  const [name,            setName]            = useState(group?.name ?? '');
-  const [currency,        setCurrency]        = useState(group?.currency ?? 'EUR');
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-  const [newMemberName,   setNewMemberName]   = useState('');
-  const [addingMember,    setAddingMember]    = useState(false);
+  const [name,           setName]           = useState(group?.name ?? '');
+  const [currency,       setCurrency]       = useState(group?.currency ?? 'EUR');
+  const [newMemberName,  setNewMemberName]  = useState('');
+  const [addingMember,   setAddingMember]   = useState(false);
 
   const { addMember, loading: memberLoading, error: memberError } = useAddGroupMember(id ?? '');
 
@@ -71,74 +71,37 @@ export default function EditGroupScreen() {
   };
 
   const confirmButton = () => (
-    <Pressable
+    <HeaderConfirmButton
       onPress={handleSubmit}
       disabled={!isValid}
-      accessibilityRole="button"
+      loading={loading}
       accessibilityLabel={t('groups.edit.confirm_label')}
-      style={({ pressed }) => ({
-        width: 36, height: 36, borderRadius: 18,
-        backgroundColor: isValid ? colors.primary.default : colors.text.tertiary,
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: tokens.spacing.xs, opacity: pressed ? 0.8 : 1,
-      })}
-    >
-      {loading
-        ? <ActivityIndicator color="#fff" size="small" />
-        : <Ionicons name="checkmark" size={20} color="#fff" />}
-    </Pressable>
+    />
   );
-
-  const inputStyle = {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: tokens.radius.md,
-    paddingHorizontal: tokens.spacing.md,
-    paddingVertical: tokens.spacing.sm,
-    color: colors.text.primary,
-    fontSize: tokens.fontSize.md,
-    marginBottom: tokens.spacing.md,
-  };
 
   return (
     <ScreenWrapper>
       <Stack.Screen options={{ title: t('groups.edit.title'), headerRight: confirmButton }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={{ padding: tokens.spacing.md }} keyboardShouldPersistTaps="handled">
-          <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-            {t('groups.form.name_label')}
-          </Text>
-          <TextInput
+          <LabeledTextInput
+            label={t('groups.form.name_label')}
             value={name}
             onChangeText={setName}
             placeholder={t('groups.form.name_placeholder')}
-            placeholderTextColor={colors.text.tertiary}
-            style={inputStyle}
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
             accessibilityLabel={t('groups.form.name_accessibility')}
           />
 
-          <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-            {t('groups.form.currency_label')}
-          </Text>
-          <Pressable
-            onPress={() => setDropdownVisible(true)}
-            accessibilityRole="combobox"
-            accessibilityLabel={t('groups.form.currency_select_label')}
-            accessibilityState={{ expanded: dropdownVisible }}
-            style={({ pressed }) => ({
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
-              borderRadius: tokens.radius.md, paddingHorizontal: tokens.spacing.md,
-              paddingVertical: tokens.spacing.sm, marginBottom: tokens.spacing.lg,
-              opacity: pressed ? 0.8 : 1,
-            })}
-          >
-            <Text variant="body" color={colors.text.primary}>{currencyLabel(currency)}</Text>
-            <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
-          </Pressable>
+          <CurrencyPicker
+            currency={currency}
+            onSelect={setCurrency}
+            fieldLabel={t('groups.form.currency_label')}
+            selectLabel={t('groups.form.currency_select_label')}
+            selectHeading={t('groups.form.currency_select_heading')}
+            closeLabel={t('groups.form.currency_close_label')}
+          />
 
           {/* Members section */}
           <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
@@ -163,7 +126,7 @@ export default function EditGroupScreen() {
                     borderBottomColor: colors.borderMuted,
                   }}
                 >
-                  <Avatar initials={initials} bg={palette.text} url={member.avatarUrl} size="sm" />
+                  <Avatar initials={initials} bg={palette.bg} url={member.avatarUrl} size="sm" />
                   <View style={{ flex: 1, marginLeft: tokens.spacing.sm }}>
                     <Text variant="body">{member.displayName}</Text>
                     {member.isGuest && (
@@ -241,54 +204,6 @@ export default function EditGroupScreen() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {dropdownVisible && (
-        <Pressable
-          style={[styles.backdrop, { padding: tokens.spacing.xl }]}
-          onPress={() => setDropdownVisible(false)}
-          accessibilityLabel={t('groups.form.currency_close_label')}
-          accessibilityRole="button"
-        >
-          <View style={[styles.sheet, { backgroundColor: colors.surface, borderRadius: tokens.radius.card }]}>
-            <View style={{ paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-              <Text variant="label" color={colors.text.secondary}>{t('groups.form.currency_select_heading')}</Text>
-            </View>
-            {CURRENCIES.map((item, index) => {
-              const selected = item.code === currency;
-              return (
-                <View key={item.code}>
-                  {index > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
-                  <Pressable
-                    onPress={() => { setCurrency(item.code); setDropdownVisible(false); }}
-                    accessibilityRole="menuitem"
-                    accessibilityState={{ selected }}
-                    style={({ pressed }) => ({
-                      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                      paddingHorizontal: tokens.spacing.md, paddingVertical: tokens.spacing.md,
-                      backgroundColor: pressed ? colors.surfaceAlt : selected ? colors.primary.subtle : 'transparent',
-                    })}
-                  >
-                    <Text variant="body" color={selected ? colors.primary.default : colors.text.primary}>
-                      {`${item.symbol} ${item.code}`}
-                    </Text>
-                    {selected && <Ionicons name="checkmark" size={16} color={colors.primary.default} />}
-                  </Pressable>
-                </View>
-              );
-            })}
-          </View>
-        </Pressable>
-      )}
     </ScreenWrapper>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    zIndex: 100,
-  },
-  sheet: { overflow: 'hidden' },
-});

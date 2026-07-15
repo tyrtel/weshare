@@ -26,6 +26,14 @@ export class InMemorySplitRequestRepository implements ISplitRequestRepository {
     return ok(result);
   };
 
+  getSplitRequestsForGroup = async (groupId: string): Promise<Result<SplitRequest[], AppError>> => {
+    const result: SplitRequest[] = [];
+    for (const req of this.splitRequests.values()) {
+      if (req.groupId === groupId) result.push(req);
+    }
+    return ok(result);
+  };
+
   saveSplitRequest = async (req: SplitRequest): Promise<Result<SplitRequest, AppError>> => {
     this.splitRequests.set(req.id, req);
     return ok(req);

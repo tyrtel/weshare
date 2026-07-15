@@ -18,11 +18,10 @@ const FAB_EXTENDED = 168;
 
 interface TripFABProps {
   onAddExpense: () => void;
-  onAddPeople: () => void;
   isExtended: boolean;
 }
 
-export function TripFAB({ onAddExpense, onAddPeople, isExtended }: TripFABProps) {
+export function TripFAB({ onAddExpense, isExtended }: TripFABProps) {
   const { t } = useTranslation();
   const colors = useColors();
 
@@ -47,36 +46,9 @@ export function TripFAB({ onAddExpense, onAddPeople, isExtended }: TripFABProps)
         gap: tokens.spacing.sm,
       }}
     >
-      {/* Secondary: Add people (labelled pill) */}
-      <Animated.View
-        entering={Platform.OS !== 'web' ? ZoomIn.delay(100).duration(300).springify() : undefined}
-      >
-        <Pressable
-          onPress={onAddPeople}
-          accessibilityRole="button"
-          accessibilityLabel={t('trips.detail.add_people_label')}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: tokens.spacing.xs,
-            height: 36,
-            borderRadius: tokens.radius.pill,
-            paddingHorizontal: tokens.spacing.md,
-            backgroundColor: colors.surfaceAlt,
-            borderWidth: 1,
-            borderColor: colors.primary.dim,
-            opacity: pressed ? 0.7 : 1,
-            ...tokens.shadow.md,
-          })}
-        >
-          <Ionicons name="person-add-outline" size={16} color={colors.primary.default} />
-          <Text variant="caption" color={colors.primary.default}>{t('trips.detail.add_people')}</Text>
-        </Pressable>
-      </Animated.View>
-
       {/* Primary: Add expense */}
       <Animated.View
-        entering={Platform.OS !== 'web' ? ZoomIn.delay(200).duration(300).springify() : undefined}
+        entering={Platform.OS !== 'web' ? ZoomIn.delay(100).duration(300).springify() : undefined}
       >
         <Animated.View
           style={[

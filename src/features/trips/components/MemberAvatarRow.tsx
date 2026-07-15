@@ -35,7 +35,7 @@ export function MemberAvatarRow({ members, maxVisible = 5 }: MemberAvatarRowProp
           >
             <Avatar
               initials={getInitials(member.displayName)}
-              bg={palette.text}
+              bg={palette.bg}
               url={member.avatarUrl}
               size="sm"
             />

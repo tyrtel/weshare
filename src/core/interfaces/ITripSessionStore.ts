@@ -15,6 +15,7 @@ export interface TripSessionState {
   expenses: Record<string, Expense[]>;        // keyed by tripId
   members: Record<string, TripMember[]>;      // keyed by tripId
   splitRequests: Record<string, SplitRequest[]>; // keyed by tripId
+  groupSplitRequests: Record<string, SplitRequest[]>; // keyed by groupId
   /** IDs of expenses that have been appended optimistically but not yet confirmed by storage. */
   pendingExpenseIds: string[];
   isHydrated: boolean;
@@ -31,6 +32,8 @@ export interface TripSessionActions {
   loadTripDetail(tripId: string): Promise<void>;
   /** Fetch and cache split requests for one trip. */
   loadSplitRequests(tripId: string): Promise<void>;
+  /** Fetch and cache split requests for one group. */
+  loadSplitRequestsForGroup(groupId: string): Promise<void>;
 
   /** Persist a new expense and append it to the cache (with optimistic write). */
   addExpense(expense: Expense): Promise<void>;
@@ -38,9 +41,9 @@ export interface TripSessionActions {
   removeExpense(expenseId: string, tripId: string): Promise<void>;
   /** Mark a split as fully paid, persist it, and update the nested split in the cache. */
   markSettled(split: Split): Promise<Result<Split, AppError>>;
-  /** Save a new split request to storage and append it to the cache. */
+  /** Save a new split request to storage and append it to the cache — trip- or group-scoped, per req.tripId/req.groupId. */
   saveSplitRequest(req: SplitRequest): Promise<void>;
-  /** Persist a split-request status change and update the cache in place. */
+  /** Persist a split-request status change and update the cache in place — trip- or group-scoped. */
   updateSplitRequest(req: SplitRequest): Promise<void>;
 
   /** Persist a trip status change and update the cache in place. */
@@ -56,7 +59,7 @@ export interface TripSessionActions {
   replaceExpense(expense: Expense): void;
   /** Append a newly-joined member to the trip's member cache (no repo call). */
   appendMember(member: TripMember): void;
-  /** Append a SplitRequest to the trip's cache (no repo call). Use after a payment method saves directly to the repo. */
+  /** Append a SplitRequest to its trip's or group's cache (no repo call). Use after a payment method saves directly to the repo. */
   appendSplitRequest(req: SplitRequest): void;
 
   /** Switch the active trip without a network call. */
@@ -74,6 +77,8 @@ export interface TripSessionActions {
   settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date): void;
   /** Append a saved group expense to the cache (no repo call — expense already persisted by hook). */
   appendGroupExpense(expense: Expense): void;
+  /** Replace a group expense in its group's cache bucket by id (no repo call). */
+  replaceGroupExpense(expense: Expense): void;
   /** Append a newly-created group to the cache (no repo call). */
   appendGroup(group: Group): void;
   /** Replace a group in the cache by id (no repo call). */

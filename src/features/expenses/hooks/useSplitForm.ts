@@ -48,6 +48,7 @@ export interface UseSplitFormReturn {
   removeLineItem: (id: string) => void;
   toggleMemberInItem: (itemId: string, userId: string) => void;
   initFromParsed: (parsedItems: ParsedReceiptLineItem[], allMembers: TripMember[]) => void;
+  rescaleForCurrency: (scale: number) => void;
 }
 
 function computeItemizedSplits(items: ExpenseLineItem[]): SplitResult[] {
@@ -211,6 +212,18 @@ export function useSplitForm({
     }));
   };
 
+  // Rescales any already-entered custom split amounts and line items when the
+  // expense currency changes — e.g. switching from a 2-decimal currency (EUR)
+  // to a 0-decimal one (JPY) means every previously-entered minor-unit amount
+  // was computed against the wrong subunit size and is now off by 100x.
+  const rescaleForCurrency = (scale: number) => {
+    if (scale === 1) return;
+    setSplitEntries(prev => prev.map(e =>
+      e.customAmountCents != null ? { ...e, customAmountCents: Math.round(e.customAmountCents * scale) } : e,
+    ));
+    setLineItems(prev => prev.map(item => ({ ...item, amountCents: Math.round(item.amountCents * scale) })));
+  };
+
   // Populates items from OCR output and switches to itemized mode.
   const initFromParsed = (parsedItems: ParsedReceiptLineItem[], allMembers: TripMember[]) => {
     const allIds = allMembers.map(m => m.userId);
@@ -242,5 +255,6 @@ export function useSplitForm({
     removeLineItem,
     toggleMemberInItem,
     initFromParsed,
+    rescaleForCurrency,
   };
 }

@@ -52,6 +52,7 @@ const INITIAL_STATE: TripSessionState = {
   expenses: {},
   members: {},
   splitRequests: {},
+  groupSplitRequests: {},
   pendingExpenseIds: [],
   isHydrated: false,
   hydrationError: null,
@@ -274,6 +275,18 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       }));
     },
 
+    async loadSplitRequestsForGroup(groupId: string): Promise<void> {
+      const result = await repos.splitRequests.getSplitRequestsForGroup(groupId);
+      if (isErr(result)) {
+        set({ hydrationError: result.error });
+        return;
+      }
+      set((state) => ({
+        groupSplitRequests: { ...state.groupSplitRequests, [groupId]: result.value },
+        hydrationError: null,
+      }));
+    },
+
     async saveSplitRequest(req: SplitRequest): Promise<void> {
       const result = await repos.splitRequests.saveSplitRequest(req);
       if (isErr(result)) {
@@ -281,10 +294,20 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
         return;
       }
       const saved = result.value;
+      if (saved.groupId) {
+        set((state) => ({
+          groupSplitRequests: {
+            ...state.groupSplitRequests,
+            [saved.groupId!]: [...(state.groupSplitRequests[saved.groupId!] ?? []), saved],
+          },
+          hydrationError: null,
+        }));
+        return;
+      }
       set((state) => ({
         splitRequests: {
           ...state.splitRequests,
-          [req.tripId]: [...(state.splitRequests[req.tripId] ?? []), saved],
+          [saved.tripId!]: [...(state.splitRequests[saved.tripId!] ?? []), saved],
         },
         hydrationError: null,
       }));
@@ -297,10 +320,22 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
         return;
       }
       const updated = result.value;
+      if (updated.groupId) {
+        set((state) => ({
+          groupSplitRequests: {
+            ...state.groupSplitRequests,
+            [updated.groupId!]: (state.groupSplitRequests[updated.groupId!] ?? []).map(r =>
+              r.id === updated.id ? updated : r,
+            ),
+          },
+          hydrationError: null,
+        }));
+        return;
+      }
       set((state) => ({
         splitRequests: {
           ...state.splitRequests,
-          [req.tripId]: (state.splitRequests[req.tripId] ?? []).map(r =>
+          [updated.tripId!]: (state.splitRequests[updated.tripId!] ?? []).map(r =>
             r.id === updated.id ? updated : r,
           ),
         },
@@ -355,10 +390,19 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
     },
 
     appendSplitRequest(req: SplitRequest): void {
+      if (req.groupId) {
+        set((state) => ({
+          groupSplitRequests: {
+            ...state.groupSplitRequests,
+            [req.groupId!]: [...(state.groupSplitRequests[req.groupId!] ?? []), req],
+          },
+        }));
+        return;
+      }
       set((state) => ({
         splitRequests: {
           ...state.splitRequests,
-          [req.tripId]: [...(state.splitRequests[req.tripId] ?? []), req],
+          [req.tripId!]: [...(state.splitRequests[req.tripId!] ?? []), req],
         },
       }));
     },
@@ -475,6 +519,16 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
           [groupId]: [...(state.groupExpenses[groupId] ?? []), expense],
         },
       }));
+    },
+
+    replaceGroupExpense(expense: Expense): void {
+      set((state) => {
+        const updated: Record<string, Expense[]> = {};
+        for (const [gid, groupExpenses] of Object.entries(state.groupExpenses)) {
+          updated[gid] = groupExpenses.map(e => (e.id === expense.id ? expense : e));
+        }
+        return { groupExpenses: updated };
+      });
     },
 
     appendGroup(group: Group): void {

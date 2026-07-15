@@ -17,7 +17,7 @@ import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
-import { darkColors as C } from '../../src/theme/colors';
+import { ledgerColors as C } from '../../src/theme/colors';
 import { validateAndNormalizeEmail } from '../../src/core/utils/emailValidation';
 
 export default function SignUpScreen() {

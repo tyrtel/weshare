@@ -9,6 +9,75 @@ Items that are deliberately deferred past the initial release. None of these are
 - [ ] Rotate Sentry auth token; move all build secrets to EAS Secrets
 - [ ] Evaluate and migrate to a dedicated transactional email provider
 - [ ] Audit Supabase plan limits; evaluate moving Postgres to a managed host (AWS RDS / Render)
+- [ ] Simulation-mode group scenario fixture ("Chatalains")
+- [ ] Screen to view a group's existing recurring expenses
+
+---
+
+## Product Backlog
+
+Smaller, unscheduled feature/dev-tooling items — not infra risk, just not part of any
+currently-active phase. Added here rather than into `implementation-todo.md` since
+that file tracks one specific, actively-being-executed plan (currently the trip/group
+unification + ledger work) and these aren't part of it.
+
+### Simulation-Mode Group Scenario Fixture ("Chatalains")
+
+**Current state**
+
+`src/core/di/simulationContainer.ts` seeds trip data from three scenario fixtures
+(`restaurantScenario`, `twoPersonScenario`, `settlingScenario`, all in
+`src/__mocks__/fixtures/`), merged via `mergeFixtures()`. **Groups have zero seed
+data today** — `GROUP_REPO` and `RECURRING_EXPENSE_REPO` are both registered with a
+blank `InMemory*Repository()` in `_create()`, so every group-related screen is
+unexplorable in simulation mode without manually creating a group by hand first.
+
+**What to build**
+
+A new fixture, e.g. `src/__mocks__/fixtures/chatalainsScenario.ts`, following the
+existing scenario-file pattern:
+- A group named "Chatalains" with three members: the simulation's signed-in user
+  (`RESTAURANT_CURRENT_USER`), Arnaud, and Carrie.
+- Two direct group expenses, **one of which is a spawned instance of a recurring
+  expense** (so both `RecurringExpense` + at least one spawned `Expense` referencing
+  it exist).
+- A trip named "Lille" under the group (`Trip.groupId` set), with a couple of its
+  own expenses.
+
+**Why this needs its own work item, not just a fixture file drop-in**
+
+`StorageFixtures` (`src/__mocks__/fixtures/types.ts`) only has fields for
+trip-scoped data today (`trips`, `members`, `expenses`, `splits`,
+`splitRequests`) — no `groups`, `groupMembers`, `groupExpenses`, or
+`recurringExpenses`. `mergeFixtures()` in `simulationContainer.ts` only merges
+those same five arrays. Both need extending before a group scenario can be
+merged in the same way trip scenarios are today; `_create()` also needs to
+actually seed `groupRepo`/`RECURRING_EXPENSE_REPO` from the merged result,
+which it currently never does for any scenario.
+
+### View a Group's Existing Recurring Expenses
+
+**Current state**
+
+Recurring-expense CRUD is fully built on the data/hook side —
+`useCreateRecurringExpense`, `useEditRecurringExpense`, `usePauseRecurringExpense`,
+`useDeleteRecurringExpense`, and **`useRecurringExpenses` (a list-fetching hook)**
+all exist in `src/features/groups/hooks/`. `MakeRecurringSheet` is the
+promote-an-expense-to-recurring creation UI, reachable from group expense detail.
+
+**The gap:** `useRecurringExpenses` — the hook that already fetches a group's full
+recurring-expense list — has **no screen consuming it**. There is currently no way
+to see what recurring expenses exist for a group, pause/resume them, or delete one,
+short of finding a spawned instance and working backwards.
+
+**What to build**
+
+A screen (e.g. `app/group/recurring/[groupId].tsx`, or a section on an existing
+group screen) listing the group's recurring expenses via `useRecurringExpenses`,
+each row showing description, amount, period, and pause state, with actions wired
+to the edit/pause/delete hooks that already exist. Reachable from group detail —
+e.g. a "Recurring" entry point near where `MakeRecurringSheet` is triggered from
+today.
 
 ---
 

@@ -40,6 +40,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useExpenseDetail } from '../hooks/useExpenseDetail';
 import { ExpenseDetailScreen } from '../screens/ExpenseDetailScreen';
 import { confirm } from '../../../core/utils/confirm';
+import { formatCurrency, formatRate } from '../../../core/utils/formatCurrency';
 
 const mockConfirm = confirm as jest.Mock;
 
@@ -138,5 +139,71 @@ describe('ExpenseDetailScreen — delete action', () => {
 
     expect(mockRemoveExpense).not.toHaveBeenCalled();
     expect(mockBack).not.toHaveBeenCalled();
+  });
+});
+
+describe('ExpenseDetailScreen — currency conversion caption', () => {
+  beforeEach(() => {
+    mockParams.mockReturnValue({ id: 'e1' });
+  });
+
+  it('shows the conversion caption when metadata.originalAmount is present', () => {
+    mockUseExpenseDetail.mockReturnValue({
+      expense: {
+        ...BASE_EXPENSE,
+        metadata: {
+          originalAmount: { amountCents: 3555, currency: 'JPY', exchangeRate: 0.0062, source: 'live' },
+        },
+      },
+      loading: false,
+      error: null,
+    });
+
+    render(<ExpenseDetailScreen />);
+
+    const expected = `${formatCurrency(3555, 'JPY')} entered · 1 JPY = ${formatRate(0.0062)} EUR`;
+    expect(screen.getByText(expected)).toBeTruthy();
+  });
+
+  it('hides the caption entirely when there is no originalAmount', () => {
+    mockUseExpenseDetail.mockReturnValue({
+      expense: { ...BASE_EXPENSE, metadata: {} },
+      loading: false,
+      error: null,
+    });
+
+    render(<ExpenseDetailScreen />);
+
+    expect(screen.queryByText(/entered · 1/)).toBeNull();
+  });
+
+  it('appends "· approx." only when the rate source is approximate', () => {
+    mockUseExpenseDetail.mockReturnValue({
+      expense: {
+        ...BASE_EXPENSE,
+        metadata: {
+          originalAmount: { amountCents: 3555, currency: 'JPY', exchangeRate: 0.0062, source: 'approximate' },
+        },
+      },
+      loading: false,
+      error: null,
+    });
+
+    render(<ExpenseDetailScreen />);
+
+    const expected = `${formatCurrency(3555, 'JPY')} entered · 1 JPY = ${formatRate(0.0062)} EUR · approx.`;
+    expect(screen.getByText(expected)).toBeTruthy();
+  });
+
+  it('does not render a redundant currency-code badge next to the total', () => {
+    mockUseExpenseDetail.mockReturnValue({
+      expense: { ...BASE_EXPENSE, currency: 'EUR', metadata: {} },
+      loading: false,
+      error: null,
+    });
+
+    render(<ExpenseDetailScreen />);
+
+    expect(screen.queryByText('EUR')).toBeNull();
   });
 });

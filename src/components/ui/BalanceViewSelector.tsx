@@ -4,7 +4,7 @@ import { Avatar } from './Avatar';
 import { LedgerBars } from './LedgerBars';
 import { Segmented } from './Segmented';
 import type { BalanceViewMode } from '../../core/hooks/useBalanceView';
-import { ledgerColors } from '../../theme/colors';
+import { ledgerColors, personColorFor } from '../../theme/colors';
 import { ledgerRadius, ledgerFonts } from '../../theme/tokens';
 import { formatCurrency } from '../../core/utils/formatCurrency';
 
@@ -56,11 +56,12 @@ export function BalanceViewSelector({ balances, members, viewMode, onChangeView,
                 : isOwed ? ledgerColors.success.default : ledgerColors.error.default;
               const sign = cents === 0 ? '' : isOwed ? '+' : '−';
               const initials = member.displayName.trim().charAt(0).toUpperCase();
+              const pc = personColorFor(userId, members);
               return (
                 <View key={userId}>
                   {i > 0 && <View style={styles.divider} />}
                   <View style={styles.listRow}>
-                    <Avatar initials={initials} bg={ledgerColors.primary.subtle} size="sm" url={member.avatarUrl} />
+                    <Avatar initials={initials} bg={pc.bg} size="sm" url={member.avatarUrl} />
                     <Text style={styles.listName} numberOfLines={1}>{member.displayName}</Text>
                     <Text style={[styles.listAmount, { color }]}>
                       {sign}{formatCurrency(Math.abs(cents), currency)}
@@ -87,10 +88,11 @@ export function BalanceViewSelector({ balances, members, viewMode, onChangeView,
               const sign = cents === 0 ? '' : isOwed ? '+' : '−';
               const initials = member.displayName.trim().charAt(0).toUpperCase();
               const firstName = member.displayName.split(' ')[0];
+              const pc = personColorFor(userId, members);
               return (
                 <View key={userId} style={styles.bubble}>
                   <View style={[styles.ring, { borderColor: ringColor }]}>
-                    <Avatar initials={initials} bg={ledgerColors.primary.subtle} size="md" url={member.avatarUrl} />
+                    <Avatar initials={initials} bg={pc.bg} size="md" url={member.avatarUrl} />
                   </View>
                   <Text style={[styles.bubbleAmount, { color: amountColor }]}>
                     {sign}{formatCurrency(Math.abs(cents), currency)}

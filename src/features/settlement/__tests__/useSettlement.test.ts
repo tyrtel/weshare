@@ -3,11 +3,12 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useSettlement } from '../hooks/useSettlement';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, AUTH } from '../../../core/di/tokens';
+import { TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO, AUTH } from '../../../core/di/tokens';
 import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
 import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepository';
 import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
 import { InMemorySplitRepository } from '../../../__mocks__/InMemorySplitRepository';
+import { InMemorySplitRequestRepository } from '../../../__mocks__/InMemorySplitRequestRepository';
 import { err } from '../../../core/types/Result';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Split } from '../../../core/models/Split';
@@ -129,6 +130,35 @@ describe('useSettlement — computation', () => {
 
     expect(result.current.settlements.every(s => s.currency === 'EUR')).toBe(true);
   });
+
+  it('a completed SplitRequest reduces the computed settlement — the ledger actually works now', async () => {
+    const container = createTestContainer();
+    seedEqualSplit(container);
+    (container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository).seed([
+      splitRequestFactory({ id: 'r1', tripId: 't1', payerUserId: 'marie', requesterUserId: 'jay', amountCents: 2500, status: 'completed' }),
+    ]);
+
+    const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Marie's €25 debt is fully covered by the completed payment — her
+    // transfer drops out, leaving only Tom and Sara.
+    expect(result.current.settlements).toHaveLength(2);
+    expect(result.current.settlements.some(s => s.fromUserId === 'marie')).toBe(false);
+  });
+
+  it('an in-flight (not yet completed) SplitRequest does not affect the settlement', async () => {
+    const container = createTestContainer();
+    seedEqualSplit(container);
+    (container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository).seed([
+      splitRequestFactory({ id: 'r1', tripId: 't1', payerUserId: 'marie', requesterUserId: 'jay', amountCents: 2500, status: 'pending' }),
+    ]);
+
+    const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.settlements).toHaveLength(3);
+  });
 });
 
 // ── Current user ──────────────────────────────────────────────────────────────
@@ -159,7 +189,13 @@ describe('useSettlement — currentUserId', () => {
 // ── markSettled ───────────────────────────────────────────────────────────────
 
 describe('useSettlement — markSettled', () => {
-  it('removes the settlement after marking it settled', async () => {
+  // markSettled writes Split.amountPaidCents/settledAt — under the running-ledger
+  // model those fields are no longer read by the balance calculation at all (only
+  // completed SplitRequest ledger entries are), so this legacy action is now
+  // correctly a no-op on the computed settlement. Locks in exactly the fact the
+  // Phase 4 analysis found: the old per-split mechanism doesn't move the number
+  // anyone sees. It's superseded by the ledger "record a payment" primitive.
+  it('no longer affects the settlement — superseded by the ledger', async () => {
     const container = createTestContainer();
     const splits = [splitFactory({ id: 's1', expenseId: 'e1', userId: 'jay', amountOwedCents: 2500 }), splitFactory({ id: 's2', expenseId: 'e1', userId: 'marie', amountOwedCents: 2500 })];
     (container.resolve(TRIP_REPO) as InMemoryTripRepository).seed([tripFactory({ ownerId: 'jay' })]);
@@ -179,7 +215,7 @@ describe('useSettlement — markSettled', () => {
       await result.current.markSettled('marie', 'jay');
     });
 
-    await waitFor(() => expect(result.current.settlements).toHaveLength(0));
+    expect(result.current.settlements).toHaveLength(1);
   });
 
   it('returns true on success', async () => {

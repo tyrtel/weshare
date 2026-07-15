@@ -23,7 +23,7 @@ import { OfflineBanner } from '../src/components/OfflineBanner';
 import { UniversalTabBar } from '../src/components/ui/UniversalTabBar';
 import * as Sentry from '@sentry/react-native';
 import { useTranslation } from 'react-i18next';
-import { darkColors } from '../src/theme/colors';
+import { ledgerColors } from '../src/theme/colors';
 import { ThemeProvider } from '../src/core/ThemeContext';
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -58,15 +58,15 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.error) {
       return (
-        <View style={{ flex: 1, backgroundColor: darkColors.background, padding: 24, paddingTop: 60 }}>
-          <Text style={{ color: darkColors.error.default, fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
+        <View style={{ flex: 1, backgroundColor: ledgerColors.background, padding: 24, paddingTop: 60 }}>
+          <Text style={{ color: ledgerColors.error.default, fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
             Render Error
           </Text>
           <ScrollView>
-            <Text style={{ color: darkColors.error.default, fontSize: 13, fontFamily: 'monospace' }}>
+            <Text style={{ color: ledgerColors.error.default, fontSize: 13, fontFamily: 'monospace' }}>
               {this.state.error.message}
             </Text>
-            <Text style={{ color: darkColors.text.tertiary, fontSize: 11, marginTop: 16, fontFamily: 'monospace' }}>
+            <Text style={{ color: ledgerColors.text.tertiary, fontSize: 11, marginTop: 16, fontFamily: 'monospace' }}>
               {this.state.error.stack}
             </Text>
           </ScrollView>
@@ -232,8 +232,8 @@ export default Sentry.wrap(function RootLayout() {
               <Stack
                 style={{ flex: 1 }}
                 screenOptions={{
-                  headerStyle: { backgroundColor: darkColors.surface },
-                  headerTintColor: darkColors.text.primary,
+                  headerStyle: { backgroundColor: ledgerColors.surface },
+                  headerTintColor: ledgerColors.text.primary,
                   headerShadowVisible: false,
                   headerBackTitle: '',
                 }}

@@ -19,7 +19,8 @@ export const PAYMENT_FLOW_STATUSES = new Set<SplitRequestStatus>([
 
 export interface SplitRequest {
   id: string;
-  tripId: string;
+  tripId?: string;
+  groupId?: string;
   requesterUserId: string;  // creditor — the person owed money
   payerUserId: string;      // debtor — the person sending money
   amountCents: number;

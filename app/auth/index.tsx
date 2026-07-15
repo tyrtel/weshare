@@ -18,9 +18,8 @@ import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
-import { darkColors as C, ledgerColors } from '../../src/theme/colors';
+import { ledgerColors } from '../../src/theme/colors';
 import { ledgerRadius, ledgerFonts } from '../../src/theme/tokens';
-import { useActiveTheme } from '../../src/core/ThemeContext';
 
 export default function SignInScreen() {
   const { t } = useTranslation();
@@ -81,11 +80,6 @@ export default function SignInScreen() {
 
   const isAnyBusy = busy !== null;
 
-  const activeTheme = useActiveTheme();
-  const isLedger = activeTheme === 'ledger';
-  const palette = isLedger ? ledgerColors : C;
-  const radius = isLedger ? ledgerRadius.md : 12;
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -95,7 +89,6 @@ export default function SignInScreen() {
         contentContainerStyle={[
           styles.root,
           { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 },
-          isLedger && { backgroundColor: ledgerColors.background },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -103,33 +96,19 @@ export default function SignInScreen() {
         <View style={styles.brandSection}>
           <Image
             source={require('../../assets/icon.png')}
-            style={[styles.logoPlaceholder, isLedger && { backgroundColor: ledgerColors.surface }]}
+            style={styles.logoPlaceholder}
           />
-          <Text style={[styles.appName, isLedger && { fontFamily: ledgerFonts.display, color: ledgerColors.text.primary }]}>
-            {t('auth.welcome.app_name')}
-          </Text>
-          <Text variant="body" color={palette.text.secondary} style={styles.tagline}>
+          <Text style={styles.appName}>{t('auth.welcome.app_name')}</Text>
+          <Text variant="body" color={ledgerColors.text.secondary} style={styles.tagline}>
             {t('auth.welcome.tagline')}
           </Text>
         </View>
 
         {/* Email sign-in */}
-        <View style={[
-          styles.formSection,
-          isLedger && {
-            backgroundColor: ledgerColors.surface,
-            borderRadius: ledgerRadius.card,
-            padding: 20,
-            shadowColor: '#182420',
-            shadowOpacity: 0.06,
-            shadowRadius: 12,
-            shadowOffset: { width: 0, height: 4 },
-            elevation: 2,
-          },
-        ]}>
+        <View style={styles.formSection}>
           {error ? (
-            <View style={[styles.errorBanner, isLedger && { backgroundColor: ledgerColors.error.bg }]}>
-              <Text variant="caption" color={palette.error.default}>{error}</Text>
+            <View style={styles.errorBanner}>
+              <Text variant="caption" color={ledgerColors.error.default}>{error}</Text>
             </View>
           ) : null}
 
@@ -138,24 +117,14 @@ export default function SignInScreen() {
               value={email}
               onChangeText={v => { setEmail(v); setError(null); }}
               placeholder={t('auth.sign_in.email_placeholder')}
-              placeholderTextColor={palette.text.tertiary}
+              placeholderTextColor={ledgerColors.text.tertiary}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="next"
               onSubmitEditing={() => passwordRef.current?.focus()}
               editable={!isAnyBusy}
-              style={[
-                styles.input,
-                styles.inputTop,
-                isLedger && {
-                  backgroundColor: '#F7F9F8',
-                  borderColor: ledgerColors.border,
-                  color: ledgerColors.text.primary,
-                  borderTopLeftRadius: radius,
-                  borderTopRightRadius: radius,
-                },
-              ]}
+              style={[styles.input, styles.inputTop]}
               accessibilityLabel={t('auth.email_accessibility')}
             />
             <View style={{ position: 'relative' }}>
@@ -164,23 +133,12 @@ export default function SignInScreen() {
                 value={password}
                 onChangeText={v => { setPassword(v); setError(null); }}
                 placeholder={t('auth.sign_in.password_placeholder')}
-                placeholderTextColor={palette.text.tertiary}
+                placeholderTextColor={ledgerColors.text.tertiary}
                 secureTextEntry={!showPassword}
                 returnKeyType="go"
                 onSubmitEditing={handleEmailSignIn}
                 editable={!isAnyBusy}
-                style={[
-                  styles.input,
-                  styles.inputBottom,
-                  { paddingRight: 48 },
-                  isLedger && {
-                    backgroundColor: '#F7F9F8',
-                    borderColor: ledgerColors.border,
-                    color: ledgerColors.text.primary,
-                    borderBottomLeftRadius: radius,
-                    borderBottomRightRadius: radius,
-                  },
-                ]}
+                style={[styles.input, styles.inputBottom, { paddingRight: 48 }]}
                 accessibilityLabel={t('auth.password_accessibility')}
               />
               <Pressable
@@ -189,7 +147,7 @@ export default function SignInScreen() {
                 hitSlop={8}
                 accessibilityLabel={showPassword ? t('auth.hide_password') : t('auth.show_password')}
               >
-                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={palette.text.tertiary} />
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={ledgerColors.text.tertiary} />
               </Pressable>
             </View>
           </View>
@@ -199,7 +157,6 @@ export default function SignInScreen() {
             disabled={isAnyBusy}
             style={({ pressed }) => [
               styles.primaryButton,
-              isLedger && { backgroundColor: ledgerColors.primary.default, borderRadius: radius },
               isAnyBusy && styles.disabledButton,
               pressed && styles.pressed,
             ]}
@@ -207,8 +164,8 @@ export default function SignInScreen() {
             accessibilityLabel={t('auth.sign_in.button')}
           >
             {busy === 'email'
-              ? <ActivityIndicator color={palette.text.inverse} size="small" />
-              : <Text variant="body" color={palette.text.inverse} style={styles.buttonLabel}>{t('auth.sign_in.button')}</Text>
+              ? <ActivityIndicator color={ledgerColors.text.inverse} size="small" />
+              : <Text variant="body" color={ledgerColors.text.inverse} style={styles.buttonLabel}>{t('auth.sign_in.button')}</Text>
             }
           </Pressable>
 
@@ -218,15 +175,15 @@ export default function SignInScreen() {
             style={({ pressed }) => [styles.textLink, pressed && { opacity: 0.6 }]}
             accessibilityRole="button"
           >
-            <Text variant="caption" color={palette.text.secondary}>{t('auth.sign_in.forgot_password')}</Text>
+            <Text variant="caption" color={ledgerColors.text.secondary}>{t('auth.sign_in.forgot_password')}</Text>
           </Pressable>
         </View>
 
         {/* Divider */}
         <View style={styles.divider}>
-          <View style={[styles.dividerLine, isLedger && { backgroundColor: ledgerColors.border }]} />
-          <Text variant="caption" color={palette.text.tertiary} style={styles.dividerLabel}>{t('auth.sign_in.divider_or')}</Text>
-          <View style={[styles.dividerLine, isLedger && { backgroundColor: ledgerColors.border }]} />
+          <View style={styles.dividerLine} />
+          <Text variant="caption" color={ledgerColors.text.tertiary} style={styles.dividerLabel}>{t('auth.sign_in.divider_or')}</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         {/* Social sign-in */}
@@ -234,26 +191,16 @@ export default function SignInScreen() {
           <Pressable
             onPress={handleGoogle}
             disabled={isAnyBusy}
-            style={({ pressed }) => [
-              styles.socialButton,
-              isLedger && {
-                backgroundColor: ledgerColors.surface,
-                borderColor: ledgerColors.border,
-                borderRadius: radius,
-              },
-              pressed && styles.pressed,
-            ]}
+            style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel={t('auth.sign_in.google_label')}
           >
             {busy === 'google'
-              ? <ActivityIndicator color={palette.text.primary} size="small" />
+              ? <ActivityIndicator color={ledgerColors.text.primary} size="small" />
               : (
                 <>
                   <Text style={styles.googleG}>G</Text>
-                  <Text variant="body" style={[styles.socialLabel, isLedger && { color: ledgerColors.text.primary }]}>
-                    {t('auth.sign_in.google_button')}
-                  </Text>
+                  <Text variant="body" style={styles.socialLabel}>{t('auth.sign_in.google_button')}</Text>
                 </>
               )
             }
@@ -263,27 +210,16 @@ export default function SignInScreen() {
             <Pressable
               onPress={handleApple}
               disabled={isAnyBusy}
-              style={({ pressed }) => [
-                styles.socialButton,
-                styles.appleButton,
-                isLedger && {
-                  backgroundColor: ledgerColors.text.primary,
-                  borderColor: ledgerColors.text.primary,
-                  borderRadius: radius,
-                },
-                pressed && styles.pressed,
-              ]}
+              style={({ pressed }) => [styles.socialButton, styles.appleButton, pressed && styles.pressed]}
               accessibilityRole="button"
               accessibilityLabel={t('auth.sign_in.apple_label')}
             >
               {busy === 'apple'
-                ? <ActivityIndicator color={palette.text.inverse} size="small" />
+                ? <ActivityIndicator color={ledgerColors.text.inverse} size="small" />
                 : (
                   <>
                     <Text style={styles.appleIcon}></Text>
-                    <Text variant="body" style={[styles.socialLabel, styles.appleLabel]}>
-                      {t('auth.sign_in.apple_button')}
-                    </Text>
+                    <Text variant="body" style={[styles.socialLabel, styles.appleLabel]}>{t('auth.sign_in.apple_button')}</Text>
                   </>
                 )
               }
@@ -293,14 +229,14 @@ export default function SignInScreen() {
 
         {/* Create account */}
         <View style={styles.createSection}>
-          <Text variant="body" color={palette.text.secondary}>{t('auth.sign_in.no_account')}</Text>
+          <Text variant="body" color={ledgerColors.text.secondary}>{t('auth.sign_in.no_account')}</Text>
           <Pressable
             onPress={() => router.push('/auth/signup' as Parameters<typeof router.push>[0])}
             disabled={isAnyBusy}
             style={({ pressed }) => [pressed && { opacity: 0.7 }]}
             accessibilityRole="button"
           >
-            <Text variant="body" color={palette.primary.default} style={styles.createLink}>
+            <Text variant="body" color={ledgerColors.primary.default} style={styles.createLink}>
               {' '}{t('auth.sign_in.create_account_link')}
             </Text>
           </Pressable>
@@ -313,7 +249,7 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   root: {
     flexGrow: 1,
-    backgroundColor: C.background,
+    backgroundColor: ledgerColors.background,
     paddingHorizontal: 24,
     gap: 24,
   },
@@ -325,26 +261,32 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 20,
-    backgroundColor: C.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: ledgerColors.surface,
     marginBottom: 8,
   },
   appName: {
     fontSize: 32,
     fontWeight: '700',
-    color: C.text.primary,
+    fontFamily: ledgerFonts.display,
+    color: ledgerColors.text.primary,
     letterSpacing: -0.5,
   },
   tagline: {
     textAlign: 'center',
-    color: C.text.secondary,
   },
   formSection: {
+    backgroundColor: ledgerColors.surface,
+    borderRadius: ledgerRadius.card,
+    padding: 20,
     gap: 12,
+    shadowColor: '#182420',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   errorBanner: {
-    backgroundColor: C.error.bg,
+    backgroundColor: ledgerColors.error.bg,
     borderRadius: 8,
     padding: 12,
   },
@@ -352,27 +294,27 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   input: {
-    backgroundColor: C.surface,
+    backgroundColor: '#F7F9F8',
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: ledgerColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: C.text.primary,
+    color: ledgerColors.text.primary,
   },
   inputTop: {
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: ledgerRadius.md,
+    borderTopRightRadius: ledgerRadius.md,
     borderBottomWidth: 0.5,
   },
   inputBottom: {
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: ledgerRadius.md,
+    borderBottomRightRadius: ledgerRadius.md,
     borderTopWidth: 0.5,
   },
   primaryButton: {
-    backgroundColor: C.primary.default,
-    borderRadius: 12,
+    backgroundColor: ledgerColors.primary.default,
+    borderRadius: ledgerRadius.md,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -398,7 +340,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: C.border,
+    backgroundColor: ledgerColors.border,
   },
   dividerLabel: {
     fontSize: 13,
@@ -410,16 +352,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.surface,
+    backgroundColor: ledgerColors.surface,
     borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
+    borderColor: ledgerColors.border,
+    borderRadius: ledgerRadius.md,
     paddingVertical: 14,
     gap: 10,
   },
   appleButton: {
-    backgroundColor: C.text.primary,
-    borderColor: C.text.primary,
+    backgroundColor: ledgerColors.text.primary,
+    borderColor: ledgerColors.text.primary,
   },
   googleG: {
     fontSize: 18,
@@ -428,14 +370,14 @@ const styles = StyleSheet.create({
   },
   appleIcon: {
     fontSize: 18,
-    color: C.text.inverse,
+    color: ledgerColors.text.inverse,
   },
   socialLabel: {
-    color: C.text.primary,
+    color: ledgerColors.text.primary,
     fontWeight: '600',
   },
   appleLabel: {
-    color: C.text.inverse,
+    color: ledgerColors.text.inverse,
   },
   createSection: {
     flexDirection: 'row',

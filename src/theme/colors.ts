@@ -7,7 +7,7 @@
 // Primary accent: #1D9E75 (teal family).
 // Dark is the primary scheme; light mode is supported but secondary.
 
-import { useColorScheme } from 'react-native';
+import { useColorScheme as _useColorScheme } from 'react-native'; // kept for getColors() signature compat
 
 // ── Dark palette ──────────────────────────────────────────────────────────────
 
@@ -148,15 +148,16 @@ export const ledgerColors = {
 // Text values are the canonical Dark2 hex codes; bg values are very-dark
 // same-hue surfaces matching the design rule "dark surface, bright text".
 
+// Mid-tone solid colours — white text, readable on ledger's mist/paper backgrounds.
 export const personColors = [
-  { bg: '#0a2520', text: '#1b9e77' }, // teal
-  { bg: '#2a1200', text: '#d95f02' }, // orange
-  { bg: '#181730', text: '#7570b3' }, // purple
-  { bg: '#2a0818', text: '#e7298a' }, // magenta
-  { bg: '#152000', text: '#66a61e' }, // green
-  { bg: '#261c00', text: '#e6ab02' }, // amber
-  { bg: '#201300', text: '#a6761d' }, // brown
-  { bg: '#1e1e1e', text: '#888888' }, // grey (lightened slightly for dark-bg contrast)
+  { bg: '#2E7D6A', text: '#ffffff' }, // teal
+  { bg: '#C2692F', text: '#ffffff' }, // orange
+  { bg: '#6557A8', text: '#ffffff' }, // purple
+  { bg: '#B83275', text: '#ffffff' }, // magenta
+  { bg: '#5C8A1E', text: '#ffffff' }, // green
+  { bg: '#B8860A', text: '#ffffff' }, // amber
+  { bg: '#8C6B1E', text: '#ffffff' }, // brown
+  { bg: '#6B7280', text: '#ffffff' }, // slate
 ] as const;
 
 export type PersonColor = (typeof personColors)[number];
@@ -177,14 +178,15 @@ export function personColorFor(
 
 export type ColorPalette = typeof darkColors | typeof lightColors | typeof ledgerColors;
 
-// ── Pure selector (testable without mocking react-native) ────────────────────
+// ── Pure selector (kept for backward-compat; ignores scheme — always ledger) ─
 
-export function getColors(scheme: string | null | undefined): ColorPalette {
-  return scheme === 'light' ? lightColors : darkColors;
+export function getColors(_scheme: string | null | undefined): ColorPalette {
+  return ledgerColors;
 }
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
+// ── Hook — always returns the single ledger (PoCUI light) palette ─────────────
 
 export function useColors(): ColorPalette {
-  return getColors(useColorScheme());
+  _useColorScheme(); // keeps the hook call count stable across renders
+  return ledgerColors;
 }

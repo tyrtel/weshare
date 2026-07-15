@@ -55,7 +55,7 @@ export function PayerSelector({ members, selectedUserId, onSelect }: PayerSelect
             >
               <Avatar
                 initials={getInitials(member.displayName)}
-                bg={palette.text}
+                bg={palette.bg}
                 url={member.avatarUrl}
                 size="md"
               />

@@ -2,6 +2,28 @@ import type { TripMember } from '../models/TripMember';
 import type { Expense } from '../models/Expense';
 import type { Settlement } from '../models/Settlement';
 
+// ── Ledger payments ───────────────────────────────────────────────────────────
+// A completed real-money payment between two people — the credit side of the
+// running ledger. Deliberately decoupled from `SplitRequest` (no Stripe/Open
+// Banking fields here): callers filter their own SplitRequest[] down to this
+// shape before calling in. Not tied to any specific split — a payment reduces
+// the payer's overall balance, and any leftover (an overpayment) becomes a
+// credit that nets against whatever debt comes next, no allocation needed.
+
+export interface LedgerPayment {
+  payerUserId: string;
+  payeeUserId: string;
+  amountCents: number;
+  currency: string;
+}
+
+function applyLedgerPayments(balances: Map<string, number>, payments: LedgerPayment[]): void {
+  for (const payment of payments) {
+    balances.set(payment.payerUserId, (balances.get(payment.payerUserId) ?? 0) + payment.amountCents);
+    balances.set(payment.payeeUserId, (balances.get(payment.payeeUserId) ?? 0) - payment.amountCents);
+  }
+}
+
 // ── Financial summary ─────────────────────────────────────────────────────────
 
 export type TripFinancialDirection = 'owe' | 'owed' | 'even';
@@ -20,10 +42,11 @@ export function deriveTripFinancialSummary(
   members: TripMember[],
   expenses: Expense[],
   currentUserId: string,
+  payments: LedgerPayment[] = [],
 ): TripFinancialSummary | null {
   if (expenses.length === 0) return null;
 
-  const settlements = calculateSettlements(members, expenses);
+  const settlements = calculateSettlements(members, expenses, payments);
 
   const owes = settlements
     .filter(s => s.fromUserId === currentUserId)
@@ -51,22 +74,29 @@ export interface MemberBalance {
 /**
  * Computes each member's net outstanding balance without producing transfer pairs.
  * Positive balance → owed money. Negative balance → owes money.
+ *
+ * `payments` is the ledger's credit side — completed real payments, summed in
+ * on top of the expense debits. A split's full `amountOwedCents` is always a
+ * debit; `Split.amountPaidCents`/`settledAt` are never read here (the ledger
+ * of completed payments is the sole source of truth for what's been paid).
  */
 export function computeMemberNetBalances(
   members: TripMember[],
   expenses: Expense[],
+  payments: LedgerPayment[] = [],
 ): MemberBalance[] {
   const map = new Map<string, number>(members.map(m => [m.userId, 0]));
 
   for (const expense of expenses) {
     for (const split of expense.splits) {
-      if (split.settledAt !== undefined) continue;
-      const outstanding = split.amountOwedCents - split.amountPaidCents;
+      const outstanding = split.amountOwedCents;
       if (outstanding <= 0) continue;
       map.set(expense.paidByUserId, (map.get(expense.paidByUserId) ?? 0) + outstanding);
       map.set(split.userId, (map.get(split.userId) ?? 0) - outstanding);
     }
   }
+
+  applyLedgerPayments(map, payments);
 
   return members.map(m => ({ userId: m.userId, balanceCents: map.get(m.userId) ?? 0 }));
 }
@@ -89,15 +119,20 @@ export function computeMemberNetBalances(
  * Assumptions:
  *  - All amounts are integer cents (never floats).
  *  - All expenses in the trip share the same currency.
- *  - Splits with settledAt set are excluded from outstanding debt.
+ *  - `payments` (completed real payments) are summed in as credits on top of
+ *    the expense debits — `Split.amountPaidCents`/`settledAt` are not read;
+ *    the ledger of completed payments is the sole source of truth for what's
+ *    been paid. Overpayment simply nets to a negative debit (a credit) with
+ *    no special handling.
  */
 export function calculateSettlements(
   members: TripMember[],
   expenses: Expense[],
+  payments: LedgerPayment[] = [],
 ): Settlement[] {
-  if (expenses.length === 0 || members.length <= 1) return [];
+  if ((expenses.length === 0 && payments.length === 0) || members.length <= 1) return [];
 
-  const currency = expenses[0].currency;
+  const currency = expenses[0]?.currency ?? payments[0]?.currency ?? '';
 
   // ── Step 1: net balance per member ──────────────────────────────────────────
   const balances = new Map<string, number>();
@@ -107,9 +142,7 @@ export function calculateSettlements(
 
   for (const expense of expenses) {
     for (const split of expense.splits) {
-      if (split.settledAt !== undefined) continue;
-
-      const outstanding = split.amountOwedCents - split.amountPaidCents;
+      const outstanding = split.amountOwedCents;
       if (outstanding <= 0) continue;
 
       balances.set(
@@ -122,6 +155,8 @@ export function calculateSettlements(
       );
     }
   }
+
+  applyLedgerPayments(balances, payments);
 
   // ── Step 2: greedy matching ──────────────────────────────────────────────────
   const creditors: Array<{ userId: string; amount: number }> = [];

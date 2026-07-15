@@ -105,7 +105,7 @@ export default function GroupSettlementScreen() {
                   borderBottomColor: colors.borderMuted,
                 }}
               >
-                <Avatar initials={getInitials(name)} bg={palette.text} url={info?.member.avatarUrl} size="sm" />
+                <Avatar initials={getInitials(name)} bg={palette.bg} url={info?.member.avatarUrl} size="sm" />
                 <Text variant="body" style={{ flex: 1, marginLeft: tokens.spacing.sm }}>{name}</Text>
                 <Text
                   variant="label"
@@ -144,9 +144,9 @@ export default function GroupSettlementScreen() {
               return (
                 <Card key={i} style={{ marginBottom: tokens.spacing.sm }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Avatar initials={getInitials(fromName)} bg={fromPalette.text} url={fromInfo?.member.avatarUrl} size="sm" />
+                    <Avatar initials={getInitials(fromName)} bg={fromPalette.bg} url={fromInfo?.member.avatarUrl} size="sm" />
                     <Ionicons name="arrow-forward" size={16} color={colors.text.tertiary} style={{ marginHorizontal: tokens.spacing.sm }} />
-                    <Avatar initials={getInitials(toName)} bg={toPalette.text} url={toInfo?.member.avatarUrl} size="sm" />
+                    <Avatar initials={getInitials(toName)} bg={toPalette.bg} url={toInfo?.member.avatarUrl} size="sm" />
                     <View style={{ flex: 1, marginLeft: tokens.spacing.sm }}>
                       <Text variant="body">{`${fromName} → ${toName}`}</Text>
                     </View>

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
   View,
   FlatList,
-  TextInput,
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,275 +17,20 @@ import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { ClosedTripGuard } from '../../../components/ui/ClosedTripGuard';
 import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
 import { Text } from '../../../components/ui/Text';
-import { Avatar } from '../../../components/ui/Avatar';
 import { Divider } from '../../../components/ui/Divider';
+import { HeaderConfirmButton } from '../../../components/ui';
+import { AddMemberNameField } from '../../../components/ui/AddMemberNameField';
+import { ContactsPickerList } from '../../../components/ui/ContactsPickerList';
+import { CurrentMembersList } from '../../../components/ui/CurrentMembersList';
+import type { ContactItem } from '../../../components/ui/ContactsPickerList';
 import { useTripDetail } from '../../trips/hooks/useTripDetail';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { MEMBER_REPO, SHARE, TRIP_STORE } from '../../../core/di/tokens';
 import { generateId } from '../../../core/utils/generateId';
-import { useColors, personColors, personColorFor } from '../../../theme/colors';
+import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import { isOk } from '../../../core/types/Result';
 import type { TripMember } from '../../../core/models/TripMember';
-
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-interface ContactItem {
-  id: string;
-  name: string;
-  phone?: string;
-  email?: string;
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-// Name-hash palette for contacts (not trip members — no stable index available).
-function contactPalette(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return personColors[hash % personColors.length];
-}
-
-function isAlreadyAdded(name: string, phone: string | undefined, members: TripMember[]): boolean {
-  return members.some(
-    m => m.displayName === name || (phone != null && m.phone === phone),
-  );
-}
-
-// ── Section A: Manual add ──────────────────────────────────────────────────────
-
-interface ManualAddSectionProps {
-  tripId: string;
-  members: TripMember[];
-  onAdded: (member: TripMember) => void;
-}
-
-function ManualAddSection({ tripId, members, onAdded }: ManualAddSectionProps) {
-  const { t } = useTranslation();
-  const colors     = useColors();
-  const memberRepo = useService(MEMBER_REPO);
-  const store      = useService(TRIP_STORE);
-
-  const [name,   setName]   = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error,  setError]  = useState<string | null>(null);
-
-  const isDuplicate = name.trim().length > 0 &&
-    members.some(m => m.displayName.toLowerCase() === name.trim().toLowerCase());
-
-  const handleAdd = useCallback(async () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setSaving(true);
-    setError(null);
-    const member: TripMember = {
-      userId:      generateId(),
-      tripId,
-      displayName: trimmed,
-      isGuest:     true,
-      joinedAt:    new Date(),
-    };
-    const result = await memberRepo.addMember(member);
-    setSaving(false);
-    if (isOk(result)) {
-      store.getState().appendMember(result.value);
-      onAdded(result.value);
-      setName('');
-    } else {
-      setError(t('invite.add_participants.add_error'));
-    }
-  }, [name, tripId, memberRepo, store, onAdded]);
-
-  return (
-    <View style={{ marginBottom: tokens.spacing.sm }}>
-      <View style={{ flexDirection: 'row', gap: tokens.spacing.sm }}>
-        <TextInput
-          value={name}
-          onChangeText={text => { setName(text); setError(null); }}
-          placeholder={t('invite.add_participants.name_placeholder')}
-          placeholderTextColor={colors.text.tertiary}
-          returnKeyType="done"
-          onSubmitEditing={handleAdd}
-          style={{
-            flex: 1,
-            backgroundColor: colors.surface,
-            borderColor: isDuplicate ? colors.error.default : colors.border,
-            borderWidth: 1,
-            borderRadius: tokens.radius.md,
-            paddingHorizontal: tokens.spacing.md,
-            paddingVertical: tokens.spacing.sm,
-            color: colors.text.primary,
-            fontSize: tokens.fontSize.md,
-          }}
-          accessibilityLabel={t('invite.add_participants.name_label')}
-        />
-        <Pressable
-          onPress={handleAdd}
-          disabled={!name.trim() || saving || isDuplicate}
-          accessibilityRole="button"
-          accessibilityLabel={t('invite.add_participants.add_button_label')}
-          style={({ pressed }) => ({
-            backgroundColor: colors.primary.default,
-            borderRadius: tokens.radius.md,
-            paddingHorizontal: tokens.spacing.md,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: (!name.trim() || saving || isDuplicate) ? 0.4 : pressed ? 0.8 : 1,
-          })}
-        >
-          {saving
-            ? <ActivityIndicator size="small" color="#fff" />
-            : <Text variant="label" color="#ffffff">{t('invite.add_participants.add_button')}</Text>}
-        </Pressable>
-      </View>
-      {isDuplicate && (
-        <Text variant="caption" color={colors.error.default} style={{ marginTop: tokens.spacing.xs }}>
-          {t('invite.add_participants.duplicate_error')}
-        </Text>
-      )}
-      {error && (
-        <Text variant="caption" color={colors.error.default} style={{ marginTop: tokens.spacing.xs }}>
-          {error}
-        </Text>
-      )}
-    </View>
-  );
-}
-
-// ── Contacts inline content ────────────────────────────────────────────────────
-
-interface ContactsInlineContentProps {
-  permission: string;
-  contacts: ContactItem[];
-  loading: boolean;
-  query: string;
-  onQueryChange: (q: string) => void;
-  members: TripMember[];
-  addedIds: Set<string>;
-  addingId: string | null;
-  onAddContact: (contact: ContactItem) => void;
-}
-
-function ContactsInlineContent({
-  permission,
-  contacts,
-  loading,
-  query,
-  onQueryChange,
-  members,
-  addedIds,
-  addingId,
-  onAddContact,
-}: ContactsInlineContentProps) {
-  const { t } = useTranslation();
-  const colors = useColors();
-
-  if (loading) {
-    return (
-      <View style={{ alignItems: 'center', paddingVertical: tokens.spacing.md }}>
-        <ActivityIndicator color={colors.primary.default} />
-      </View>
-    );
-  }
-
-  if (permission !== 'granted') {
-    return (
-      <View style={{
-        padding: tokens.spacing.md,
-        backgroundColor: colors.surface,
-        borderRadius: tokens.radius.md,
-        marginBottom: tokens.spacing.md,
-      }}>
-        <Text variant="body" color={colors.text.secondary}>
-          {t('invite.add_participants.contacts_permission_hint')}
-        </Text>
-      </View>
-    );
-  }
-
-  const filtered = query.trim()
-    ? contacts.filter(c => c.name.toLowerCase().includes(query.trim().toLowerCase()))
-    : contacts;
-
-  return (
-    <View style={{ marginBottom: tokens.spacing.md }}>
-      <TextInput
-        value={query}
-        onChangeText={onQueryChange}
-        placeholder={t('invite.add_participants.contacts_search')}
-        placeholderTextColor={colors.text.tertiary}
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-          borderWidth: 1,
-          borderRadius: tokens.radius.md,
-          paddingHorizontal: tokens.spacing.md,
-          paddingVertical: tokens.spacing.sm,
-          color: colors.text.primary,
-          fontSize: tokens.fontSize.md,
-          marginBottom: tokens.spacing.xs,
-        }}
-        accessibilityLabel={t('invite.add_participants.contacts_search')}
-      />
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => {
-          const alreadyAdded = addedIds.has(item.id) || isAlreadyAdded(item.name, item.phone, members);
-          const isAdding     = addingId === item.id;
-          const subtitle     = item.phone ?? item.email ?? '';
-
-          return (
-            <Pressable
-              onPress={() => !alreadyAdded && onAddContact(item)}
-              disabled={alreadyAdded || isAdding}
-              accessibilityRole="button"
-              accessibilityLabel={alreadyAdded ? t('invite.add_participants.contact_already_added', { name: item.name }) : t('invite.add_participants.contact_add_label', { name: item.name })}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: tokens.spacing.sm,
-                opacity: alreadyAdded ? 0.5 : pressed ? 0.7 : 1,
-              })}
-            >
-              <Avatar
-                initials={getInitials(item.name)}
-                bg={contactPalette(item.name).text}
-                size="sm"
-              />
-              <View style={{ flex: 1, marginLeft: tokens.spacing.sm }}>
-                <Text variant="body">{item.name}</Text>
-                {subtitle ? (
-                  <Text variant="caption" color={colors.text.secondary}>{subtitle}</Text>
-                ) : null}
-              </View>
-              {isAdding ? (
-                <ActivityIndicator size="small" color={colors.primary.default} />
-              ) : alreadyAdded ? (
-                <Ionicons name="checkmark-circle" size={20} color={colors.success?.default ?? '#22c55e'} />
-              ) : (
-                <Ionicons name="add-circle-outline" size={20} color={colors.primary.default} />
-              )}
-            </Pressable>
-          );
-        }}
-        ItemSeparatorComponent={() => <Divider />}
-        scrollEnabled={false}
-        ListEmptyComponent={
-          <Text variant="caption" color={colors.text.secondary} style={{ textAlign: 'center', paddingVertical: tokens.spacing.md }}>
-            {query ? t('invite.add_participants.contacts_no_match') : t('invite.add_participants.contacts_empty')}
-          </Text>
-        }
-      />
-    </View>
-  );
-}
 
 // ── Frequent people from other trips ──────────────────────────────────────────
 
@@ -480,58 +224,6 @@ function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
   );
 }
 
-// ── Current members list ──────────────────────────────────────────────────────
-
-interface CurrentMembersSectionProps {
-  members: TripMember[];
-}
-
-function CurrentMembersSection({ members }: CurrentMembersSectionProps) {
-  const { t } = useTranslation();
-  const colors = useColors();
-  if (members.length === 0) return null;
-
-  return (
-    <View style={{ marginBottom: tokens.spacing.lg }}>
-      <Text
-        variant="label"
-        color={colors.text.secondary}
-        style={{ marginBottom: tokens.spacing.sm }}
-      >
-        {t('invite.add_participants.member_count', { count: members.length })}
-      </Text>
-      {members.map((member, i) => {
-        const palette = personColorFor(member.userId, members);
-        return (
-          <View
-            key={member.userId}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: tokens.spacing.sm,
-            }}
-          >
-            <Avatar
-              initials={getInitials(member.displayName)}
-              bg={palette.text}
-              url={member.avatarUrl}
-              size="sm"
-            />
-            <Text
-              variant="body"
-              color={colors.text.primary}
-              style={{ marginLeft: tokens.spacing.sm }}
-            >
-              {member.displayName}
-            </Text>
-          </View>
-        );
-      })}
-      <View style={{ height: 1, backgroundColor: colors.border, marginTop: tokens.spacing.xs }} />
-    </View>
-  );
-}
-
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
 export function AddParticipantScreen() {
@@ -553,6 +245,21 @@ export function AddParticipantScreen() {
   const handleAdded = useCallback((member: TripMember) => {
     setLocalMembers(prev => [...prev, member]);
   }, []);
+
+  const handleManualAdd = useCallback(async (name: string) => {
+    const member: TripMember = {
+      userId:      generateId(),
+      tripId,
+      displayName: name,
+      isGuest:     true,
+      joinedAt:    new Date(),
+    };
+    const result = await memberRepo.addMember(member);
+    if (!isOk(result)) return false;
+    store.getState().appendMember(result.value);
+    handleAdded(result.value);
+    return true;
+  }, [tripId, memberRepo, store, handleAdded]);
 
   // ── Contacts state ──────────────────────────────────────────────────────────
 
@@ -628,23 +335,12 @@ export function AddParticipantScreen() {
   }
 
   const doneButton = () => (
-    <Pressable
+    <HeaderConfirmButton
       onPress={() => router.replace(`/trip/${tripId}` as Parameters<typeof router.replace>[0])}
-      accessibilityRole="button"
+      disabled={false}
+      loading={false}
       accessibilityLabel={t('invite.add_participants.done_label')}
-      style={({ pressed }) => ({
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: colors.primary.default,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: tokens.spacing.xs,
-        opacity: pressed ? 0.8 : 1,
-      })}
-    >
-      <Ionicons name="checkmark" size={20} color="#fff" />
-    </Pressable>
+    />
   );
 
   return (
@@ -678,13 +374,21 @@ export function AddParticipantScreen() {
               </Text>
 
               {/* Current members */}
-              <CurrentMembersSection members={localMembers} />
+              <CurrentMembersList
+                members={localMembers}
+                countLabel={t('invite.add_participants.member_count', { count: localMembers.length })}
+              />
 
               {/* Manual name entry */}
-              <ManualAddSection
-                tripId={tripId}
-                members={localMembers}
-                onAdded={handleAdded}
+              <AddMemberNameField
+                existingNames={localMembers.map(m => m.displayName)}
+                onAdd={handleManualAdd}
+                placeholder={t('invite.add_participants.name_placeholder')}
+                addButtonLabel={t('invite.add_participants.add_button')}
+                duplicateErrorLabel={t('invite.add_participants.duplicate_error')}
+                genericErrorLabel={t('invite.add_participants.add_error')}
+                fieldAccessibilityLabel={t('invite.add_participants.name_label')}
+                addButtonAccessibilityLabel={t('invite.add_participants.add_button_label')}
               />
 
               {/* Contacts toggle — lazy loads on first open */}
@@ -722,16 +426,23 @@ export function AddParticipantScreen() {
 
               {/* Inline contacts list — only rendered when expanded */}
               {contactsExpanded && (
-                <ContactsInlineContent
+                <ContactsPickerList
                   permission={contactsPermission ?? ''}
                   contacts={contactList}
                   loading={contactsLoading}
                   query={contactQuery}
                   onQueryChange={setContactQuery}
-                  members={localMembers}
+                  existingMembers={localMembers}
                   addedIds={addedContactIds}
                   addingId={addingContactId}
                   onAddContact={handleAddContact}
+                  permissionHintLabel={t('invite.add_participants.contacts_permission_hint')}
+                  searchPlaceholder={t('invite.add_participants.contacts_search')}
+                  searchAccessibilityLabel={t('invite.add_participants.contacts_search')}
+                  noMatchLabel={t('invite.add_participants.contacts_no_match')}
+                  emptyLabel={t('invite.add_participants.contacts_empty')}
+                  alreadyAddedAccessibilityLabel={name => t('invite.add_participants.contact_already_added', { name })}
+                  addAccessibilityLabel={name => t('invite.add_participants.contact_add_label', { name })}
                 />
               )}
 

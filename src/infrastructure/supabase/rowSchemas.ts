@@ -52,7 +52,8 @@ const splitRowSchema = z.object({
 
 const splitRequestRowSchema = z.object({
   id:                     z.string().min(1),
-  trip_id:                z.string().min(1),
+  trip_id:                z.string().nullable().optional(),
+  group_id:               z.string().nullable().optional(),
   requester_user_id:      z.string().min(1),
   payer_user_id:          z.string().min(1),
   amount_cents:           z.number().int(),

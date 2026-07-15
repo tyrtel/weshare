@@ -20,3 +20,7 @@ export function selectMembers(state: ITripSessionStore, tripId: string): TripMem
 export function selectSplitRequests(state: ITripSessionStore, tripId: string): SplitRequest[] {
   return state.splitRequests[tripId] ?? EMPTY_SPLIT_REQUESTS;
 }
+
+export function selectGroupSplitRequests(state: ITripSessionStore, groupId: string): SplitRequest[] {
+  return state.groupSplitRequests[groupId] ?? EMPTY_SPLIT_REQUESTS;
+}

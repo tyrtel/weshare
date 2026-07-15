@@ -50,7 +50,7 @@ export function ExpenseRow({ expense, members, index = 0, onPress, showDivider =
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Avatar
           initials={getInitials(payerName)}
-          bg={palette.text}
+          bg={palette.bg}
           url={payer?.avatarUrl}
           size="sm"
         />

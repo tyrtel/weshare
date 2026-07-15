@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, ActivityIndicator, Platform, Pressable, Image, Modal, StatusBar } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { SlideInDown } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { z } from 'zod';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -11,15 +11,15 @@ import { Text } from '../../../components/ui/Text';
 import { Badge } from '../../../components/ui/Badge';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Divider } from '../../../components/ui/Divider';
+import { ExpensePaidByCard } from '../../../components/ui/ExpensePaidByCard';
+import { ExpenseReceiptSection } from '../../../components/ui/ExpenseReceiptSection';
 import { useExpenseDetail } from '../hooks/useExpenseDetail';
-import { useReceiptStorage } from '../../../hooks/useReceiptStorage';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { MEMBER_REPO, TRIP_STORE } from '../../../core/di/tokens';
-import { useColors } from '../../../theme/colors';
-import { personColors } from '../../../theme/colors';
-import { tokens } from '../../../theme/tokens';
+import { ledgerColors, personColorFor } from '../../../theme/colors';
+import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
 import { confirm } from '../../../core/utils/confirm';
-import { formatCurrency } from '../../../core/utils/formatCurrency';
+import { formatCurrency, formatRate } from '../../../core/utils/formatCurrency';
 import { isOk } from '../../../core/types/Result';
 import type { TripMember } from '../../../core/models/TripMember';
 import { useTranslation } from 'react-i18next';
@@ -28,22 +28,15 @@ const expenseDetailParamsSchema = z.object({
   id: z.string().min(1),
 });
 
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
 export function ExpenseDetailScreen() {
-  const { t } = useTranslation();
+  const { t }  = useTranslation();
   const raw    = useLocalSearchParams();
   const parsed = expenseDetailParamsSchema.safeParse(raw);
 
   if (!parsed.success) {
     return (
       <ScreenWrapper>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <Text variant="body" style={{ textAlign: 'center' }}>
             {t('expenses.detail.invalid_params')}
           </Text>
@@ -58,19 +51,14 @@ export function ExpenseDetailScreen() {
 function ExpenseDetailScreenContent({ id }: { id: string }) {
   const { t } = useTranslation();
   const router     = useRouter();
-  const colors     = useColors();
   const memberRepo = useService(MEMBER_REPO);
   const storeApi   = useService(TRIP_STORE);
 
   const { expense, loading, error } = useExpenseDetail(id);
-  const { getReceiptUrl }           = useReceiptStorage();
   const tripClosed = useTripSessionStore(
     s => s.trips.find(t => t.id === expense?.tripId)?.status === 'closed',
   );
-  const [members,           setMembers]           = useState<TripMember[]>([]);
-  const [receiptUrl,        setReceiptUrl]        = useState<string | null>(null);
-  const [receiptImgLoaded,  setReceiptImgLoaded]  = useState(false);
-  const [receiptFullscreen, setReceiptFullscreen] = useState(false);
+  const [members, setMembers] = useState<TripMember[]>([]);
 
   useEffect(() => {
     if (!expense) return;
@@ -79,12 +67,6 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
       if (isOk(result)) setMembers(result.value);
     });
   }, [expense, memberRepo]);
-
-  useEffect(() => {
-    const path = expense?.metadata?.receiptUrl;
-    if (!path) return;
-    getReceiptUrl(path).then(url => { if (url) setReceiptUrl(url); });
-  }, [expense, getReceiptUrl]);
 
   const handleDelete = () => {
     if (!expense) return;
@@ -100,7 +82,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
     return (
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.primary.default} size="large" />
+          <ActivityIndicator color={ledgerColors.primary.default} size="large" />
         </View>
       </ScreenWrapper>
     );
@@ -109,8 +91,8 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   if (error || !expense) {
     return (
       <ScreenWrapper>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
-          <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text variant="body" color={ledgerColors.error.default} style={{ textAlign: 'center' }}>
             {error?.kind === 'NotFoundError' ? t('expenses.detail.error_not_found') : t('expenses.detail.error_load')}
           </Text>
         </View>
@@ -118,46 +100,53 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
     );
   }
 
-  const payer      = members.find(m => m.userId === expense.paidByUserId);
-  const payerName  = payer?.displayName ?? 'Unknown';
-  const payerIndex = members.findIndex(m => m.userId === expense.paidByUserId);
-  const payerPalette = personColors[Math.max(0, payerIndex) % personColors.length];
+  const payer       = members.find(m => m.userId === expense.paidByUserId);
+  const payerName   = payer?.displayName ?? 'Unknown';
+  const payerColor  = personColorFor(expense.paidByUserId, members);
+  const originalAmount = expense.metadata.originalAmount;
 
   return (
     <ScreenWrapper>
-      <Stack.Screen
-        options={{
-          title: expense.description,
-          headerRight: tripClosed ? undefined : () => (
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.background }}>
+        <View style={detailStyles.titleRow}>
+          <Pressable onPress={() => router.back()} hitSlop={10}>
+            <Feather name="chevron-left" size={26} color={ledgerColors.text.primary} />
+          </Pressable>
+          <Text style={detailStyles.title} numberOfLines={1}>{expense.description}</Text>
+          {tripClosed ? (
+            <View style={{ width: 26 }} />
+          ) : (
             <Pressable
               onPress={() => router.push(`/expense/edit?id=${expense.id}`)}
               accessibilityRole="button"
               accessibilityLabel={t('expenses.detail.edit_label')}
-              hitSlop={8}
-              style={{ paddingHorizontal: tokens.spacing.sm }}
+              hitSlop={10}
             >
-              <Ionicons name="pencil-outline" size={20} color="#e8e8f5" />
+              <Feather name="edit-2" size={18} color={ledgerColors.text.secondary} />
             </Pressable>
-          ),
-        }}
-      />
-      <ScrollView contentContainerStyle={{ padding: tokens.spacing.md, paddingBottom: tokens.spacing.md + TAB_BAR_HEIGHT }}>
+          )}
+        </View>
+      </SafeAreaView>
 
-        {/* Expense header */}
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 20 + TAB_BAR_HEIGHT }}>
+
+        {/* Amount + conversion + date */}
         <Animated.View
           entering={Platform.OS !== 'web' ? SlideInDown.duration(400).springify() : undefined}
-          style={{ marginBottom: tokens.spacing.lg }}
+          style={{ alignItems: 'center', marginBottom: 20 }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: tokens.spacing.xs }}>
-            <Text variant="heading1" style={{ flex: 1 }} numberOfLines={2}>
-              {expense.description}
-            </Text>
-            <Badge label={expense.currency} />
-          </View>
-          <Text variant="heading2" color={colors.primary.default}>
+          <Text style={[detailStyles.amount, { marginBottom: 4 }]}>
             {formatCurrency(expense.totalAmountCents, expense.currency)}
           </Text>
-          <Text variant="caption" color={colors.text.secondary} style={{ marginTop: tokens.spacing.xs }}>
+          {originalAmount && (
+            <Text style={detailStyles.conversionCaption}>
+              {formatCurrency(originalAmount.amountCents, originalAmount.currency)}
+              {' entered · 1 '}{originalAmount.currency}{' = '}{formatRate(originalAmount.exchangeRate)}{' '}{expense.currency}
+              {originalAmount.source === 'approximate' ? ' · approx.' : ''}
+            </Text>
+          )}
+          <Text style={detailStyles.dateCaption}>
             {expense.createdAt.toLocaleDateString(undefined, {
               weekday: 'short', month: 'short', day: 'numeric',
             })}
@@ -165,159 +154,40 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
         </Animated.View>
 
         {/* Receipt image — tap to view fullscreen */}
-        {!!expense.metadata?.receiptUrl && (
-          <View style={{ marginBottom: tokens.spacing.md }}>
-            <Text variant="caption" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.xs }}>
-              {t('expenses.detail.receipt_label')}
-            </Text>
-            {!receiptUrl ? (
-              <View
-                style={{
-                  width: '100%',
-                  height: 220,
-                  borderRadius: tokens.radius.card,
-                  backgroundColor: colors.surface,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <ActivityIndicator color={colors.primary.default} />
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => setReceiptFullscreen(true)}
-                accessibilityRole="button"
-                accessibilityLabel={t('expenses.detail.view_receipt_label')}
-              >
-                <Image
-                  source={{ uri: receiptUrl }}
-                  style={{
-                    width: '100%',
-                    height: 220,
-                    borderRadius: tokens.radius.card,
-                    backgroundColor: colors.surface,
-                  }}
-                  resizeMode="contain"
-                  accessibilityLabel={t('expenses.detail.receipt_image_label')}
-                  onLoad={() => setReceiptImgLoaded(true)}
-                />
-                {!receiptImgLoaded && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      borderRadius: tokens.radius.card,
-                      backgroundColor: colors.surface,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <ActivityIndicator color={colors.primary.default} />
-                  </View>
-                )}
-                {receiptImgLoaded && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      bottom: tokens.spacing.xs,
-                      right: tokens.spacing.xs,
-                      backgroundColor: 'rgba(0,0,0,0.55)',
-                      borderRadius: 999,
-                      padding: 6,
-                    }}
-                  >
-                    <Ionicons name="expand-outline" size={16} color="#fff" />
-                  </View>
-                )}
-              </Pressable>
-            )}
-          </View>
-        )}
-
-        {/* Receipt fullscreen modal */}
-        <Modal
-          visible={receiptFullscreen}
-          transparent={false}
-          animationType="fade"
-          onRequestClose={() => setReceiptFullscreen(false)}
-          statusBarTranslucent
-        >
-          <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
-            <StatusBar barStyle="light-content" backgroundColor="#000" />
-            <Pressable
-              onPress={() => setReceiptFullscreen(false)}
-              accessibilityRole="button"
-              accessibilityLabel={t('expenses.detail.close_receipt_label')}
-              style={{
-                position: 'absolute',
-                top: tokens.spacing.lg,
-                right: tokens.spacing.md,
-                zIndex: 10,
-                backgroundColor: 'rgba(255,255,255,0.15)',
-                borderRadius: 999,
-                padding: 8,
-              }}
-            >
-              <Ionicons name="close" size={24} color="#fff" />
-            </Pressable>
-            <Image
-              source={{ uri: receiptUrl }}
-              style={{ flex: 1 }}
-              resizeMode="contain"
-              accessibilityLabel={t('expenses.detail.receipt_fullscreen_label')}
-            />
-          </SafeAreaView>
-        </Modal>
+        <ExpenseReceiptSection receiptPath={expense.metadata.receiptUrl} />
 
         {/* Paid by */}
-        <View
-          style={{
-            backgroundColor: colors.surface,
-            borderRadius: tokens.radius.card,
-            padding: tokens.spacing.md,
-            marginBottom: tokens.spacing.md,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <Avatar
-            initials={getInitials(payerName)}
-            bg={payerPalette.text}
-            url={payer?.avatarUrl}
-            size="md"
-          />
-          <View style={{ marginLeft: tokens.spacing.sm }}>
-            <Text variant="caption" color={colors.text.secondary}>
-              {t('expenses.detail.paid_by_label')}
-            </Text>
-            <Text variant="body">{payerName}</Text>
-          </View>
-        </View>
+        <ExpensePaidByCard
+          payerName={payerName}
+          payerColor={payerColor.bg}
+          avatarUrl={payer?.avatarUrl}
+          label={t('expenses.detail.paid_by_label')}
+          style={{ marginBottom: 16 }}
+        />
 
         {/* Splits */}
-        <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, padding: tokens.spacing.md }}>
-          <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
+        <View style={detailStyles.card}>
+          <Text style={[detailStyles.fieldLabel, { marginBottom: 8 }]}>
             {t('expenses.detail.split_title', { count: expense.splits.length })}
           </Text>
 
           {expense.splits.map((split, i) => {
             const member  = members.find(m => m.userId === split.userId);
             const name    = member?.displayName ?? split.userId;
-            const mIndex  = members.findIndex(m => m.userId === split.userId);
-            const palette = personColors[Math.max(0, mIndex) % personColors.length];
+            const palette = personColorFor(split.userId, members);
             const settled = !!split.settledAt;
 
             return (
               <View key={split.id}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: tokens.spacing.sm }}>
-                  <Avatar initials={getInitials(name)} bg={palette.text} url={member?.avatarUrl} size="sm" />
-                  <Text variant="body" style={{ flex: 1, marginLeft: tokens.spacing.sm }} numberOfLines={1}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10 }}>
+                  <Avatar initials={name} bg={palette.bg} url={member?.avatarUrl} size="sm" />
+                  <Text variant="body" style={{ flex: 1, marginLeft: 10 }} numberOfLines={1}>
                     {name}
                   </Text>
                   {settled ? (
-                    <Badge label={t('expenses.detail.settled_badge')} bg={colors.success.bg} color={colors.success.default} />
+                    <Badge label={t('expenses.detail.settled_badge')} bg={ledgerColors.success.bg} color={ledgerColors.success.default} />
                   ) : (
-                    <Text variant="label" color={colors.primary.default}>
+                    <Text style={detailStyles.splitAmount}>
                       {formatCurrency(split.amountOwedCents - split.amountPaidCents, expense.currency)}
                     </Text>
                   )}
@@ -335,16 +205,55 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
             accessibilityRole="button"
             accessibilityLabel={t('expenses.detail.delete_label')}
             style={({ pressed }) => ({
+              flexDirection: 'row',
               alignItems: 'center',
-              marginTop: tokens.spacing.xl,
-              paddingVertical: tokens.spacing.sm,
+              justifyContent: 'center',
+              gap: 6,
+              marginTop: 24,
+              paddingVertical: 10,
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <Text variant="label" color={colors.error.default}>{t('expenses.detail.delete_button')}</Text>
+            <Feather name="trash-2" size={15} color={ledgerColors.error.default} />
+            <Text variant="label" color={ledgerColors.error.default}>{t('expenses.detail.delete_button')}</Text>
           </Pressable>
         )}
       </ScrollView>
     </ScreenWrapper>
   );
 }
+
+const detailStyles = StyleSheet.create({
+  titleRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 12,
+  },
+  title: {
+    flex: 1, textAlign: 'center', marginHorizontal: 12,
+    fontFamily: ledgerFonts.display, fontSize: 17, color: ledgerColors.text.primary,
+  },
+  amount: {
+    fontFamily: ledgerFonts.display, fontSize: 34, color: ledgerColors.text.primary,
+    fontVariant: ['tabular-nums'],
+  },
+  conversionCaption: {
+    fontSize: 12.5, color: ledgerColors.text.secondary, marginBottom: 4, textAlign: 'center',
+  },
+  dateCaption: {
+    fontSize: 12.5, color: ledgerColors.text.tertiary,
+  },
+  fieldLabel: {
+    fontSize: 12, fontWeight: '600', color: ledgerColors.text.secondary,
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8,
+  },
+  card: {
+    backgroundColor: ledgerColors.surface,
+    borderRadius: ledgerRadius.card,
+    padding: 16,
+    ...ledgerShadow.card,
+  },
+  splitAmount: {
+    fontFamily: ledgerFonts.displaySemibold, fontSize: 14, color: ledgerColors.text.primary,
+    fontVariant: ['tabular-nums'],
+  },
+});

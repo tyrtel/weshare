@@ -1,4 +1,5 @@
 import { calculateSettlements } from '../settlement';
+import type { LedgerPayment } from '../settlement';
 import type { TripMember } from '../../models/TripMember';
 import type { Expense } from '../../models/Expense';
 import type { Split } from '../../models/Split';
@@ -41,6 +42,10 @@ function expense(
     splits,
     metadata: {},
   };
+}
+
+function payment(payerUserId: string, payeeUserId: string, amountCents: number): LedgerPayment {
+  return { payerUserId, payeeUserId, amountCents, currency: CURRENCY };
 }
 
 // Finds a specific settlement (order-independent)
@@ -180,41 +185,90 @@ describe('multi-payer — 2 expenses, 2 payers', () => {
 
 // ── Already-settled splits ────────────────────────────────────────────────────
 
-describe('already-settled splits', () => {
-  it('excludes splits with settledAt set', () => {
+// Split.amountPaidCents/settledAt are no longer read by the balance math at
+// all — the ledger model's credit side is entirely `LedgerPayment[]`, summed
+// against the payer's own overall balance, not tied to any specific split.
+describe('ledger payments (running-ledger model)', () => {
+  it('a completed payment for the full amount zeroes the settlement', () => {
     const members = ['jay', 'marie'].map(member);
     const e = expense('e1', 'jay', 4000, [
-      split('s1', 'e1', 'jay',   2000, 2000, NOW),
-      split('s2', 'e1', 'marie', 2000, 2000, NOW),
+      split('s1', 'e1', 'jay',   2000),
+      split('s2', 'e1', 'marie', 2000),
     ]);
-    const result = calculateSettlements(members, [e]);
+    const result = calculateSettlements(members, [e], [payment('marie', 'jay', 2000)]);
     expect(result).toHaveLength(0);
   });
 
-  it('only counts unsettled portion when settledAt absent', () => {
-    // Jay pays €40. Marie owes €20 but has already paid €10 (amountPaidCents=1000).
+  it('a partial payment reduces the settlement by the paid amount', () => {
+    // Jay pays €40. Marie owes €20 but has already paid €10 via the ledger.
     // Outstanding = 2000 − 1000 = 1000.
     const members = ['jay', 'marie'].map(member);
     const e = expense('e1', 'jay', 4000, [
       split('s1', 'e1', 'jay',   2000),
-      split('s2', 'e1', 'marie', 2000, 1000), // partial payment
+      split('s2', 'e1', 'marie', 2000),
     ]);
-    const result = calculateSettlements(members, [e]);
+    const result = calculateSettlements(members, [e], [payment('marie', 'jay', 1000)]);
     expect(result).toHaveLength(1);
     expect(findSettlement(result, 'marie', 'jay')?.amountCents).toBe(1000);
   });
 
-  it('mixes settled and unsettled splits in one expense', () => {
-    // Jay pays €90 for 3. Marie is settled, Sara is not.
+  it("one member's payment doesn't affect another member's separate debt", () => {
+    // Jay pays €90 for 3. Marie has paid in full via the ledger, Sara has not.
     const members = ['jay', 'marie', 'sara'].map(member);
     const e = expense('e1', 'jay', 9000, [
       split('s1', 'e1', 'jay',   3000),
-      split('s2', 'e1', 'marie', 3000, 3000, NOW), // settled
-      split('s3', 'e1', 'sara',  3000),             // unsettled
+      split('s2', 'e1', 'marie', 3000),
+      split('s3', 'e1', 'sara',  3000),
     ]);
-    const result = calculateSettlements(members, [e]);
+    const result = calculateSettlements(members, [e], [payment('marie', 'jay', 3000)]);
     expect(result).toHaveLength(1);
     expect(findSettlement(result, 'sara', 'jay')?.amountCents).toBe(3000);
+  });
+
+  it('an overpayment produces a credit that carries forward onto a later expense, not a rejection or a cap', () => {
+    // Marie owes €20 on the first expense but pays €35 — a €15 overpayment.
+    // A second expense later adds another €10 debt from Marie to Jay. The
+    // credit absorbs it: net outstanding is 35 − 20 − 10 = 5 in Marie's favor,
+    // i.e. Jay now owes Marie €5, not the other way around.
+    const members = ['jay', 'marie'].map(member);
+    const e1 = expense('e1', 'jay', 4000, [
+      split('s1', 'e1', 'jay',   2000),
+      split('s2', 'e1', 'marie', 2000),
+    ]);
+    const e2 = expense('e2', 'jay', 2000, [
+      split('s3', 'e2', 'jay',   1000),
+      split('s4', 'e2', 'marie', 1000),
+    ]);
+    const result = calculateSettlements(members, [e1, e2], [payment('marie', 'jay', 3500)]);
+    expect(result).toHaveLength(1);
+    expect(findSettlement(result, 'jay', 'marie')?.amountCents).toBe(500);
+  });
+
+  it('a payment recorded with no prior debt at all still produces a sensible credit', () => {
+    const members = ['jay', 'marie'].map(member);
+    const e = expense('e1', 'jay', 2000, [
+      split('s1', 'e1', 'jay',   1000),
+      split('s2', 'e1', 'marie', 1000),
+    ]);
+    // Marie pre-pays €30 against a €10 debt — a pure advance payment.
+    const result = calculateSettlements(members, [e], [payment('marie', 'jay', 3000)]);
+    expect(result).toHaveLength(1);
+    expect(findSettlement(result, 'jay', 'marie')?.amountCents).toBe(2000);
+  });
+
+  it('multiple payments between the same pair all sum, not just the latest', () => {
+    const members = ['jay', 'marie'].map(member);
+    const e = expense('e1', 'jay', 10000, [
+      split('s1', 'e1', 'jay',   5000),
+      split('s2', 'e1', 'marie', 5000),
+    ]);
+    const result = calculateSettlements(members, [e], [
+      payment('marie', 'jay', 1000),
+      payment('marie', 'jay', 1000),
+      payment('marie', 'jay', 1000),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(findSettlement(result, 'marie', 'jay')?.amountCents).toBe(2000);
   });
 });
 

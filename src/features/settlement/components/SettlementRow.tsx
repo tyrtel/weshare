@@ -100,7 +100,7 @@ export function SettlementRow({
           <View style={{ alignItems: 'center', minWidth: 52 }}>
             <Avatar
               initials={settlement.fromDisplayName}
-              bg={fromColor.text}
+              bg={fromColor.bg}
               url={fromMember?.avatarUrl}
               size="md"
             />
@@ -131,7 +131,7 @@ export function SettlementRow({
           <View style={{ alignItems: 'center', minWidth: 52 }}>
             <Avatar
               initials={settlement.toDisplayName}
-              bg={toColor.text}
+              bg={toColor.bg}
               url={toMember?.avatarUrl}
               size="md"
             />
