@@ -7,7 +7,6 @@ import { useStripePoller } from './useStripePoller';
 import { selectExpenses, selectMembers, selectSplitRequests } from '../../../store/selectors';
 import type { Settlement } from '../../../core/models/Settlement';
 import type { SplitRequest, SplitRequestStatus } from '../../../core/models/SplitRequest';
-import { PAYMENT_FLOW_STATUSES } from '../../../core/models/SplitRequest';
 import type { TripStatus } from '../../../core/models/Trip';
 import type { TripMember } from '../../../core/models/TripMember';
 import type { AppError } from '../../../core/types/AppError';
@@ -60,6 +59,8 @@ export function useSettlement(tripId: string) {
         payeeUserId: r.requesterUserId,
         amountCents: r.amountCents,
         currency:    r.currency,
+        id:          r.id,
+        date:        r.updatedAt,
       })),
     [splitRequests],
   );
@@ -102,45 +103,6 @@ export function useSettlement(tripId: string) {
 
   // ── Actions ───────────────────────────────────────────────────────────────────
 
-  const markSettled = useCallback(
-    async (fromUserId: string, toUserId: string): Promise<boolean> => {
-      setSettling(true);
-
-      // Read the current store snapshot so we never act on a stale closure.
-      const currentExpenses = selectExpenses(storeApi.getState(), tripId);
-      const splits = currentExpenses
-        .filter((e) => e.paidByUserId === toUserId)
-        .flatMap((e) =>
-          e.splits.filter(
-            (s) => s.userId === fromUserId && s.settledAt === undefined,
-          ),
-        );
-
-      const results = await Promise.allSettled(
-        splits.map((s) => storeApi.getState().markSettled(s)),
-      );
-
-      let firstError: AppError | null = null;
-      for (const r of results) {
-        if (r.status === 'rejected') {
-          firstError ??= { kind: 'NetworkError', message: 'Settlement failed unexpectedly' };
-        } else if (!r.value.ok) {
-          firstError ??= r.value.error;
-        }
-      }
-
-      if (firstError !== null) {
-        setError(firstError);
-        setSettling(false);
-        return false;
-      }
-
-      setSettling(false);
-      return true;
-    },
-    [tripId, storeApi],
-  );
-
   const updateRequestStatus = useCallback(
     async (req: SplitRequest, nextStatus: SplitRequest['status']): Promise<void> => {
       const updated = { ...req, status: nextStatus, updatedAt: new Date() };
@@ -172,68 +134,54 @@ export function useSettlement(tripId: string) {
     if (pendingStripeReq) void updateRequestStatus(pendingStripeReq, status);
   });
 
-  const markDebtPaid = useCallback(
-    async (fromUserId: string, toUserId: string): Promise<void> => {
+  // Appends a new completed SplitRequest for an arbitrary amount — the ledger's
+  // sole write primitive. Deliberately always creates a new record rather than
+  // looking for an existing one to flip: multiple payments between the same
+  // pair are meant to all sum (see settlement.ts's ledger model), not overwrite
+  // a single "latest" request the way the old markDebtPaid did.
+  const recordPayment = useCallback(
+    async (fromUserId: string, toUserId: string, amountCents: number, currency: string): Promise<void> => {
       setSettling(true);
       try {
-        const existing = requestMap.get(`${fromUserId}:${toUserId}`);
-        if (existing) {
-          const updated = { ...existing, status: 'paid' as const, updatedAt: new Date() };
-          await storeApi.getState().updateSplitRequest(updated);
-        } else {
-          const settlement = settlements.find(
-            s => s.fromUserId === fromUserId && s.toUserId === toUserId,
-          );
-          if (!settlement) return;
-          const newReq: SplitRequest = {
-            id:                  `sr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-            tripId,
-            requesterUserId:     toUserId,
-            payerUserId:         fromUserId,
-            amountCents:         settlement.amountCents,
-            currency:            settlement.currency,
-            note:                '',
-            status:              'paid',
-            preferredWallet:     'other',
-            externalRefId:       null,
-            stripePaymentLinkId: null,
-            stripeSessionId:     null,
-            obPaymentId:         null,
-            obProvider:          null,
-            rolledOverFromTripId: null,
-            createdAt:           new Date(),
-            updatedAt:           new Date(),
-          };
-          await storeApi.getState().saveSplitRequest(newReq);
-        }
+        const newReq: SplitRequest = {
+          id:                  `sr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+          tripId,
+          requesterUserId:     toUserId,
+          payerUserId:         fromUserId,
+          amountCents,
+          currency,
+          note:                '',
+          status:              'paid',
+          preferredWallet:     'other',
+          externalRefId:       null,
+          stripePaymentLinkId: null,
+          stripeSessionId:     null,
+          obPaymentId:         null,
+          obProvider:          null,
+          rolledOverFromTripId: null,
+          createdAt:           new Date(),
+          updatedAt:           new Date(),
+        };
+        await storeApi.getState().saveSplitRequest(newReq);
       } finally {
         setSettling(false);
       }
     },
-    [tripId, storeApi, requestMap, settlements],
+    [tripId, storeApi],
   );
 
-  const markDebtOwed = useCallback(
-    async (fromUserId: string, toUserId: string): Promise<void> => {
-      const existing = requestMap.get(`${fromUserId}:${toUserId}`);
-      if (!existing || PAYMENT_FLOW_STATUSES.has(existing.status)) return;
-      const updated = { ...existing, status: 'owed' as const, updatedAt: new Date() };
-      await storeApi.getState().updateSplitRequest(updated);
-    },
-    [storeApi, requestMap],
-  );
-
+  // A fully-paid pair now simply disappears from `settlements` (its net balance
+  // is zero), so "all settled" can no longer be read off any row's status —
+  // it's "there was debt at some point, and now there's none".
   const allSettled = useMemo(
-    () => settlements.length > 0 && settlements.every(s => {
-      const st = s.latestRequest?.status ?? null;
-      return st === 'paid' || st === 'completed';
-    }),
-    [settlements],
+    () => expenses.length > 0 && settlements.length === 0,
+    [expenses, settlements],
   );
 
   return {
     settlements,
     members,
+    expenses,
     splitRequests,
     loading,
     error,
@@ -242,11 +190,9 @@ export function useSettlement(tripId: string) {
     tripStatus,
     allSettled,
     refetch:             load,
-    markSettled,
     updateRequestStatus,
     reopenTrip,
     closeTrip,
-    markDebtPaid,
-    markDebtOwed,
+    recordPayment,
   };
 }

@@ -1,18 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, FlatList, ActivityIndicator } from 'react-native';
+import { View, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { z } from 'zod';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
 import { Text } from '../../../components/ui/Text';
-import { SplitStatusBadge } from '../../../components/ui/SplitStatusBadge';
-import { useAuditHistory } from '../hooks/useAuditHistory';
+import { RecordPaymentSheet } from '../components/RecordPaymentSheet';
+import { useLedgerHistory } from '../hooks/useLedgerHistory';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
-import type { SplitRequest } from '../../../core/models/SplitRequest';
+import type { LedgerEntry } from '../../../core/logic/settlement';
 
 const auditParamsSchema = z.object({
   tripId:     z.string().min(1),
@@ -22,36 +22,31 @@ const auditParamsSchema = z.object({
   toName:     z.string().default(''),
 });
 
-function paymentMethodLabel(req: SplitRequest, t: (key: string) => string): string {
-  if (req.stripeSessionId) return t('settlement.audit.method_stripe');
-  if (req.obPaymentId)     return t('settlement.audit.method_sepa');
-  const labels: Record<string, string> = {
-    revolut: t('settlement.audit.method_revolut'),
-    venmo:   t('settlement.audit.method_venmo'),
-    lydia:   t('settlement.audit.method_lydia'),
-    paypal:  t('settlement.audit.method_paypal'),
-    other:   t('settlement.audit.method_other'),
-  };
-  return labels[req.preferredWallet] ?? t('settlement.audit.method_other');
+interface LedgerEntryRowProps {
+  entry: LedgerEntry;
+  fromLabel: string;
+  toLabel: string;
 }
 
-function referenceId(req: SplitRequest): string | null {
-  return req.stripePaymentLinkId ?? req.stripeSessionId ?? req.obPaymentId ?? req.externalRefId;
-}
-
-interface AuditRequestRowProps {
-  req: SplitRequest;
-}
-
-function AuditRequestRow({ req }: AuditRequestRowProps) {
+function LedgerEntryRow({ entry, fromLabel, toLabel }: LedgerEntryRowProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const amount = formatCurrency(req.amountCents, req.currency);
-  const method = paymentMethodLabel(req, t);
-  const date   = req.createdAt.toLocaleDateString(undefined, {
+
+  const amountColor = entry.amountCents > 0
+    ? colors.error.default
+    : entry.amountCents < 0
+      ? colors.success.default
+      : colors.text.secondary;
+  const sign = entry.amountCents > 0 ? '+' : entry.amountCents < 0 ? '−' : '';
+  const description = entry.type === 'payment' ? t('settlement.audit.payment_description') : entry.description;
+  const date = entry.date.toLocaleDateString(undefined, {
     year: 'numeric', month: 'short', day: 'numeric',
   });
-  const ref = referenceId(req);
+  const balanceLabel = entry.balanceCents === 0
+    ? t('settlement.audit.balance_settled', { from: fromLabel, to: toLabel })
+    : entry.balanceCents > 0
+      ? t('settlement.audit.balance_owes', { from: fromLabel, to: toLabel, amount: formatCurrency(entry.balanceCents, entry.currency) })
+      : t('settlement.audit.balance_owes', { from: toLabel, to: fromLabel, amount: formatCurrency(-entry.balanceCents, entry.currency) });
 
   return (
     <View
@@ -62,26 +57,28 @@ function AuditRequestRow({ req }: AuditRequestRowProps) {
         gap:             tokens.spacing.xs,
         ...tokens.shadow.sm,
       }}
-      accessibilityLabel={`${amount} payment, status ${req.status}, via ${method} on ${date}`}
+      accessibilityLabel={`${description}, ${formatCurrency(Math.abs(entry.amountCents), entry.currency)}, ${date}`}
     >
-      {/* Top row: amount + status badge */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text variant="label" color={colors.text.primary}>{amount}</Text>
-        <SplitStatusBadge status={req.status} />
-      </View>
-
-      {/* Middle row: method + date */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text variant="caption" color={colors.text.secondary}>{method}</Text>
-        <Text variant="caption" color={colors.text.tertiary}>{date}</Text>
-      </View>
-
-      {/* Reference (only when present) */}
-      {ref && (
-        <Text variant="caption" color={colors.text.tertiary} numberOfLines={1}>
-          {t('settlement.audit.ref_prefix', { ref })}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs, flex: 1 }}>
+          <Ionicons
+            name={entry.type === 'expense' ? 'receipt-outline' : 'swap-horizontal-outline'}
+            size={16}
+            color={colors.text.secondary}
+          />
+          <Text variant="label" color={colors.text.primary} numberOfLines={1} style={{ flex: 1 }}>
+            {description}
+          </Text>
+        </View>
+        <Text variant="label" color={amountColor}>
+          {sign}{formatCurrency(Math.abs(entry.amountCents), entry.currency)}
         </Text>
-      )}
+      </View>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text variant="caption" color={colors.text.tertiary}>{date}</Text>
+        <Text variant="caption" color={colors.text.tertiary} numberOfLines={1}>{balanceLabel}</Text>
+      </View>
     </View>
   );
 }
@@ -114,7 +111,9 @@ function AuditDetailScreenContent({ params }: { params: AuditParams }) {
   const { tripId, fromUserId, toUserId, fromName, toName } = params;
   const colors = useColors();
 
-  const { requests, loading, error } = useAuditHistory(tripId, fromUserId, toUserId);
+  const { entries, balanceCents, currency, loading, error, settling, recordPayment } =
+    useLedgerHistory(tripId, fromUserId, toUserId);
+  const [recording, setRecording] = useState(false);
 
   const fromLabel = fromName || fromUserId;
   const toLabel   = toName   || toUserId;
@@ -142,7 +141,7 @@ function AuditDetailScreenContent({ params }: { params: AuditParams }) {
           {title}
         </Text>
         <Text variant="caption" color={colors.text.tertiary}>
-          {loading ? '…' : t('settlement.audit.record_count', { count: requests.length })}
+          {loading ? '…' : t('settlement.audit.record_count', { count: entries.length })}
         </Text>
       </View>
 
@@ -160,31 +159,69 @@ function AuditDetailScreenContent({ params }: { params: AuditParams }) {
         </View>
       )}
 
-      {!loading && !error && requests.length === 0 && (
+      {!loading && !error && entries.length === 0 && (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
           <Ionicons name="receipt-outline" size={40} color={colors.text.tertiary} />
           <Text variant="body" color={colors.text.secondary} style={{ textAlign: 'center', marginTop: tokens.spacing.md }}>
             {t('settlement.audit.empty_title')}
           </Text>
           <Text variant="caption" color={colors.text.tertiary} style={{ textAlign: 'center', marginTop: tokens.spacing.xs }}>
-            {t('settlement.audit.empty_body')}
+            {t('settlement.audit.empty_body', { from: fromLabel, to: toLabel })}
           </Text>
         </View>
       )}
 
-      {!loading && !error && requests.length > 0 && (
+      {!loading && !error && entries.length > 0 && (
         <FlatList
-          data={requests}
+          data={entries}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => <AuditRequestRow req={item} />}
+          renderItem={({ item }) => <LedgerEntryRow entry={item} fromLabel={fromLabel} toLabel={toLabel} />}
           contentContainerStyle={{
             paddingHorizontal: tokens.spacing.md,
-            paddingBottom:     tokens.spacing.lg + TAB_BAR_HEIGHT,
+            paddingBottom:     tokens.spacing.lg + TAB_BAR_HEIGHT + 64,
             gap:               tokens.spacing.sm,
           }}
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      {!loading && !error && (
+        <Pressable
+          testID="record-payment-button"
+          onPress={() => setRecording(true)}
+          style={({ pressed }) => ({
+            position:        'absolute',
+            bottom:          TAB_BAR_HEIGHT + tokens.spacing.md,
+            left:            tokens.spacing.md,
+            right:           tokens.spacing.md,
+            flexDirection:   'row',
+            alignItems:      'center',
+            justifyContent:  'center',
+            gap:             tokens.spacing.sm,
+            paddingVertical: tokens.spacing.md,
+            borderRadius:    tokens.radius.pill,
+            backgroundColor: colors.primary.default,
+            opacity:         pressed ? 0.85 : 1,
+            ...tokens.shadow.lg,
+          })}
+        >
+          <Ionicons name="add-circle-outline" size={18} color="#ffffff" />
+          <Text variant="label" color="#ffffff">{t('settlement.audit.record_payment_button')}</Text>
+        </Pressable>
+      )}
+
+      <RecordPaymentSheet
+        visible={recording}
+        fromLabel={fromLabel}
+        toLabel={toLabel}
+        defaultAmountCents={Math.max(balanceCents, 0)}
+        currency={currency}
+        busy={settling}
+        onClose={() => setRecording(false)}
+        onConfirm={(amountCents) => {
+          void recordPayment(amountCents).then(() => setRecording(false));
+        }}
+      />
     </ScreenWrapper>
   );
 }

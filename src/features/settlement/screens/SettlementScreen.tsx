@@ -10,6 +10,7 @@ import { SettlementSkeleton } from '../../../components/skeletons/SettlementSkel
 import { Text } from '../../../components/ui/Text';
 import { SettlementRow } from '../components/SettlementRow';
 import { PaymentMethodSheet } from '../components/PaymentMethodSheet';
+import { RecordPaymentSheet } from '../components/RecordPaymentSheet';
 import { useSettlement } from '../hooks/useSettlement';
 import { useService } from '../../../core/di/ServiceContext';
 import { TRIP_STORE } from '../../../core/di/tokens';
@@ -55,7 +56,6 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
   const {
     settlements,
     members,
-    splitRequests,
     loading,
     error,
     settling,
@@ -64,8 +64,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
     allSettled,
     updateRequestStatus,
     closeTrip,
-    markDebtPaid,
-    markDebtOwed,
+    recordPayment,
     refetch,
   } = useSettlement(tripId);
 
@@ -82,6 +81,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
   }, [closeTrip, router]);
 
   const [payTarget, setPayTarget]           = useState<EnrichedSettlement | null>(null);
+  const [recordTarget, setRecordTarget]     = useState<EnrichedSettlement | null>(null);
   const pendingRequestRef                   = useRef<SplitRequest | null>(null);
   const appStateRef                         = useRef<AppStateStatus>(AppState.currentState);
 
@@ -205,9 +205,8 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
                     }
                   : undefined
               }
-              onMarkPaid={() => void markDebtPaid(item.fromUserId, item.toUserId)}
-              markPaidBusy={settling}
-              onMarkOwed={() => void markDebtOwed(item.fromUserId, item.toUserId)}
+              onRecordPayment={() => setRecordTarget(item)}
+              recordPaymentBusy={settling}
               onHistory={() =>
                 router.push({
                   pathname: `/settle/audit/${tripId}` as never,
@@ -245,6 +244,23 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
             storeApi.getState().appendSplitRequest(req);
             pendingRequestRef.current = req;
             setPayTarget(null);
+          }}
+        />
+      )}
+
+      {/* Record-a-payment bottom sheet */}
+      {recordTarget && (
+        <RecordPaymentSheet
+          visible
+          fromLabel={recordTarget.fromDisplayName}
+          toLabel={recordTarget.toDisplayName}
+          defaultAmountCents={recordTarget.amountCents}
+          currency={recordTarget.currency}
+          busy={settling}
+          onClose={() => setRecordTarget(null)}
+          onConfirm={(amountCents) => {
+            void recordPayment(recordTarget.fromUserId, recordTarget.toUserId, amountCents, recordTarget.currency)
+              .then(() => setRecordTarget(null));
           }}
         />
       )}

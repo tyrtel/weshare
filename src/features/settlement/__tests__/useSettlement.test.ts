@@ -9,9 +9,7 @@ import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepos
 import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
 import { InMemorySplitRepository } from '../../../__mocks__/InMemorySplitRepository';
 import { InMemorySplitRequestRepository } from '../../../__mocks__/InMemorySplitRequestRepository';
-import { err } from '../../../core/types/Result';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { Split } from '../../../core/models/Split';
 import { tripFactory, memberFactory, expenseFactory, splitFactory, splitRequestFactory } from '../../../__testUtils__/factories';
 
 function makeWrapper(container: ServiceContainer) {
@@ -186,16 +184,12 @@ describe('useSettlement — currentUserId', () => {
   });
 });
 
-// ── markSettled ───────────────────────────────────────────────────────────────
+// ── recordPayment ────────────────────────────────────────────────────────────
+// The ledger's sole write primitive, replacing markSettled/markDebtPaid/
+// markDebtOwed — see splitRequest.test.ts for the full repo-round-trip coverage.
 
-describe('useSettlement — markSettled', () => {
-  // markSettled writes Split.amountPaidCents/settledAt — under the running-ledger
-  // model those fields are no longer read by the balance calculation at all (only
-  // completed SplitRequest ledger entries are), so this legacy action is now
-  // correctly a no-op on the computed settlement. Locks in exactly the fact the
-  // Phase 4 analysis found: the old per-split mechanism doesn't move the number
-  // anyone sees. It's superseded by the ledger "record a payment" primitive.
-  it('no longer affects the settlement — superseded by the ledger', async () => {
+describe('useSettlement — recordPayment', () => {
+  it('a full-amount payment clears the settlement from the list', async () => {
     const container = createTestContainer();
     const splits = [splitFactory({ id: 's1', expenseId: 'e1', userId: 'jay', amountOwedCents: 2500 }), splitFactory({ id: 's2', expenseId: 'e1', userId: 'marie', amountOwedCents: 2500 })];
     (container.resolve(TRIP_REPO) as InMemoryTripRepository).seed([tripFactory({ ownerId: 'jay' })]);
@@ -212,13 +206,13 @@ describe('useSettlement — markSettled', () => {
     expect(result.current.settlements).toHaveLength(1);
 
     await act(async () => {
-      await result.current.markSettled('marie', 'jay');
+      await result.current.recordPayment('marie', 'jay', 2500, 'EUR');
     });
 
-    expect(result.current.settlements).toHaveLength(1);
+    await waitFor(() => expect(result.current.settlements).toHaveLength(0));
   });
 
-  it('returns true on success', async () => {
+  it('a partial payment reduces the settlement amount instead of clearing it', async () => {
     const container = createTestContainer();
     const splits = [splitFactory({ id: 's1', expenseId: 'e1', userId: 'jay', amountOwedCents: 2500 }), splitFactory({ id: 's2', expenseId: 'e1', userId: 'marie', amountOwedCents: 2500 })];
     (container.resolve(TRIP_REPO) as InMemoryTripRepository).seed([tripFactory({ ownerId: 'jay' })]);
@@ -233,86 +227,13 @@ describe('useSettlement — markSettled', () => {
     const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    let outcome: boolean | undefined;
-    await act(async () => { outcome = await result.current.markSettled('marie', 'jay'); });
+    await act(async () => {
+      await result.current.recordPayment('marie', 'jay', 1000, 'EUR');
+    });
 
-    expect(outcome).toBe(true);
-  });
-
-  it('sets error and returns false when one of multiple split updates fails', async () => {
-    const container = createTestContainer();
-    // Two expenses both paid by jay, each with a split for marie — produces two markSettled calls
-    const splits = [
-      splitFactory({ id: 's1', expenseId: 'e1', userId: 'marie', amountOwedCents: 2500 }),
-      splitFactory({ id: 's2', expenseId: 'e2', userId: 'marie', amountOwedCents: 2500 }),
-    ];
-    (container.resolve(TRIP_REPO) as InMemoryTripRepository).seed([tripFactory({ ownerId: 'jay' })]);
-    (container.resolve(MEMBER_REPO) as InMemoryMemberRepository).seed(
-      ['jay', 'marie'].map(id => memberFactory({ userId: id, displayName: id })),
-    );
-    (container.resolve(EXPENSE_REPO) as InMemoryExpenseRepository).seed(
-      [expenseFactory({ id: 'e1', tripId: 't1', paidByUserId: 'jay', totalAmountCents: 5000, description: 'e1' }), expenseFactory({ id: 'e2', tripId: 't1', paidByUserId: 'jay', totalAmountCents: 5000, description: 'e2' })],
-      splits,
-    );
-    const splitRepo = container.resolve(SPLIT_REPO) as InMemorySplitRepository;
-    splitRepo.seed(splits);
-
-    // s1 fails, s2 succeeds — partial failure
-    const originalUpdate = splitRepo.updateSplit;
-    splitRepo.updateSplit = async (split: Split) => {
-      if (split.id === 's1') return err({ kind: 'NetworkError', message: 'network failure' });
-      return originalUpdate(split);
-    };
-
-    const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    let outcome: boolean | undefined;
-    await act(async () => { outcome = await result.current.markSettled('marie', 'jay'); });
-
-    expect(outcome).toBe(false);
-    expect(result.current.error).toMatchObject({ kind: 'NetworkError', message: 'network failure' });
-  });
-
-  it('does not settle the wrong pair', async () => {
-    const container = createTestContainer();
-    // Jay pays €60 for food (marie/tom/jay). Marie pays €30 for wine (jay/marie).
-    // Net: Jay +40−15=+25, Marie −20+15=−5, Tom −20.
-    // Settlements: Tom→Jay 20, Marie→Jay 5.
-    const foodSplits = [
-      splitFactory({ id: 'f1', expenseId: 'food', userId: 'jay', amountOwedCents: 2000 }),
-      splitFactory({ id: 'f2', expenseId: 'food', userId: 'marie', amountOwedCents: 2000 }),
-      splitFactory({ id: 'f3', expenseId: 'food', userId: 'tom', amountOwedCents: 2000 }),
-    ];
-    const wineSplits = [
-      splitFactory({ id: 'w1', expenseId: 'wine', userId: 'jay', amountOwedCents: 1500 }),
-      splitFactory({ id: 'w2', expenseId: 'wine', userId: 'marie', amountOwedCents: 1500 }),
-    ];
-    const allSplits = [...foodSplits, ...wineSplits];
-    (container.resolve(TRIP_REPO) as InMemoryTripRepository).seed([tripFactory({ ownerId: 'jay' })]);
-    (container.resolve(MEMBER_REPO) as InMemoryMemberRepository).seed(
-      ['jay', 'marie', 'tom'].map(id => memberFactory({ userId: id, displayName: id })),
-    );
-    (container.resolve(EXPENSE_REPO) as InMemoryExpenseRepository).seed(
-      [expenseFactory({ id: 'food', tripId: 't1', paidByUserId: 'jay', totalAmountCents: 6000, description: 'food' }), expenseFactory({ id: 'wine', tripId: 't1', paidByUserId: 'marie', totalAmountCents: 3000, description: 'wine' })],
-      allSplits,
-    );
-    (container.resolve(SPLIT_REPO) as InMemorySplitRepository).seed(allSplits);
-
-    const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    const before = result.current.settlements.length;
-    expect(before).toBeGreaterThan(0);
-
-    // Settle only Tom's debt to Jay
-    await act(async () => { await result.current.markSettled('tom', 'jay'); });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    // Marie's debt to Jay should still exist
-    const marieOwesJay = result.current.settlements.some(
-      s => s.fromUserId === 'marie' && s.toUserId === 'jay',
-    );
-    expect(marieOwesJay).toBe(true);
+    await waitFor(() => {
+      const marieRow = result.current.settlements.find(s => s.fromUserId === 'marie');
+      return marieRow?.amountCents === 1500;
+    });
   });
 });

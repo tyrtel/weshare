@@ -436,20 +436,16 @@
       "cancel": "Annuler"
     },
     "audit": {
-      "title": "Historique des paiements",
-      "record_count_one": "{{count}} enregistrement",
-      "record_count_other": "{{count}} enregistrements",
-      "empty_title": "Aucun historique de paiement.",
-      "empty_body": "Les enregistrements apparaissent ici une fois qu'une demande de paiement est créée.",
-      "error_load": "Impossible de charger l'historique des paiements.",
-      "ref_prefix": "Réf. : {{ref}}",
-      "method_stripe": "Stripe",
-      "method_sepa": "Virement SEPA",
-      "method_revolut": "Revolut",
-      "method_venmo": "Venmo",
-      "method_lydia": "Lydia",
-      "method_paypal": "PayPal",
-      "method_other": "Autre"
+      "title": "Grand livre",
+      "record_count_one": "{{count}} opération",
+      "record_count_other": "{{count}} opérations",
+      "empty_title": "Aucune activité pour le moment.",
+      "empty_body": "Les dépenses et paiements entre {{from}} et {{to}} apparaîtront ici.",
+      "error_load": "Impossible de charger l'historique.",
+      "balance_owes": "{{from}} doit {{amount}} à {{to}}",
+      "balance_settled": "{{from}} et {{to}} sont à jour",
+      "payment_description": "Paiement",
+      "record_payment_button": "Enregistrer un paiement"
     },
     "bank": {
       "screen_title": "Virement bancaire",
@@ -489,15 +485,22 @@
       "skip": "Passer — continuer sans sélectionner"
     },
     "row": {
-      "undo": "Annuler",
-      "undo_label": "Annuler le marquage comme payé",
       "pay_button": "Payer",
       "pay_label": "Payer {{name}}",
-      "mark_paid": "Marquer payé",
-      "mark_paid_label": "Marquer comme payé",
+      "record_payment": "Enregistrer",
+      "record_payment_label": "Enregistrer un paiement de {{from}} à {{to}}",
       "payment_in_progress": "Paiement en cours",
-      "paid_label": "Payé",
       "history_label": "Voir l'historique des paiements entre {{from}} et {{to}}"
+    },
+    "record_payment": {
+      "title": "Enregistrer un paiement",
+      "subtitle": "Enregistrer un paiement de {{from}} à {{to}}.",
+      "amount_label": "Montant",
+      "confirm_button": "Enregistrer le paiement",
+      "confirm_label": "Confirmer le paiement enregistré",
+      "cancel": "Annuler",
+      "close_label": "Fermer",
+      "invalid_amount": "Saisissez un montant supérieur à zéro."
     },
     "rollover": {
       "title": "Reporter les dettes",

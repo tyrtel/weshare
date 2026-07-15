@@ -1,4 +1,4 @@
-import { calculateSettlements } from '../settlement';
+import { calculateSettlements, buildLedgerHistory } from '../settlement';
 import type { LedgerPayment } from '../settlement';
 import type { TripMember } from '../../models/TripMember';
 import type { Expense } from '../../models/Expense';
@@ -405,5 +405,106 @@ describe('Chez Paul restaurant scenario', () => {
   it('number of transfers is minimal (≤ n−1 for n members)', () => {
     // Greedy algorithm guarantees at most n−1 transfers for n parties
     expect(result.length).toBeLessThanOrEqual(members.length - 1);
+  });
+});
+
+// ── buildLedgerHistory (per-pair chronological ledger) ───────────────────────
+
+function datedPayment(
+  payerUserId: string,
+  payeeUserId: string,
+  amountCents: number,
+  date: Date,
+  id: string,
+): LedgerPayment {
+  return { payerUserId, payeeUserId, amountCents, currency: CURRENCY, date, id };
+}
+
+describe('buildLedgerHistory', () => {
+  it('a full payment zeroes the running balance', () => {
+    const e = expense('e1', 'jay', 4000, [
+      split('s1', 'e1', 'jay',   2000),
+      split('s2', 'e1', 'marie', 2000),
+    ]);
+    const payments = [datedPayment('marie', 'jay', 2000, new Date('2025-06-02'), 'p1')];
+    const entries = buildLedgerHistory('marie', 'jay', [e], payments);
+
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ type: 'expense', amountCents: 2000, balanceCents: 2000 });
+    expect(entries[1]).toMatchObject({ type: 'payment', amountCents: -2000, balanceCents: 0 });
+  });
+
+  it('a partial payment shows as its own ledger line, not a settled flag', () => {
+    const e = expense('e1', 'jay', 4000, [
+      split('s1', 'e1', 'jay',   2000),
+      split('s2', 'e1', 'marie', 2000),
+    ]);
+    const payments = [datedPayment('marie', 'jay', 800, new Date('2025-06-02'), 'p1')];
+    const entries = buildLedgerHistory('marie', 'jay', [e], payments);
+
+    expect(entries).toHaveLength(2);
+    expect(entries[1]).toMatchObject({ type: 'payment', amountCents: -800, balanceCents: 1200 });
+  });
+
+  it('an overpayment shows as a negative running balance (a credit), not an error', () => {
+    const e = expense('e1', 'jay', 4000, [
+      split('s1', 'e1', 'jay',   2000),
+      split('s2', 'e1', 'marie', 2000),
+    ]);
+    const payments = [datedPayment('marie', 'jay', 3500, new Date('2025-06-02'), 'p1')];
+    const entries = buildLedgerHistory('marie', 'jay', [e], payments);
+
+    expect(entries).toHaveLength(2);
+    expect(entries[1].balanceCents).toBe(-1500);
+  });
+
+  it('a credit carries forward and offsets a later expense', () => {
+    const e1 = expense('e1', 'jay', 4000, [
+      split('s1', 'e1', 'jay',   2000),
+      split('s2', 'e1', 'marie', 2000),
+    ]);
+    const e2 = { ...expense('e2', 'jay', 2000, [
+      split('s3', 'e2', 'jay',   1000),
+      split('s4', 'e2', 'marie', 1000),
+    ]), createdAt: new Date('2025-06-03') };
+    const payments = [datedPayment('marie', 'jay', 3500, new Date('2025-06-02'), 'p1')];
+    const entries = buildLedgerHistory('marie', 'jay', [e1, e2], payments);
+
+    expect(entries).toHaveLength(3);
+    expect(entries[entries.length - 1]).toMatchObject({ type: 'expense', amountCents: 1000, balanceCents: -500 });
+  });
+
+  it('entries are ordered chronologically regardless of input order', () => {
+    const e1 = { ...expense('e1', 'jay', 2000, [
+      split('s1', 'e1', 'jay',   1000),
+      split('s2', 'e1', 'marie', 1000),
+    ]), createdAt: new Date('2025-06-05') };
+    const payments = [datedPayment('marie', 'jay', 1000, new Date('2025-06-01'), 'p1')];
+    const entries = buildLedgerHistory('marie', 'jay', [e1], payments);
+
+    expect(entries.map(e => e.type)).toEqual(['payment', 'expense']);
+  });
+
+  it('expenses paid by the "from" user reduce the balance (reverse direction)', () => {
+    // Marie pays this one — she's covering Jay's share, which offsets what she owes.
+    const e = expense('e1', 'marie', 2000, [
+      split('s1', 'e1', 'jay',   1000),
+      split('s2', 'e1', 'marie', 1000),
+    ]);
+    const entries = buildLedgerHistory('marie', 'jay', [e]);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ amountCents: -1000, balanceCents: -1000 });
+  });
+
+  it('expenses and payments unrelated to this pair are excluded', () => {
+    const e = expense('e1', 'jay', 3000, [
+      split('s1', 'e1', 'jay',  1500),
+      split('s2', 'e1', 'tom',  1500),
+    ]);
+    const payments = [datedPayment('tom', 'jay', 1500, new Date('2025-06-02'), 'p1')];
+    const entries = buildLedgerHistory('marie', 'jay', [e], payments);
+
+    expect(entries).toHaveLength(0);
   });
 });

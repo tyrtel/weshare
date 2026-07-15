@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
 import { Text } from '../../../components/ui/Text';
-import { Badge } from '../../../components/ui/Badge';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Divider } from '../../../components/ui/Divider';
 import { ExpensePaidByCard } from '../../../components/ui/ExpensePaidByCard';
@@ -175,7 +174,6 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
             const member  = members.find(m => m.userId === split.userId);
             const name    = member?.displayName ?? split.userId;
             const palette = personColorFor(split.userId, members);
-            const settled = !!split.settledAt;
 
             return (
               <View key={split.id}>
@@ -184,13 +182,9 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
                   <Text variant="body" style={{ flex: 1, marginLeft: 10 }} numberOfLines={1}>
                     {name}
                   </Text>
-                  {settled ? (
-                    <Badge label={t('expenses.detail.settled_badge')} bg={ledgerColors.success.bg} color={ledgerColors.success.default} />
-                  ) : (
-                    <Text style={detailStyles.splitAmount}>
-                      {formatCurrency(split.amountOwedCents - split.amountPaidCents, expense.currency)}
-                    </Text>
-                  )}
+                  <Text style={detailStyles.splitAmount}>
+                    {formatCurrency(split.amountOwedCents, expense.currency)}
+                  </Text>
                 </View>
                 {i < expense.splits.length - 1 && <Divider />}
               </View>

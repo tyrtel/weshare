@@ -436,20 +436,16 @@
       "cancel": "Cancel"
     },
     "audit": {
-      "title": "Payment History",
-      "record_count_one": "{{count}} record",
-      "record_count_other": "{{count}} records",
-      "empty_title": "No payment history yet.",
-      "empty_body": "Records appear here once a payment request is created.",
-      "error_load": "Could not load payment history.",
-      "ref_prefix": "Ref: {{ref}}",
-      "method_stripe": "Stripe",
-      "method_sepa": "SEPA Bank Transfer",
-      "method_revolut": "Revolut",
-      "method_venmo": "Venmo",
-      "method_lydia": "Lydia",
-      "method_paypal": "PayPal",
-      "method_other": "Other"
+      "title": "Ledger",
+      "record_count_one": "{{count}} entry",
+      "record_count_other": "{{count}} entries",
+      "empty_title": "No activity yet.",
+      "empty_body": "Expenses and payments between {{from}} and {{to}} will appear here.",
+      "error_load": "Could not load ledger history.",
+      "balance_owes": "{{from}} owes {{to}} {{amount}}",
+      "balance_settled": "{{from}} and {{to}} are settled up",
+      "payment_description": "Payment",
+      "record_payment_button": "Record a payment"
     },
     "bank": {
       "screen_title": "Bank Transfer",
@@ -489,15 +485,22 @@
       "skip": "Skip — proceed without selecting"
     },
     "row": {
-      "undo": "Undo",
-      "undo_label": "Undo mark as paid",
       "pay_button": "Pay",
       "pay_label": "Pay {{name}}",
-      "mark_paid": "Mark Paid",
-      "mark_paid_label": "Mark as paid",
+      "record_payment": "Record",
+      "record_payment_label": "Record a payment from {{from}} to {{to}}",
       "payment_in_progress": "Payment in progress",
-      "paid_label": "Paid",
       "history_label": "View payment history for {{from}} and {{to}}"
+    },
+    "record_payment": {
+      "title": "Record a payment",
+      "subtitle": "Log a payment from {{from}} to {{to}}.",
+      "amount_label": "Amount",
+      "confirm_button": "Record payment",
+      "confirm_label": "Confirm recorded payment",
+      "cancel": "Cancel",
+      "close_label": "Close",
+      "invalid_amount": "Enter an amount greater than zero."
     },
     "rollover": {
       "title": "Roll Over Debts",

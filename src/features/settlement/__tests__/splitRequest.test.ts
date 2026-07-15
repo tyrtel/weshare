@@ -235,10 +235,10 @@ describe('useSettlement — SplitRequest tracking', () => {
   });
 
   // A 'paid' SplitRequest is a completed ledger entry now (see core/logic/
-  // settlement.ts's LedgerPayment credit filter) — marking a debt paid
+  // settlement.ts's LedgerPayment credit filter) — recording a payment
   // actually clears it from the settlement list instead of leaving a
-  // same-amount row with an updated status label, unlike before.
-  it('markDebtPaid creates a completed SplitRequest and clears the settlement', async () => {
+  // same-amount row with an updated status label, unlike the old markDebtPaid.
+  it('recordPayment creates a completed SplitRequest and clears the settlement', async () => {
     const container = createTestContainer();
     seedBasic(container);
 
@@ -247,7 +247,7 @@ describe('useSettlement — SplitRequest tracking', () => {
     expect(result.current.settlements.find(s => s.fromUserId === 'marie')).toBeTruthy();
 
     await act(async () => {
-      await result.current.markDebtPaid('marie', 'jay');
+      await result.current.recordPayment('marie', 'jay', 2500, 'EUR');
     });
 
     await waitFor(() => {
@@ -262,77 +262,23 @@ describe('useSettlement — SplitRequest tracking', () => {
     expect(created?.amountCents).toBe(2500);
   });
 
-  it('markDebtPaid updates an existing owed request to paid and clears the settlement', async () => {
+  // Locks in the exact "requestMap latest-only" trap 4a's analysis found: the
+  // ledger sums every completed request between a pair, not just the newest one.
+  it('multiple recordPayment calls between the same pair all sum, not just the latest', async () => {
     const container = createTestContainer();
     seedBasic(container);
-
-    const req = splitRequestFactory({ payerUserId: 'marie', requesterUserId: 'jay', status: 'owed' });
-    (container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository).seed([req]);
 
     const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    await act(async () => {
-      await result.current.markDebtPaid('marie', 'jay');
-    });
-
+    await act(async () => { await result.current.recordPayment('marie', 'jay', 1000, 'EUR'); });
     await waitFor(() => {
-      expect(result.current.settlements.find(s => s.fromUserId === 'marie')).toBeUndefined();
+      const marieRow = result.current.settlements.find(s => s.fromUserId === 'marie');
+      return marieRow?.amountCents === 1500;
     });
 
-    const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequest('req-1');
-    expect(stored.ok && stored.value.status).toBe('paid');
-  });
-
-  it('markDebtOwed reverts a paid request back to owed', async () => {
-    const container = createTestContainer();
-    seedBasic(container);
-
-    const req = splitRequestFactory({ payerUserId: 'marie', requesterUserId: 'jay', status: 'paid' });
-    (container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository).seed([req]);
-
-    const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.markDebtOwed('marie', 'jay');
-    });
-
-    const marieRow = result.current.settlements.find(s => s.fromUserId === 'marie');
-    expect(marieRow?.latestRequest?.status).toBe('owed');
-  });
-
-  it('markDebtOwed does nothing when the request is in a payment flow', async () => {
-    const container = createTestContainer();
-    seedBasic(container);
-
-    const req = splitRequestFactory({ payerUserId: 'marie', requesterUserId: 'jay', status: 'pending' });
-    (container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository).seed([req]);
-
-    const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.markDebtOwed('marie', 'jay');
-    });
-
-    const marieRow = result.current.settlements.find(s => s.fromUserId === 'marie');
-    expect(marieRow?.latestRequest?.status).toBe('pending');
-  });
-
-  it('markDebtOwed does nothing when no request exists', async () => {
-    const container = createTestContainer();
-    seedBasic(container);
-
-    const { result } = renderHook(() => useSettlement('t1'), { wrapper: makeWrapper(container) });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    await act(async () => {
-      await result.current.markDebtOwed('marie', 'jay');
-    });
-
-    const marieRow = result.current.settlements.find(s => s.fromUserId === 'marie');
-    expect(marieRow?.latestRequest).toBeNull();
+    await act(async () => { await result.current.recordPayment('marie', 'jay', 1500, 'EUR'); });
+    await waitFor(() => expect(result.current.settlements.find(s => s.fromUserId === 'marie')).toBeUndefined());
   });
 
   it('picks the newest SplitRequest when multiple exist for the same pair', async () => {

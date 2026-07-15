@@ -15,6 +15,9 @@ export interface LedgerPayment {
   payeeUserId: string;
   amountCents: number;
   currency: string;
+  /** Optional — only needed by `buildLedgerHistory` below, not by the balance/settlement calculations. */
+  id?: string;
+  date?: Date;
 }
 
 function applyLedgerPayments(balances: Map<string, number>, payments: LedgerPayment[]): void {
@@ -196,4 +199,87 @@ export function calculateSettlements(
   }
 
   return settlements;
+}
+
+// ── Per-pair ledger history ────────────────────────────────────────────────────
+
+export interface LedgerEntry {
+  id: string;
+  date: Date;
+  type: 'expense' | 'payment';
+  description: string;
+  /** Signed from `fromUserId`'s perspective: positive grows what they owe `toUserId`, negative shrinks it. */
+  amountCents: number;
+  /** Running total after this entry. Positive = `fromUserId` owes `toUserId`; negative = the reverse. */
+  balanceCents: number;
+  currency: string;
+}
+
+/**
+ * Builds a chronological, running-balance history of exactly what passed between
+ * two members — every expense either paid, and every completed payment either
+ * made, in either direction. This is a two-party view; it isn't guaranteed to
+ * reconcile with the n-party greedy-matched `calculateSettlements` output once a
+ * third member is involved (e.g. A→B and B→C can net to a direct A→C settlement
+ * with no shared expense history between A and C at all) — it exists to explain
+ * "how did we get here" for one pair, not to replace the settlement algorithm.
+ */
+export function buildLedgerHistory(
+  fromUserId: string,
+  toUserId: string,
+  expenses: Expense[],
+  payments: LedgerPayment[] = [],
+): LedgerEntry[] {
+  const unordered: Omit<LedgerEntry, 'balanceCents'>[] = [];
+
+  for (const expense of expenses) {
+    if (expense.paidByUserId === toUserId) {
+      const split = expense.splits.find(s => s.userId === fromUserId);
+      if (split && split.amountOwedCents > 0) {
+        unordered.push({
+          id: expense.id,
+          date: expense.createdAt,
+          type: 'expense',
+          description: expense.description,
+          amountCents: split.amountOwedCents,
+          currency: expense.currency,
+        });
+      }
+    } else if (expense.paidByUserId === fromUserId) {
+      const split = expense.splits.find(s => s.userId === toUserId);
+      if (split && split.amountOwedCents > 0) {
+        unordered.push({
+          id: expense.id,
+          date: expense.createdAt,
+          type: 'expense',
+          description: expense.description,
+          amountCents: -split.amountOwedCents,
+          currency: expense.currency,
+        });
+      }
+    }
+  }
+
+  for (const payment of payments) {
+    const isForward = payment.payerUserId === fromUserId && payment.payeeUserId === toUserId;
+    const isReverse = payment.payerUserId === toUserId && payment.payeeUserId === fromUserId;
+    if (!isForward && !isReverse) continue;
+
+    unordered.push({
+      id: payment.id ?? `${payment.payerUserId}:${payment.payeeUserId}:${payment.amountCents}`,
+      date: payment.date ?? new Date(0),
+      type: 'payment',
+      description: '',
+      amountCents: isForward ? -payment.amountCents : payment.amountCents,
+      currency: payment.currency,
+    });
+  }
+
+  unordered.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  let running = 0;
+  return unordered.map(entry => {
+    running += entry.amountCents;
+    return { ...entry, balanceCents: running };
+  });
 }

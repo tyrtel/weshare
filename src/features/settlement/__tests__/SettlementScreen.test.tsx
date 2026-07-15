@@ -44,6 +44,7 @@ const mockUseSettlement = useSettlement as jest.Mock;
 const IDLE_STATE = {
   settlements:         [],
   members:             [],
+  expenses:            [],
   splitRequests:       [],
   loading:             false,
   error:               null,
@@ -51,12 +52,10 @@ const IDLE_STATE = {
   tripStatus:          'active' as const,
   allSettled:          false,
   refetch:             jest.fn(),
-  markSettled:         jest.fn(),
   updateRequestStatus: jest.fn(),
   reopenTrip:          jest.fn(),
   closeTrip:           jest.fn(),
-  markDebtPaid:        jest.fn(),
-  markDebtOwed:        jest.fn(),
+  recordPayment:       jest.fn(),
 };
 
 // ---------------------------------------------------------------------------
@@ -98,27 +97,13 @@ describe('SettlementScreen — param validation', () => {
 // All-settled bar
 // ---------------------------------------------------------------------------
 
-const PAID_SETTLEMENT = {
-  fromUserId: 'u1', toUserId: 'u2', amountCents: 500, currency: 'EUR',
-  fromDisplayName: 'A', toDisplayName: 'B',
-  latestRequest: {
-    id: 'sr1', tripId: 't1', status: 'paid' as const,
-    requesterUserId: 'u2', payerUserId: 'u1',
-    amountCents: 500, currency: 'EUR', note: '',
-    preferredWallet: 'other', externalRefId: null,
-    stripePaymentLinkId: null, stripeSessionId: null,
-    obPaymentId: null, obProvider: null, rolledOverFromTripId: null,
-    createdAt: new Date(), updatedAt: new Date(),
-  },
-};
-
 describe('SettlementScreen — all-settled bar', () => {
   beforeEach(() => {
     mockParams.mockReturnValue({ tripId: 't1' });
   });
 
   it('shows the bar when allSettled is true', () => {
-    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, allSettled: true, settlements: [PAID_SETTLEMENT] });
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, allSettled: true, settlements: [] });
     render(<SettlementScreen />);
     expect(screen.getByTestId('all-settled-bar')).toBeTruthy();
     expect(screen.getByText('All settled — Close Trip')).toBeTruthy();
@@ -131,7 +116,7 @@ describe('SettlementScreen — all-settled bar', () => {
   });
 
   it('hides Close Trip link when allSettled bar is shown', () => {
-    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, allSettled: true, settlements: [PAID_SETTLEMENT] });
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, allSettled: true, settlements: [] });
     render(<SettlementScreen />);
     expect(screen.queryByTestId('close-trip-button')).toBeNull();
   });
@@ -139,7 +124,7 @@ describe('SettlementScreen — all-settled bar', () => {
   it('calls closeTrip when the bar is pressed', async () => {
     const { fireEvent, act } = require('@testing-library/react-native');
     const closeTrip = jest.fn().mockResolvedValue(undefined);
-    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, allSettled: true, settlements: [PAID_SETTLEMENT], closeTrip });
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, allSettled: true, settlements: [], closeTrip });
     render(<SettlementScreen />);
     await act(async () => { fireEvent.press(screen.getByTestId('all-settled-bar')); });
     expect(closeTrip).toHaveBeenCalledTimes(1);
@@ -170,7 +155,7 @@ describe('SettlementScreen — Roll Over Debts link', () => {
     mockUseSettlement.mockReturnValue({
       ...IDLE_STATE,
       allSettled: true,
-      settlements: [PAID_SETTLEMENT],
+      settlements: [],
     });
     render(<SettlementScreen />);
     expect(screen.queryByTestId('roll-over-debts-button')).toBeNull();
@@ -205,7 +190,7 @@ describe('SettlementScreen — Close Trip link', () => {
   });
 
   it('hides Close Trip when allSettled bar is shown', () => {
-    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, allSettled: true, settlements: [PAID_SETTLEMENT] });
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, allSettled: true, settlements: [] });
     render(<SettlementScreen />);
     expect(screen.queryByTestId('close-trip-button')).toBeNull();
   });

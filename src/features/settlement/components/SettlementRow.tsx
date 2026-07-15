@@ -25,9 +25,8 @@ interface SettlementRowProps {
   isCurrentUserDebtor: boolean;
   index?: number;
   onPay?: () => void;
-  onMarkPaid?: () => void;
-  markPaidBusy?: boolean;
-  onMarkOwed?: () => void;
+  onRecordPayment?: () => void;
+  recordPaymentBusy?: boolean;
   onHistory?: () => void;
   showDivider?: boolean;
 }
@@ -38,9 +37,8 @@ export function SettlementRow({
   isCurrentUserDebtor,
   index = 0,
   onPay,
-  onMarkPaid,
-  markPaidBusy = false,
-  onMarkOwed,
+  onRecordPayment,
+  recordPaymentBusy = false,
   onHistory,
   showDivider = true,
 }: SettlementRowProps) {
@@ -59,26 +57,17 @@ export function SettlementRow({
 
   const requestStatus       = settlement.latestRequest?.status ?? null;
   const isPaymentFlowStatus = requestStatus !== null && PAYMENT_FLOW_STATUSES.has(requestStatus);
-  const isPaid              = requestStatus === 'paid' || requestStatus === 'completed';
   const isInTransit         = requestStatus === 'pending' || requestStatus === 'authorized';
 
-  const handleMarkPaid = () => {
+  const handleRecordPayment = () => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onMarkPaid?.();
+    onRecordPayment?.();
   };
 
   return (
     <Animated.View entering={entering} exiting={exiting}>
       <View
-        style={[
-          { flexDirection: 'row', alignItems: 'center', paddingVertical: tokens.spacing.md },
-          isPaid && {
-            backgroundColor: colors.success.bg,
-            borderLeftWidth: 3,
-            borderLeftColor: colors.success.default,
-            paddingLeft: tokens.spacing.sm,
-          },
-        ]}
+        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: tokens.spacing.md }}
       >
 
         {/* Left + centre columns — tapping navigates to history */}
@@ -120,7 +109,7 @@ export function SettlementRow({
               {formatCurrency(settlement.amountCents, settlement.currency)}
             </Text>
             <Ionicons name="arrow-forward" size={16} color={colors.text.tertiary} />
-            {settlement.latestRequest && requestStatus !== 'owed' && (
+            {settlement.latestRequest && isPaymentFlowStatus && (
               <View style={{ marginTop: 4 }}>
                 <SplitStatusBadge status={settlement.latestRequest.status} />
               </View>
@@ -155,23 +144,8 @@ export function SettlementRow({
             ) : onHistory ? (
               <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
             ) : null
-          ) : isPaid ? (
-            // Debt marked paid — checkmark + optional undo
-            <View style={{ alignItems: 'flex-end', gap: tokens.spacing.xs }}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.success.default} accessibilityLabel={t('settlement.row.paid_label')} />
-              {onMarkOwed ? (
-                <Pressable
-                  onPress={onMarkOwed}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('settlement.row.undo_label')}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-                >
-                  <Text variant="caption" color={colors.text.tertiary}>{t('settlement.row.undo')}</Text>
-                </Pressable>
-              ) : null}
-            </View>
           ) : (
-            // Owed / no request yet — show Mark Paid + optional Pay
+            // No in-flight payment — show Record payment + optional Pay
             <>
               {isCurrentUserDebtor && onPay && (
                 <Pressable
@@ -189,25 +163,25 @@ export function SettlementRow({
                   <Text variant="caption" color="#ffffff">{t('settlement.row.pay_button')}</Text>
                 </Pressable>
               )}
-              {onMarkPaid && (
+              {onRecordPayment && (
                 <Pressable
-                  onPress={markPaidBusy ? undefined : handleMarkPaid}
+                  onPress={recordPaymentBusy ? undefined : handleRecordPayment}
                   accessibilityRole="button"
-                  accessibilityLabel={t('settlement.row.mark_paid_label')}
+                  accessibilityLabel={t('settlement.row.record_payment_label', { from: settlement.fromDisplayName, to: settlement.toDisplayName })}
                   style={({ pressed }) => ({
                     borderRadius: tokens.radius.pill,
                     paddingVertical: tokens.spacing.xs,
                     paddingHorizontal: tokens.spacing.sm,
                     borderWidth: 1,
                     borderColor: colors.border,
-                    opacity: markPaidBusy || pressed ? 0.5 : 1,
+                    opacity: recordPaymentBusy || pressed ? 0.5 : 1,
                     minWidth: 72,
                     alignItems: 'center',
                   })}
                 >
-                  {markPaidBusy
+                  {recordPaymentBusy
                     ? <ActivityIndicator size="small" color={colors.text.secondary} />
-                    : <Text variant="caption" color={colors.text.secondary}>{t('settlement.row.mark_paid')}</Text>
+                    : <Text variant="caption" color={colors.text.secondary}>{t('settlement.row.record_payment')}</Text>
                   }
                 </Pressable>
               )}

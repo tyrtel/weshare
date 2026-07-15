@@ -70,9 +70,15 @@
 > below. A currency-conversion bug (unrelated to Phase 4) was also found and
 > fixed during your manual-testing pass for Checkpoint 3 — see the note just
 > above the Checkpoint 3 entry.
-> **Next up:** 4b — the shared ledger/transaction-history view, wired to
-> trip first, including the "record a payment" primitive deferred from 4a.
-> Checkpoint 3 is still open pending your review.
+> **Checkpoint 3 signed off 2026-07-15.**
+> **4b now also landed (2026-07-15)** — the shared ledger/transaction-history
+> view, the "record a payment" primitive deferred from 4a, and the old
+> `markDebtPaid`/`markDebtOwed`/`markSettled` UI actions retired in favor of
+> it. Full detail in the 4b entry below. Nothing is mid-edit — working tree
+> typechecked, full suite green and stable across repeated runs (1009/1009).
+> **Next up:** 4c — decoupling trip/expense-closing from group debt
+> visibility. This is explicitly flagged as a live behavior change needing
+> your sign-off before it lands, not a routine continuation.
 
 Working sequence agreed 2026-07-13, now four phases (Phase 4 added mid-stream once
 the balance/stat card question in 3a turned into a real feature ask) — each has a
@@ -97,8 +103,8 @@ Full detail lives in companion docs, referenced inline rather than repeated here
 - [x] **Checkpoint 1** — review
 - [x] **Phase 2** — component test plan
 - [x] **Checkpoint 2** — review
-- [ ] **Phase 3** — duplicate screen unification
-- [ ] **Checkpoint 3** — review
+- [x] **Phase 3** — duplicate screen unification
+- [x] **Checkpoint 3** — review
 - [ ] **Phase 4** — ongoing settlement ledger (trip + group)
 - [ ] **Checkpoint 4** — review
 
@@ -606,10 +612,12 @@ suite green (1001/1001), no new tsc/lint issues in either touched file.
 
 ### Checkpoint 3
 
-- [ ] 3a–3e landed and reviewed
-- [ ] Confirm Settle stays a deliberately separate, un-started item — not silently
+- [x] 3a–3e landed and reviewed
+- [x] Confirm Settle stays a deliberately separate, un-started item — not silently
       picked up as part of "finishing" this phase
-- [ ] Mark this checkpoint `[x]` — sequence complete
+- [x] Mark this checkpoint `[x]` — sequence complete
+
+**Signed off 2026-07-15.** Phase 4 continuing (4a already landed, resuming at 4b).
 
 ---
 
@@ -794,30 +802,89 @@ name:
         unrelated). Full suite green and stable across two consecutive runs
         (1007/1007). Lint diffed the same way against a pre-4a baseline —
         every flagged line in a touched file was confirmed pre-existing.
-- [ ] **4b — The shared ledger/transaction-history view, wired to trip first.**
-      - [ ] One new component: a chronological list mixing expenses (debits)
-            and payments (credits) for a pair or a scope, with a running
-            balance, plus a "record a payment" amount-entry action calling
-            4a's primitive.
-      - [ ] Wire it into `src/features/settlement/screens/SettlementScreen.tsx`,
-            replacing `SettlementRow`'s per-split badges and its `onMarkPaid`/
-            `onMarkOwed` wiring to `markDebtPaid`/`markDebtOwed` in
-            `useSettlement.ts` — those two functions (and the now-superseded
-            `markSettled`, which was already dead) get retired in favor of
-            the new primitive. This is where the dead "Mark Paid" button
-            finally gets fixed.
-      - [ ] Remove the per-split settled badge from
-            `src/features/expenses/screens/ExpenseDetailScreen.tsx` (added in
-            3e) — replace with a link/section into the same ledger view for
-            that expense's pair, or drop it from this screen entirely if the
-            ledger view is reachable from Settle instead. Decide which when
-            you get here; don't leave both a badge and a ledger view telling
-            two different stories on the same screen.
-      - [ ] Tests: recording a full payment actually reduces the computed
-            balance now (regression guard for the exact dead-button bug this
-            session found); a partial payment reduces it by the right amount
-            and shows as a ledger line, not a "settled" flag; an overpayment
-            shows as a credit line, not an error or a rejected input.
+- [x] **4b — The shared ledger/transaction-history view, wired to trip first.** Done.
+      - [x] **Core logic.** `core/logic/settlement.ts` gained `LedgerEntry` and
+            `buildLedgerHistory(fromUserId, toUserId, expenses, payments)` — a
+            pure function producing a chronological, running-balance history
+            for exactly one pair (every expense either side paid the other,
+            every completed payment either side made). `LedgerPayment` gained
+            two optional fields (`id?`, `date?`) needed only by this function,
+            not by the balance/settlement calculations — kept optional so
+            every existing call site is unaffected. Explicitly documented as a
+            two-party view that isn't guaranteed to reconcile with the n-party
+            greedy-matched `calculateSettlements` output once a third member
+            is involved — it explains "how did we get here" for one pair, not
+            a replacement for the settlement algorithm.
+      - [x] **The "record a payment" primitive**, finally built: `useSettlement.ts`
+            gained `recordPayment(fromUserId, toUserId, amountCents, currency)`,
+            replacing `markDebtPaid`/`markDebtOwed`/`markSettled` entirely (all
+            three removed, not just superseded). Deliberately always appends a
+            new completed `SplitRequest` rather than finding-and-flipping an
+            existing one — matching 4a's "multiple payments between the same
+            pair all sum" model instead of the old single-latest-request
+            pattern. `allSettled` could no longer be read off any row's status
+            (a fully-paid pair now simply disappears from `settlements`
+            instead of being flagged paid) — recomputed as
+            `expenses.length > 0 && settlements.length === 0`, which also
+            fixes a small pre-existing gap where a trip whose expenses always
+            netted to zero could never show the "all settled" bar.
+      - [x] **The ledger view itself**: `AuditDetailScreen.tsx` (still the
+            `/settle/audit/[tripId]` route — kept the route stable) rewritten
+            from a flat `SplitRequest`-only audit list into the real mixed
+            expense-and-payment ledger, backed by a new
+            `useLedgerHistory(tripId, fromUserId, toUserId)` hook. That hook
+            deliberately reuses `useSettlement(tripId)` internally rather than
+            re-loading the trip a second way — it already holds expenses,
+            split requests, and `recordPayment`. Each entry shows description,
+            signed amount (colour-coded debit/credit), date, and a running
+            balance sentence; a bottom "Record a payment" button opens the new
+            `RecordPaymentSheet` (amount pre-filled with the outstanding
+            balance, editable for partial or over-payment), built on the
+            existing `AmountInput` component rather than reinventing amount
+            parsing. Old `useAuditHistory.ts`/its test deleted outright, not
+            kept alongside.
+      - [x] **`SettlementScreen.tsx` / `SettlementRow.tsx`** rewired: the old
+            isPaid-checkmark-plus-undo branch is gone (a paid-off pair now
+            just disappears from the list, so there's nothing left to flag as
+            "paid" on a still-visible row); "Mark Paid" replaced by "Record"
+            wired to the same `RecordPaymentSheet`, pre-filled with the full
+            settlement amount but editable. The in-flight Stripe/OB
+            spinner/status-badge branch (`isPaymentFlowStatus`/`isInTransit`)
+            is untouched — that's a different, still-relevant concept
+            (real-money payment execution, not the manual ledger entry).
+      - [x] **Expense detail badge** (the other half of this item): the
+            per-split "Settled" `Badge` in
+            `src/features/expenses/screens/ExpenseDetailScreen.tsx` (trip
+            side) removed outright rather than linked into the ledger —
+            `Split.settledAt` is never written by any surviving code path
+            post-4a, so the badge could literally never render again; each
+            split now always shows its full `amountOwedCents` (no longer
+            minus the dead `amountPaidCents`, for the same single-source-of-
+            truth reason). **Group's equivalent badge in
+            `app/group/expense/[id].tsx` deliberately left untouched** — that's
+            the "third dead-end" flagged under 4c below, a live-behavior
+            decision for that item, not this one.
+      - [x] **Tests**: `core/logic/__tests__/settlement.test.ts` gained a
+            `buildLedgerHistory` describe block (full payment zeroes the
+            balance, partial payment shows as its own line, overpayment shows
+            as a negative/credit balance, a credit carries forward onto a
+            later expense, chronological ordering independent of input order,
+            reverse-direction expenses, unrelated pair exclusion). New
+            `useLedgerHistory.test.ts` and rewritten `AuditDetailScreen.test.tsx`
+            cover the hook and screen directly. `useSettlement.test.ts`'s old
+            `markSettled` describe block deleted (tested a function that no
+            longer exists) and replaced with a `recordPayment` block;
+            `splitRequest.test.ts`'s `markDebtPaid`/`markDebtOwed` tests
+            replaced with `recordPayment` equivalents, including a direct
+            repo-round-trip proof that multiple payments between the same
+            pair sum rather than overwrite (the exact "requestMap latest-only"
+            trap 4a's analysis named). Full suite green and stable across
+            repeated runs (1009/1009), typechecked clean (diffed against a
+            pre-4b baseline — the four remaining errors in touched-adjacent
+            files are all confirmed pre-existing), lint clean (fixed one real
+            new issue caught along the way — a `setState`-in-`useEffect`
+            pattern in `RecordPaymentSheet`, rewritten as the React-recommended
+            "adjust state during render on a prop change" pattern instead).
 - [ ] **4c — Decouple trip/expense-closing from group debt visibility.**
       - [ ] Remove `computeGroupBalances`'s two wholesale-exclusion filters
             (`groupTrips.filter(t => t.status !== 'closed')`,

@@ -8,19 +8,18 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 
-jest.mock('../hooks/useAuditHistory', () => ({
-  useAuditHistory: jest.fn(),
+jest.mock('../hooks/useLedgerHistory', () => ({
+  useLedgerHistory: jest.fn(),
 }));
 
 import { useLocalSearchParams } from 'expo-router';
 import { AuditDetailScreen } from '../screens/AuditDetailScreen';
-import { useAuditHistory } from '../hooks/useAuditHistory';
+import { useLedgerHistory } from '../hooks/useLedgerHistory';
 import { renderScreen } from '../../../__testUtils__/renderScreen';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { splitRequestFactory } from '../../../__testUtils__/factories';
 
-const mockParams           = useLocalSearchParams as jest.Mock;
-const mockUseAuditHistory  = useAuditHistory as jest.Mock;
+const mockParams            = useLocalSearchParams as jest.Mock;
+const mockUseLedgerHistory   = useLedgerHistory as jest.Mock;
 
 function render() {
   return renderScreen(<AuditDetailScreen />, createTestContainer());
@@ -32,37 +31,72 @@ beforeEach(() => {
   });
 });
 
+const BASE_STATE = {
+  entries: [] as unknown[],
+  balanceCents: 0,
+  currency: 'EUR',
+  loading: false,
+  error: null,
+  settling: false,
+  recordPayment: jest.fn(),
+  refetch: jest.fn(),
+};
+
 describe('AuditDetailScreen', () => {
-  it('renders audit trail entries with amount, method, and date', () => {
-    mockUseAuditHistory.mockReturnValue({
-      requests: [
-        splitRequestFactory({ id: 'r1', amountCents: 2500, currency: 'EUR', status: 'completed', createdAt: new Date('2025-06-01T12:00:00Z') }),
-        splitRequestFactory({ id: 'r2', amountCents: 1000, currency: 'EUR', status: 'pending', createdAt: new Date('2025-05-20T12:00:00Z') }),
+  it('renders ledger entries with description, amount, and running balance', () => {
+    mockUseLedgerHistory.mockReturnValue({
+      ...BASE_STATE,
+      balanceCents: 1500,
+      entries: [
+        { id: 'e1', date: new Date('2025-06-01T12:00:00Z'), type: 'expense', description: 'Dinner', amountCents: 2500, balanceCents: 2500, currency: 'EUR' },
+        { id: 'p1', date: new Date('2025-06-05T12:00:00Z'), type: 'payment', description: '', amountCents: -1000, balanceCents: 1500, currency: 'EUR' },
       ],
-      loading: false,
-      error: null,
     });
 
     render();
 
     expect(screen.getByText('Alice → Bob')).toBeTruthy();
-    expect(screen.getByText('€25.00')).toBeTruthy();
-    expect(screen.getByText('€10.00')).toBeTruthy();
+    expect(screen.getByText('Dinner')).toBeTruthy();
+    expect(screen.getByText('+€25.00')).toBeTruthy();
+    expect(screen.getByText('−€10.00')).toBeTruthy();
   });
 
-  it('shows the empty state when there is no audit history', () => {
-    mockUseAuditHistory.mockReturnValue({ requests: [], loading: false, error: null });
+  it('shows the empty state when there is no ledger history', () => {
+    mockUseLedgerHistory.mockReturnValue({ ...BASE_STATE, entries: [] });
 
     render();
 
-    expect(screen.getByText('No payment history yet.')).toBeTruthy();
+    expect(screen.getByText('No activity yet.')).toBeTruthy();
   });
 
-  it('shows an error state instead of crashing when the history fails to load', () => {
-    mockUseAuditHistory.mockReturnValue({ requests: [], loading: false, error: { kind: 'NetworkError', message: 'boom' } });
+  it('shows an error state instead of crashing when the ledger fails to load', () => {
+    mockUseLedgerHistory.mockReturnValue({ ...BASE_STATE, entries: [], error: { kind: 'NetworkError', message: 'boom' } });
 
     render();
 
-    expect(screen.queryByText('No payment history yet.')).toBeNull();
+    expect(screen.queryByText('No activity yet.')).toBeNull();
+    expect(screen.getByText('Could not load ledger history.')).toBeTruthy();
+  });
+
+  it('shows the record-payment button and opens the sheet on press', () => {
+    const { fireEvent } = require('@testing-library/react-native');
+    mockUseLedgerHistory.mockReturnValue({ ...BASE_STATE, balanceCents: 2500 });
+
+    render();
+    fireEvent.press(screen.getByTestId('record-payment-button'));
+
+    expect(screen.getByText('Record a payment')).toBeTruthy();
+  });
+
+  it('calls recordPayment with the entered amount on confirm', () => {
+    const { fireEvent } = require('@testing-library/react-native');
+    const recordPayment = jest.fn().mockResolvedValue(undefined);
+    mockUseLedgerHistory.mockReturnValue({ ...BASE_STATE, balanceCents: 2500, recordPayment });
+
+    render();
+    fireEvent.press(screen.getByTestId('record-payment-button'));
+    fireEvent.press(screen.getByLabelText('Confirm recorded payment'));
+
+    expect(recordPayment).toHaveBeenCalledWith(2500);
   });
 });
