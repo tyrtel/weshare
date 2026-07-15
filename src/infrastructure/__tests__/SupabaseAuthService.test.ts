@@ -44,6 +44,7 @@ jest.mock('../supabase/supabaseClient', () => ({
       }),
     },
     from: jest.fn(),
+    rpc:  jest.fn(),
   },
 }));
 
@@ -67,6 +68,7 @@ const { supabase } = require('../supabase/supabaseClient') as {
       onAuthStateChange:     jest.Mock;
     };
     from: jest.Mock;
+    rpc:  jest.Mock;
   };
 };
 
@@ -108,6 +110,7 @@ describe('SupabaseAuthService', () => {
       data: { subscription: { unsubscribe: jest.fn() } },
     });
     supabase.auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    supabase.rpc.mockResolvedValue({ data: null, error: null });
     (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
     service = new SupabaseAuthService();
   });
@@ -704,6 +707,125 @@ describe('SupabaseAuthService', () => {
       expect(received).toHaveLength(1);
       expect((received[0] as { id: string }).id).toBe('u1');
       expect(supabase.from).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── merge_guest_records_for_new_user trigger (TODO_userMerge.md Chunk B) ──
+
+  describe('guest-record merge trigger', () => {
+    it('signIn triggers the merge RPC', async () => {
+      supabase.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: 'u1', email: 'jay@example.com' }, session: {} },
+        error: null,
+      });
+      supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+
+      await service.signIn('jay@example.com', 'password');
+      await Promise.resolve(); // flush the fire-and-forget microtask
+
+      expect(supabase.rpc).toHaveBeenCalledWith('merge_guest_records_for_new_user');
+    });
+
+    it('signUp (no email confirmation) triggers the merge RPC', async () => {
+      supabase.auth.signUp.mockResolvedValue({
+        data: { user: { id: 'u1', email: 'new@example.com' }, session: { expires_at: FUTURE } },
+        error: null,
+      });
+      supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+
+      await service.signUp('new@example.com', 'secret123', 'Jay');
+      await Promise.resolve();
+
+      expect(supabase.rpc).toHaveBeenCalledWith('merge_guest_records_for_new_user');
+    });
+
+    it('verifyOtp triggers the merge RPC', async () => {
+      supabase.auth.verifyOtp.mockResolvedValue({
+        data: { user: { id: 'u1', email: 'new@example.com' }, session: { expires_at: FUTURE } },
+        error: null,
+      });
+      supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+
+      await service.verifyOtp('new@example.com', '123456', 'Jay');
+      await Promise.resolve();
+
+      expect(supabase.rpc).toHaveBeenCalledWith('merge_guest_records_for_new_user');
+    });
+
+    it('signInWithGoogle triggers the merge RPC', async () => {
+      GoogleSignin.signIn.mockResolvedValue({
+        data: { idToken: 'google-id-token', user: { name: 'Jay G', photo: null } },
+      });
+      supabase.auth.signInWithIdToken.mockResolvedValue({
+        data: { user: { id: 'u1', email: 'jay@gmail.com' }, session: { expires_at: FUTURE } },
+        error: null,
+      });
+      supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+
+      await service.signInWithGoogle();
+      await Promise.resolve();
+
+      expect(supabase.rpc).toHaveBeenCalledWith('merge_guest_records_for_new_user');
+    });
+
+    it('signInWithApple triggers the merge RPC', async () => {
+      AppleAuth.isAvailableAsync.mockResolvedValue(true);
+      AppleAuth.signInAsync.mockResolvedValue({
+        identityToken: 'apple-id-token',
+        fullName: { givenName: 'Jay', familyName: 'Mac' },
+        email: 'jay@privaterelay.appleid.com',
+      });
+      supabase.auth.signInWithIdToken.mockResolvedValue({
+        data: { user: { id: 'u1', email: 'jay@privaterelay.appleid.com' }, session: { expires_at: FUTURE } },
+        error: null,
+      });
+      supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+
+      await service.signInWithApple();
+      await Promise.resolve();
+
+      expect(supabase.rpc).toHaveBeenCalledWith('merge_guest_records_for_new_user');
+    });
+
+    it('does not block sign-in success when the merge RPC fails', async () => {
+      supabase.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: 'u1', email: 'jay@example.com' }, session: {} },
+        error: null,
+      });
+      supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+      supabase.rpc.mockResolvedValue({ data: null, error: { message: 'merge failed' } });
+
+      const result = await service.signIn('jay@example.com', 'password');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('does not block sign-in success when the merge RPC throws', async () => {
+      supabase.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: 'u1', email: 'jay@example.com' }, session: {} },
+        error: null,
+      });
+      supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+      supabase.rpc.mockImplementation(() => { throw new Error('network down'); });
+
+      const result = await service.signIn('jay@example.com', 'password');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('plain signIn (no _upsertUser call) still triggers the merge RPC', async () => {
+      // signIn is the one success path that never calls _upsertUser — confirms
+      // the merge trigger doesn't ride on that helper, it's wired independently.
+      supabase.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: 'u1', email: 'jay@example.com' }, session: {} },
+        error: null,
+      });
+      supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
+
+      await service.signIn('jay@example.com', 'password');
+      await Promise.resolve();
+
+      expect(supabase.rpc).toHaveBeenCalledTimes(1);
     });
   });
 });

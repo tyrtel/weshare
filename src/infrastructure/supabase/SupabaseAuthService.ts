@@ -244,6 +244,31 @@ export class SupabaseAuthService implements IAuthService {
     };
   }
 
+  // Best-effort, non-blocking merge of any guest (placeholder) group/trip
+  // memberships — and their expenses/splits/split_requests — added under this
+  // account's email before it existed, into this account (TODO_userMerge.md
+  // Chunk B). Deliberately NOT awaited by callers and NOT wrapped in the
+  // signIn/signUp/etc. try/catch the way _upsertUser is — a merge failure
+  // must never block sign-in, unlike profile creation. Safe to call on every
+  // sign-in: the RPC is idempotent and cheap when there's nothing to merge.
+  private _mergeGuestRecords(): void {
+    try {
+      // supabase.rpc(...)'s typed return is PromiseLike (no .catch) — use the
+      // two-argument .then() form to handle both outcomes without depending
+      // on a real Promise's extra methods.
+      void supabase.rpc('merge_guest_records_for_new_user').then(
+        ({ error }) => {
+          if (error) Sentry.captureMessage(`merge_guest_records_failed: ${error.message}`, 'warning');
+        },
+        (e: unknown) => {
+          Sentry.captureMessage(`merge_guest_records_threw: ${e instanceof Error ? e.message : String(e)}`, 'warning');
+        },
+      );
+    } catch (e) {
+      Sentry.captureMessage(`merge_guest_records_sync_throw: ${e instanceof Error ? e.message : String(e)}`, 'warning');
+    }
+  }
+
   // ── IAuthService ──────────────────────────────────────────────────────────
 
   async signIn(email: string, password: string): Promise<Result<User, AppError>> {
@@ -265,6 +290,7 @@ export class SupabaseAuthService implements IAuthService {
       if (!user) return err({ kind: 'AuthError', message: 'User profile not found' });
       this._currentUser = user;
       void this._writeUserCache(user);
+      this._mergeGuestRecords();
       return ok(user);
     } catch (e) {
       return err({ kind: 'AuthError', message: coldStartMessage(e) });
@@ -310,6 +336,7 @@ export class SupabaseAuthService implements IAuthService {
       );
       this._currentUser = { ...user, email: data.user.email };
       void this._writeUserCache(this._currentUser);
+      this._mergeGuestRecords();
       return ok(this._currentUser);
     } catch (e) {
       return err({ kind: 'AuthError', message: e instanceof Error ? e.message : String(e) });
@@ -340,6 +367,7 @@ export class SupabaseAuthService implements IAuthService {
       );
       this._currentUser = { ...user, email: data.user.email };
       void this._writeUserCache(this._currentUser);
+      this._mergeGuestRecords();
       return ok(this._currentUser);
     } catch (e) {
       return err({ kind: 'AuthError', message: e instanceof Error ? e.message : String(e) });
@@ -490,6 +518,7 @@ export class SupabaseAuthService implements IAuthService {
       this._currentUser = { ...user, email: data.user.email };
       this._expiresAt   = data.session?.expires_at ?? 0;
       void this._writeUserCache(this._currentUser);
+      this._mergeGuestRecords();
       Sentry.addBreadcrumb({ category: 'auth', message: 'signin_google_success', level: 'info' });
 
       return ok(this._currentUser);
@@ -544,6 +573,7 @@ export class SupabaseAuthService implements IAuthService {
       this._currentUser = { ...user, email: data.user.email };
       this._expiresAt   = data.session?.expires_at ?? 0;
       void this._writeUserCache(this._currentUser);
+      this._mergeGuestRecords();
 
       return ok(this._currentUser);
     } catch (e) {
