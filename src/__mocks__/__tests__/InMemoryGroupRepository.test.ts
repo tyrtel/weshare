@@ -116,4 +116,52 @@ describe('InMemoryGroupRepository', () => {
       if (result.ok) expect(result.value).toHaveLength(2);
     });
   });
+
+  // ── Guest merge (TODO_userMerge.md Chunk A) ─────────────────────────────────
+
+  describe('findMemberByEmail', () => {
+    it('finds a placeholder member by email, case-insensitively', async () => {
+      const placeholder = groupMemberFactory({ userId: 'guest_1', groupId: 'g1', email: 'Marie@Example.com' });
+      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [placeholder] })]);
+
+      const result = await repo.findMemberByEmail('g1', 'marie@example.com');
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value?.userId).toBe('guest_1');
+    });
+
+    it('returns null when no member has that email', async () => {
+      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [] })]);
+      const result = await repo.findMemberByEmail('g1', 'nobody@example.com');
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value).toBeNull();
+    });
+  });
+
+  describe('claimGroupMemberSlot', () => {
+    it('re-parents the placeholder to the new user and flips isGuest false', async () => {
+      const placeholder = groupMemberFactory({ userId: 'guest_1', groupId: 'g1', email: 'marie@example.com', isGuest: true, displayName: 'Marie (placeholder)' });
+      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [placeholder] })]);
+
+      const result = await repo.claimGroupMemberSlot('g1', 'guest_1', 'user_marie', 'Marie');
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.userId).toBe('user_marie');
+        expect(result.value.isGuest).toBe(false);
+        expect(result.value.displayName).toBe('Marie');
+      }
+
+      const group = await repo.getGroup('g1');
+      if (group.ok) {
+        expect(group.value.members).toHaveLength(1);
+        expect(group.value.members[0].userId).toBe('user_marie');
+      }
+    });
+
+    it('returns NotFoundError when the placeholder does not exist', async () => {
+      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [] })]);
+      const result = await repo.claimGroupMemberSlot('g1', 'guest_missing', 'user_marie', 'Marie');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.kind).toBe('NotFoundError');
+    });
+  });
 });

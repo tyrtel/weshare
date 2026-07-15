@@ -159,6 +159,19 @@
       "currency_select_heading": "Currency",
       "currency_close_label": "Close currency picker"
     },
+    "join": {
+      "error_title": "Invite not found",
+      "error_body": "This invite link may have expired or is no longer valid.",
+      "sign_in_title": "Sign in to join",
+      "sign_in_body": "You need to sign in before joining {{group_name}}.",
+      "sign_in_button": "Sign in",
+      "invited_to_label": "You're invited to",
+      "joining_as": "Joining as",
+      "error_fallback": "Could not join group. Please try again.",
+      "joining_in_progress": "Joining…",
+      "join_button": "Join {{group_name}}",
+      "go_home_button": "Go home"
+    },
     "detail": {
       "title": "Group",
       "active_section": "Active",
@@ -185,6 +198,7 @@
       "add_button": "Add",
       "duplicate_error": "Already in this group",
       "add_error": "Could not add person. Please try again.",
+      "share_invite": "Share invite link",
       "privacy_notice": "Phone and email are visible to all group members."
     },
     "settle": {

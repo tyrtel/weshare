@@ -94,4 +94,28 @@ export class InMemoryGroupRepository implements IGroupRepository {
     this.memberRows.set(member.groupId, [...existing, member]);
     return ok(member);
   };
+
+  findMemberByEmail = async (groupId: string, email: string): Promise<Result<GroupMember | null, AppError>> => {
+    const list = this.memberRows.get(groupId) ?? [];
+    const match = list.find(m => m.email != null && m.email.toLowerCase() === email.toLowerCase()) ?? null;
+    return ok(match);
+  };
+
+  claimGroupMemberSlot = async (
+    groupId: string,
+    placeholderUserId: string,
+    newUserId: string,
+    newDisplayName: string,
+  ): Promise<Result<GroupMember, AppError>> => {
+    const list = this.memberRows.get(groupId) ?? [];
+    const idx = list.findIndex(m => m.userId === placeholderUserId);
+    if (idx === -1) {
+      return err({ kind: 'NotFoundError', resource: 'GroupMember', id: placeholderUserId });
+    }
+    const updated: GroupMember = { ...list[idx], userId: newUserId, displayName: newDisplayName, isGuest: false };
+    const next = [...list];
+    next[idx] = updated;
+    this.memberRows.set(groupId, next);
+    return ok(updated);
+  };
 }

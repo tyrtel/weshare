@@ -11,4 +11,13 @@ export interface IGroupRepository {
   updateGroup(group: Group): Promise<Result<Group, AppError>>;
   deleteGroup(id: string): Promise<Result<void, AppError>>;
   addMember(member: GroupMember): Promise<Result<GroupMember, AppError>>;
+  /** Finds a placeholder (guest) member by email within a group, for invite-link claiming. */
+  findMemberByEmail(groupId: string, email: string): Promise<Result<GroupMember | null, AppError>>;
+  /** Re-parents a placeholder's membership plus all of its financial history to a real user. */
+  claimGroupMemberSlot(
+    groupId: string,
+    placeholderUserId: string,
+    newUserId: string,
+    newDisplayName: string,
+  ): Promise<Result<GroupMember, AppError>>;
 }

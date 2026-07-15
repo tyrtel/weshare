@@ -159,6 +159,19 @@
       "currency_select_heading": "Devise",
       "currency_close_label": "Fermer le sélecteur de devise"
     },
+    "join": {
+      "error_title": "Invitation introuvable",
+      "error_body": "Ce lien d'invitation a peut-être expiré ou n'est plus valide.",
+      "sign_in_title": "Connectez-vous pour rejoindre",
+      "sign_in_body": "Vous devez vous connecter avant de rejoindre {{group_name}}.",
+      "sign_in_button": "Se connecter",
+      "invited_to_label": "Vous êtes invité(e) à",
+      "joining_as": "Rejoindre en tant que",
+      "error_fallback": "Impossible de rejoindre le groupe. Veuillez réessayer.",
+      "joining_in_progress": "Connexion…",
+      "join_button": "Rejoindre {{group_name}}",
+      "go_home_button": "Retour à l'accueil"
+    },
     "detail": {
       "title": "Groupe",
       "active_section": "Actif",
@@ -185,6 +198,7 @@
       "add_button": "Ajouter",
       "duplicate_error": "Déjà dans ce groupe",
       "add_error": "Impossible d'ajouter la personne. Veuillez réessayer.",
+      "share_invite": "Partager le lien d'invitation",
       "privacy_notice": "Le téléphone et l'e-mail sont visibles par tous les membres du groupe."
     },
     "settle": {

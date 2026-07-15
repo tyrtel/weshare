@@ -20,6 +20,8 @@ import type { ContactItem } from '../../src/components/ui/ContactsPickerList';
 import { useGroupDetail } from '../../src/features/groups/hooks/useGroupDetail';
 import { useAddGroupMember } from '../../src/features/groups/hooks/useAddGroupMember';
 import { generateId } from '../../src/core/utils/generateId';
+import { useService } from '../../src/core/di/ServiceContext';
+import { SHARE } from '../../src/core/di/tokens';
 import { useColors } from '../../src/theme/colors';
 import { tokens } from '../../src/theme/tokens';
 import type { GroupMember } from '../../src/core/models/GroupMember';
@@ -30,6 +32,7 @@ export default function GroupAddMemberScreen() {
   const { t }       = useTranslation();
   const colors      = useColors();
   const router      = useRouter();
+  const share       = useService(SHARE);
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
 
   const { group } = useGroupDetail(groupId);
@@ -143,6 +146,25 @@ export default function GroupAddMemberScreen() {
                 genericErrorLabel={t('groups.add_member.add_error')}
                 fieldAccessibilityLabel={t('groups.add_member.name_placeholder')}
               />
+
+              {/* Share invite link — lets someone join and self-claim a matching
+                  placeholder, instead of always being added by name here. */}
+              {group.inviteToken && (
+                <Pressable
+                  onPress={() => share.shareGroup(group.id, group.name, group.inviteToken!)}
+                  accessibilityRole="button"
+                  style={({ pressed }) => ({
+                    flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs,
+                    paddingVertical: tokens.spacing.sm, marginBottom: tokens.spacing.xs,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Ionicons name="link-outline" size={16} color={colors.primary.default} />
+                  <Text variant="label" color={colors.primary.default}>
+                    {t('groups.add_member.share_invite')}
+                  </Text>
+                </Pressable>
+              )}
 
               {/* Contacts toggle */}
               <Pressable

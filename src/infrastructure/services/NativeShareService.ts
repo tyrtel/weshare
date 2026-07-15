@@ -19,4 +19,18 @@ export class NativeShareService implements IShareService {
       });
     }
   }
+
+  async shareGroup(_groupId: string, groupName: string, inviteToken: string): Promise<Result<void, AppError>> {
+    try {
+      const url     = Linking.createURL(`/group/join/${inviteToken}`);
+      const message = `Join me on ouiShare for "${groupName}": ${url}`;
+      await Share.share({ message });
+      return ok(undefined);
+    } catch (e) {
+      return err({
+        kind: 'NetworkError',
+        message: e instanceof Error ? e.message : 'Share failed',
+      });
+    }
+  }
 }

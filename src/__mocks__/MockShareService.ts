@@ -9,11 +9,23 @@ export interface ShareTripCall {
   inviteToken: string;
 }
 
+export interface ShareGroupCall {
+  groupId: string;
+  groupName: string;
+  inviteToken: string;
+}
+
 export class MockShareService implements IShareService {
   readonly calls: ShareTripCall[] = [];
+  readonly groupCalls: ShareGroupCall[] = [];
 
   async shareTrip(tripId: string, tripName: string, inviteToken: string): Promise<Result<void, AppError>> {
     this.calls.push({ tripId, tripName, inviteToken });
+    return ok(undefined);
+  }
+
+  async shareGroup(groupId: string, groupName: string, inviteToken: string): Promise<Result<void, AppError>> {
+    this.groupCalls.push({ groupId, groupName, inviteToken });
     return ok(undefined);
   }
 }

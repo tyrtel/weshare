@@ -159,4 +159,39 @@ export class SupabaseGroupRepository implements IGroupRepository {
     if (error) return err(toAppError(error, 'GroupMember', member.userId));
     return rowToGroupMember(data);
   }
+
+  async findMemberByEmail(groupId: string, email: string): Promise<Result<GroupMember | null, AppError>> {
+    const { data, error } = await supabase
+      .from('group_members')
+      .select()
+      .eq('group_id', groupId)
+      .ilike('email', email)
+      .maybeSingle();
+    if (error) return err(toAppError(error, 'GroupMember'));
+    if (!data) return ok(null);
+    return rowToGroupMember(data);
+  }
+
+  async claimGroupMemberSlot(
+    groupId: string,
+    placeholderUserId: string,
+    newUserId: string,
+    newDisplayName: string,
+  ): Promise<Result<GroupMember, AppError>> {
+    const { error: rpcError } = await supabase.rpc('claim_group_member_slot', {
+      p_group_id: groupId,
+      p_placeholder_user_id: placeholderUserId,
+    });
+    if (rpcError) return err(toAppError(rpcError, 'GroupMember'));
+
+    const { data, error } = await supabase
+      .from('group_members')
+      .update({ display_name: newDisplayName })
+      .eq('group_id', groupId)
+      .eq('user_id', newUserId)
+      .select()
+      .single();
+    if (error || !data) return err(toAppError(error ?? { message: 'Member not found after claim', code: '404', details: '', hint: '' }, 'GroupMember'));
+    return rowToGroupMember(data);
+  }
 }

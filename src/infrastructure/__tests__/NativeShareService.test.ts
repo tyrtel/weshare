@@ -55,4 +55,35 @@ describe('NativeShareService', () => {
       expect(result.error.message).toContain('user cancelled');
     }
   });
+
+  // ── shareGroup ────────────────────────────────────────────────────────────
+
+  it('calls Share.share with a message containing the group invite token URL', async () => {
+    Share.share.mockResolvedValue({ action: 'sharedAction' });
+
+    await service.shareGroup('g1', 'Roomies', 'tok_abc');
+    expect(Share.share).toHaveBeenCalledWith({
+      message: expect.stringContaining('ouishare://group/join/tok_abc'),
+    });
+  });
+
+  it('includes the group name in the share message', async () => {
+    Share.share.mockResolvedValue({ action: 'sharedAction' });
+
+    await service.shareGroup('g1', 'Roomies', 'tok_xyz');
+    expect(Share.share).toHaveBeenCalledWith({
+      message: expect.stringContaining('Roomies'),
+    });
+  });
+
+  it('returns NetworkError when Share.share throws for a group', async () => {
+    Share.share.mockRejectedValue(new Error('user cancelled'));
+
+    const result = await service.shareGroup('g1', 'Roomies', 'tok_123');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe('NetworkError');
+      expect(result.error.message).toContain('user cancelled');
+    }
+  });
 });
