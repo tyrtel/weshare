@@ -144,7 +144,7 @@ export function BankSelectorSheet({ visible, onSelect, onClose }: BankSelectorSh
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="Skip bank selection"
+            accessibilityLabel={t('settlement.bank_selector.skip_accessibility')}
             style={({ pressed }) => ({
               alignItems:       'center',
               paddingVertical:  tokens.spacing.md,

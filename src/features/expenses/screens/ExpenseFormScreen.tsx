@@ -382,7 +382,7 @@ export function ExpenseFormScreen() {
             <Pressable onPress={() => router.back()} hitSlop={10}>
               <Feather name="x" size={24} color={ledgerColors.text.primary} />
             </Pressable>
-            <Text style={addStyles.screenTitle}>Expense</Text>
+            <Text style={addStyles.screenTitle}>{t('expenses.form.screen_title')}</Text>
             <View style={{ width: 24 }} />
           </View>
         </SafeAreaView>
@@ -422,14 +422,14 @@ export function ExpenseFormScreen() {
                 {rate.loading ? (
                   <>
                     <ActivityIndicator size="small" color={ledgerColors.text.tertiary} />
-                    <Text style={addStyles.rateText}>Fetching rate…</Text>
+                    <Text style={addStyles.rateText}>{t('expenses.form.rate_fetching')}</Text>
                   </>
                 ) : rate.error ? (
                   <>
                     <Feather name="alert-triangle" size={12} color={ledgerColors.warning.default} />
-                    <Text style={[addStyles.rateText, { color: ledgerColors.warning.default }]}>Rate unavailable</Text>
+                    <Text style={[addStyles.rateText, { color: ledgerColors.warning.default }]}>{t('expenses.form.rate_unavailable')}</Text>
                     <Pressable onPress={rate.refresh} hitSlop={8}>
-                      <Text style={[addStyles.rateText, { color: ledgerColors.primary.default, fontWeight: '600' }]}>Retry</Text>
+                      <Text style={[addStyles.rateText, { color: ledgerColors.primary.default, fontWeight: '600' }]}>{t('common.retry')}</Text>
                     </Pressable>
                   </>
                 ) : rate.result ? (
@@ -444,13 +444,13 @@ export function ExpenseFormScreen() {
               style={addStyles.titleInput}
               value={description}
               onChangeText={setDescription}
-              placeholder="What was it for?"
+              placeholder={t('expenses.form.title_placeholder')}
               placeholderTextColor={ledgerColors.text.tertiary}
             />
           </View>
 
           {/* Paid by */}
-          <Text style={addStyles.fieldLabel}>Paid by</Text>
+          <Text style={addStyles.fieldLabel}>{t('expenses.form.paid_by_label')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
             {contextMembers.map(m => {
               const active = paidByUserId === m.userId;
@@ -482,7 +482,7 @@ export function ExpenseFormScreen() {
           </View>
 
           {/* Split mode segmented control */}
-          <Text style={addStyles.fieldLabel}>Split</Text>
+          <Text style={addStyles.fieldLabel}>{t('expenses.form.split_label')}</Text>
           <Segmented
             value={split.splitMode}
             onChange={k => {
@@ -491,9 +491,9 @@ export function ExpenseFormScreen() {
               setItemRaw({});
             }}
             options={[
-              { key: 'equal',    label: 'Evenly' },
-              { key: 'custom',   label: 'Exact' },
-              { key: 'itemized', label: 'Items' },
+              { key: 'equal',    label: t('expenses.form.segmented_evenly') },
+              { key: 'custom',   label: t('expenses.form.segmented_exact') },
+              { key: 'itemized', label: t('expenses.form.segmented_items') },
             ]}
           />
 
@@ -589,7 +589,7 @@ export function ExpenseFormScreen() {
               <View style={{ height: 1, backgroundColor: ledgerColors.border, marginVertical: 8 }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text style={{ fontSize: 13, fontWeight: '500', color: ledgerColors.text.secondary }}>
-                  Unassigned
+                  {t('expenses.form.unassigned_label')}
                 </Text>
                 <Text style={[addStyles.splitAmount, {
                   color: unassignedCents === 0 ? ledgerColors.success.default : ledgerColors.error.default,
@@ -607,10 +607,10 @@ export function ExpenseFormScreen() {
           {split.splitMode === 'itemized' && (
             <View style={[addStyles.card, { padding: 20 }]}>
               <Text style={[addStyles.fieldLabel, { textAlign: 'center', marginTop: 0, marginBottom: 4 }]}>
-                {description.toUpperCase() || 'RECEIPT'}
+                {description.toUpperCase() || t('expenses.form.receipt_fallback')}
               </Text>
               <Text style={{ fontSize: 11.5, color: ledgerColors.text.tertiary, textAlign: 'center', marginBottom: 8 }}>
-                tap a member to assign them to each item
+                {t('expenses.form.itemized_hint')}
               </Text>
               <View style={{ borderBottomWidth: 1, borderStyle: 'dashed', borderColor: ledgerColors.borderMuted, marginBottom: 12 }} />
               {split.lineItems.map((item, i) => (
@@ -623,7 +623,7 @@ export function ExpenseFormScreen() {
                         style={{ flex: 1, fontSize: 14, fontWeight: '500', color: ledgerColors.text.primary, paddingVertical: 2 }}
                         value={item.description}
                         onChangeText={v => split.updateLineItem(item.id, { description: v })}
-                        placeholder="Item"
+                        placeholder={t('expenses.line_item.placeholder')}
                         placeholderTextColor={ledgerColors.text.tertiary}
                       />
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
@@ -683,7 +683,7 @@ export function ExpenseFormScreen() {
                   <View style={{ height: 1, backgroundColor: ledgerColors.border, marginVertical: 8 }} />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <Text style={{ fontSize: 13, fontWeight: '500', color: ledgerColors.text.secondary }}>
-                      Unassigned
+                      {t('expenses.form.unassigned_label')}
                     </Text>
                     <Text style={[addStyles.splitAmount, {
                       color: unassignedItemsCents === 0 ? ledgerColors.success.default : ledgerColors.error.default,
@@ -701,7 +701,7 @@ export function ExpenseFormScreen() {
                 onPress={split.addLineItem}
               >
                 <Feather name="plus" size={14} color={ledgerColors.primary.default} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>Add item</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>{t('expenses.form.add_line_item')}</Text>
               </Pressable>
             </View>
           )}
@@ -722,7 +722,7 @@ export function ExpenseFormScreen() {
             ) : (
               <>
                 <Feather name="check" size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Save expense</Text>
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>{t('expenses.form.save_button')}</Text>
               </>
             )}
           </Pressable>
@@ -733,13 +733,13 @@ export function ExpenseFormScreen() {
         <Pressable
           style={addStyles.backdrop}
           onPress={() => setCurrencyDropVisible(false)}
-          accessibilityLabel="Close currency picker"
+          accessibilityLabel={t('expenses.form.currency_close_label')}
           accessibilityRole="button"
         >
           <Pressable style={addStyles.currencySheet} onPress={() => {}}>
             <View style={addStyles.currencySheetHeader}>
               <Text style={{ fontSize: 12, fontWeight: '600', color: ledgerColors.text.secondary, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                Expense currency
+                {t('expenses.form.currency_sheet_title')}
               </Text>
             </View>
             <ScrollView>
@@ -779,7 +779,7 @@ export function ExpenseFormScreen() {
                         </Text>
                         {isContextCcy && (
                           <Text style={{ fontSize: 11, color: ledgerColors.text.tertiary, marginTop: 1 }}>
-                            {isGroupMode ? 'Group currency' : 'Trip currency'}
+                            {isGroupMode ? t('expenses.form.currency_sheet_group_currency') : t('expenses.form.currency_sheet_trip_currency')}
                           </Text>
                         )}
                       </View>

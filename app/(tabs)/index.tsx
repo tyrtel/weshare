@@ -73,12 +73,12 @@ export default function HomeScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.background }}>
         <View style={styles.hero}>
           <View>
-            <Text style={styles.heroSub}>Overall, you're</Text>
+            <Text style={styles.heroSub}>{t('home.hero_sub')}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
               <Text style={[styles.heroAmount, { color: isAhead ? ledgerColors.success.default : ledgerColors.error.default }]}>
                 {isAhead ? '+' : '−'}{formatCurrency(Math.abs(overallNetCents), 'EUR')}
               </Text>
-              <Text style={styles.heroLabel}>{isAhead ? 'ahead' : 'behind'}</Text>
+              <Text style={styles.heroLabel}>{isAhead ? t('home.hero_ahead') : t('home.hero_behind')}</Text>
             </View>
           </View>
           <Pressable
@@ -127,12 +127,12 @@ export default function HomeScreen() {
                       <Text style={{ fontSize: 26 }}>{(trip as any).emoji ?? '✈️'}</Text>
                       <View>
                         <Text style={styles.cardTitle} numberOfLines={1}>{trip.name}</Text>
-                        <Text style={styles.cardMeta}>{trip.members.length} people</Text>
+                        <Text style={styles.cardMeta}>{t('home.trip_people_count', { count: trip.members.length })}</Text>
                       </View>
                     </View>
                     <View style={styles.unsettledTag}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: ledgerColors.error.default }} />
-                      <Text style={styles.unsettledText}>Unsettled</Text>
+                      <Text style={styles.unsettledText}>{t('home.unsettled_badge')}</Text>
                     </View>
                   </View>
                 </Pressable>
@@ -172,7 +172,7 @@ export default function HomeScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
                         <ActivityDot />
                         <Text style={styles.cardMeta} numberOfLines={1}>
-                          {groupTripCounts[group.id] ?? 0} trips · {group.members.length} members
+                          {t('groups.card.trip_count', { count: groupTripCounts[group.id] ?? 0 })} · {t('groups.card.member_count', { count: group.members.length })}
                         </Text>
                       </View>
                     </View>

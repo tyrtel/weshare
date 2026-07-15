@@ -47,7 +47,8 @@
     "error_passwords_mismatch": "Les mots de passe ne correspondent pas.",
     "welcome": {
       "app_name": "ouiShare",
-      "tagline": "Partagez les frais, pas le travail."
+      "tagline": "Partagez les frais, pas le travail.",
+      "privacy_policy_link": "Politique de confidentialité"
     },
     "sign_in": {
       "email_placeholder": "E-mail",
@@ -116,7 +117,13 @@
 
   "home": {
     "title": "Accueil",
-    "fab_label": "Nouveau"
+    "fab_label": "Nouveau",
+    "hero_sub": "Au total, vous êtes",
+    "hero_ahead": "en avance",
+    "hero_behind": "en retard",
+    "unsettled_badge": "Non réglé",
+    "trip_people_count_one": "{{count}} personne",
+    "trip_people_count_other": "{{count}} personnes"
   },
   "groups": {
     "list": {
@@ -187,7 +194,14 @@
       "delete_message": "Les voyages et dépenses associés ne seront pas supprimés.",
       "delete_confirm": "Supprimer",
       "settle_up": "Régler",
-      "unlinked_label": "N'a pas encore rejoint — appuyez pour envoyer une invitation"
+      "unlinked_label": "N'a pas encore rejoint — appuyez pour envoyer une invitation",
+      "balances_label": "SOLDES",
+      "trips_section": "Voyages",
+      "expenses_section": "Dépenses",
+      "add_action": "Ajouter",
+      "members_section": "Membres",
+      "invite_label": "Inviter",
+      "open_actions_accessibility": "Ouvrir les actions"
     },
     "send_invite": {
       "title": "Envoyer une invitation",
@@ -281,7 +295,15 @@
       "add_expense": "Ajouter une dépense",
       "add_expense_label": "Ajouter une dépense",
       "add_people": "Ajouter des personnes",
-      "add_people_label": "Ajouter des personnes"
+      "add_people_label": "Ajouter des personnes",
+      "stat_trip_total": "TOTAL DU VOYAGE",
+      "stat_per_person": "PAR PERSONNE",
+      "stat_your_net": "VOTRE SOLDE",
+      "settle_trip_button": "Régler le voyage",
+      "invite_label": "Inviter",
+      "expenses_section": "Dépenses",
+      "add_action": "Ajouter",
+      "empty_expenses_short": "Aucune dépense pour l'instant"
     },
     "create": {
       "title": "Nouveau voyage",
@@ -391,7 +413,21 @@
       "closed_add_guard": "Ce voyage est clôturé. Aucune nouvelle dépense ne peut être ajoutée.",
       "closed_edit_guard": "Ce voyage est clôturé. Les dépenses ne peuvent plus être modifiées.",
       "entry_currency_label": "Devise de saisie",
-      "group_currency_label": "Devise du groupe"
+      "group_currency_label": "Devise du groupe",
+      "screen_title": "Dépense",
+      "title_placeholder": "C'était pour quoi ?",
+      "split_label": "Répartition",
+      "segmented_evenly": "Également",
+      "segmented_exact": "Exact",
+      "segmented_items": "Articles",
+      "unassigned_label": "Non attribué",
+      "receipt_fallback": "REÇU",
+      "itemized_hint": "touchez un membre pour lui attribuer chaque article",
+      "save_button": "Enregistrer la dépense",
+      "currency_close_label": "Fermer le sélecteur de devise",
+      "currency_sheet_title": "Devise de la dépense",
+      "currency_sheet_group_currency": "Devise du groupe",
+      "currency_sheet_trip_currency": "Devise du voyage"
     },
     "receipt": {
       "reading": "Lecture du reçu…",
@@ -505,7 +541,8 @@
       "clear_search": "Effacer la recherche",
       "empty": "Aucune banque trouvée",
       "close_label": "Fermer le sélecteur de banque",
-      "skip": "Passer — continuer sans sélectionner"
+      "skip": "Passer — continuer sans sélectionner",
+      "skip_accessibility": "Passer la sélection de la banque"
     },
     "row": {
       "pay_button": "Payer",

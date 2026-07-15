@@ -9,7 +9,9 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   ScrollView,
+  Linking,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -241,6 +243,18 @@ export default function SignInScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {/* Privacy policy */}
+        <Pressable
+          onPress={() => {
+            const url = Constants.expoConfig?.extra?.privacyPolicyUrl as string | undefined;
+            if (url) Linking.openURL(url).catch(() => undefined);
+          }}
+          style={({ pressed }) => [styles.textLink, pressed && { opacity: 0.6 }]}
+          accessibilityRole="link"
+        >
+          <Text variant="caption" color={ledgerColors.text.tertiary}>{t('auth.welcome.privacy_policy_link')}</Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );

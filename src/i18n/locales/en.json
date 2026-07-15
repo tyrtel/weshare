@@ -47,7 +47,8 @@
     "error_passwords_mismatch": "Passwords do not match.",
     "welcome": {
       "app_name": "ouiShare",
-      "tagline": "Share the fun, not the paperwork."
+      "tagline": "Share the fun, not the paperwork.",
+      "privacy_policy_link": "Privacy Policy"
     },
     "sign_in": {
       "email_placeholder": "Email",
@@ -116,7 +117,13 @@
 
   "home": {
     "title": "Home",
-    "fab_label": "New"
+    "fab_label": "New",
+    "hero_sub": "Overall, you're",
+    "hero_ahead": "ahead",
+    "hero_behind": "behind",
+    "unsettled_badge": "Unsettled",
+    "trip_people_count_one": "{{count}} person",
+    "trip_people_count_other": "{{count}} people"
   },
   "groups": {
     "list": {
@@ -187,7 +194,14 @@
       "delete_message": "This will not delete the trips or expenses inside it.",
       "delete_confirm": "Delete",
       "settle_up": "Settle up",
-      "unlinked_label": "Hasn't joined yet — tap to send an invite"
+      "unlinked_label": "Hasn't joined yet — tap to send an invite",
+      "balances_label": "BALANCES",
+      "trips_section": "Trips",
+      "expenses_section": "Expenses",
+      "add_action": "Add",
+      "members_section": "Members",
+      "invite_label": "Invite",
+      "open_actions_accessibility": "Open actions"
     },
     "send_invite": {
       "title": "Send an invite",
@@ -281,7 +295,15 @@
       "add_expense": "Add expense",
       "add_expense_label": "Add expense",
       "add_people": "Add People",
-      "add_people_label": "Add people"
+      "add_people_label": "Add people",
+      "stat_trip_total": "TRIP TOTAL",
+      "stat_per_person": "PER PERSON",
+      "stat_your_net": "YOUR NET",
+      "settle_trip_button": "Settle trip",
+      "invite_label": "Invite",
+      "expenses_section": "Expenses",
+      "add_action": "Add",
+      "empty_expenses_short": "No expenses yet"
     },
     "create": {
       "title": "New Trip",
@@ -391,7 +413,21 @@
       "closed_add_guard": "This trip is closed. No new expenses can be added.",
       "closed_edit_guard": "This trip is closed. Expenses can no longer be edited.",
       "entry_currency_label": "Entry currency",
-      "group_currency_label": "Group currency"
+      "group_currency_label": "Group currency",
+      "screen_title": "Expense",
+      "title_placeholder": "What was it for?",
+      "split_label": "Split",
+      "segmented_evenly": "Evenly",
+      "segmented_exact": "Exact",
+      "segmented_items": "Items",
+      "unassigned_label": "Unassigned",
+      "receipt_fallback": "RECEIPT",
+      "itemized_hint": "tap a member to assign them to each item",
+      "save_button": "Save expense",
+      "currency_close_label": "Close currency picker",
+      "currency_sheet_title": "Expense currency",
+      "currency_sheet_group_currency": "Group currency",
+      "currency_sheet_trip_currency": "Trip currency"
     },
     "receipt": {
       "reading": "Reading receipt…",
@@ -505,7 +541,8 @@
       "clear_search": "Clear search",
       "empty": "No banks found",
       "close_label": "Close bank selector",
-      "skip": "Skip — proceed without selecting"
+      "skip": "Skip — proceed without selecting",
+      "skip_accessibility": "Skip bank selection"
     },
     "row": {
       "pay_button": "Pay",

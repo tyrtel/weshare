@@ -109,7 +109,7 @@ export function TripDetailScreen() {
         renderItem={({ item }) => (
           <DetailExpenseRow
             description={item.description}
-            payerName={trip.members.find(m => m.userId === item.paidByUserId)?.displayName ?? 'Unknown'}
+            payerName={trip.members.find(m => m.userId === item.paidByUserId)?.displayName ?? t('common.unknown_user')}
             amountCents={item.totalAmountCents}
             currency={trip.currency}
             metaSuffix={item.splitMode ?? 'equal'}
@@ -132,17 +132,17 @@ export function TripDetailScreen() {
             <View style={[tripStyles.card, { marginBottom: 20, marginTop: 8 }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={tripStyles.stat}>
-                  <Text style={tripStyles.statLabel}>TRIP TOTAL</Text>
+                  <Text style={tripStyles.statLabel}>{t('trips.detail.stat_trip_total')}</Text>
                   <Text style={tripStyles.statValue}>{formatCurrency(total, trip.currency)}</Text>
                 </View>
                 <View style={tripStyles.statDivider} />
                 <View style={tripStyles.stat}>
-                  <Text style={tripStyles.statLabel}>PER PERSON</Text>
+                  <Text style={tripStyles.statLabel}>{t('trips.detail.stat_per_person')}</Text>
                   <Text style={tripStyles.statValue}>{formatCurrency(perHead, trip.currency)}</Text>
                 </View>
                 <View style={tripStyles.statDivider} />
                 <View style={tripStyles.stat}>
-                  <Text style={tripStyles.statLabel}>YOUR NET</Text>
+                  <Text style={tripStyles.statLabel}>{t('trips.detail.stat_your_net')}</Text>
                   <Text style={[tripStyles.statValue, { color: myBalance >= 0 ? ledgerColors.success.default : ledgerColors.error.default }]}>
                     {myBalance >= 0 ? '+' : '−'}{formatCurrency(Math.abs(myBalance), trip.currency)}
                   </Text>
@@ -162,20 +162,20 @@ export function TripDetailScreen() {
                   style={({ pressed }) => [tripStyles.settleBtn, { opacity: pressed ? 0.85 : 1, marginTop: 12 }]}
                 >
                   <Feather name="check-circle" size={16} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Settle trip</Text>
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{t('trips.detail.settle_trip_button')}</Text>
                 </Pressable>
               )}
             </View>
 
             {/* Participants row */}
-            <ParticipantsRow members={trip.members} onInvitePress={handleInvite} inviteLabel="Invite" />
+            <ParticipantsRow members={trip.members} onInvitePress={handleInvite} inviteLabel={t('trips.detail.invite_label')} />
 
             {/* Expenses header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-              <Text style={tripStyles.sectionTitle}>Expenses</Text>
+              <Text style={tripStyles.sectionTitle}>{t('trips.detail.expenses_section')}</Text>
               {trip.status !== 'closed' && (
                 <Pressable onPress={handleAddExpense} hitSlop={8}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>Add</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>{t('trips.detail.add_action')}</Text>
                 </Pressable>
               )}
             </View>
@@ -183,7 +183,7 @@ export function TripDetailScreen() {
         }
         ListEmptyComponent={
           <View style={{ padding: 24, alignItems: 'center' }}>
-            <Text style={{ color: ledgerColors.text.tertiary, fontSize: 13 }}>No expenses yet</Text>
+            <Text style={{ color: ledgerColors.text.tertiary, fontSize: 13 }}>{t('trips.detail.empty_expenses_short')}</Text>
           </View>
         }
       />

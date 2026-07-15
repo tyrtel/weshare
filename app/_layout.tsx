@@ -23,6 +23,7 @@ import { OfflineBanner } from '../src/components/OfflineBanner';
 import { UniversalTabBar } from '../src/components/ui/UniversalTabBar';
 import * as Sentry from '@sentry/react-native';
 import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { ledgerColors } from '../src/theme/colors';
 import { ThemeProvider } from '../src/core/ThemeContext';
 
@@ -60,7 +61,7 @@ class ErrorBoundary extends React.Component<
       return (
         <View style={{ flex: 1, backgroundColor: ledgerColors.background, padding: 24, paddingTop: 60 }}>
           <Text style={{ color: ledgerColors.error.default, fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
-            Render Error
+            {i18next.t('common.render_error')}
           </Text>
           <ScrollView>
             <Text style={{ color: ledgerColors.error.default, fontSize: 13, fontFamily: 'monospace' }}>

@@ -106,7 +106,7 @@ export default function GroupDetailScreen() {
       >
         {/* Balances card */}
         <View style={lgStyles.card}>
-          <Text style={lgStyles.cardLabel}>BALANCES</Text>
+          <Text style={lgStyles.cardLabel}>{t('groups.detail.balances_label')}</Text>
           {memberBalances.some(b => b.balanceCents !== 0) ? (
             <BalanceViewSelector
               balances={balancesRecord}
@@ -117,7 +117,7 @@ export default function GroupDetailScreen() {
             />
           ) : (
             <Text style={{ color: ledgerColors.text.tertiary, fontSize: 13, paddingVertical: 8 }}>
-              All settled
+              {t('groups.card.all_settled')}
             </Text>
           )}
           <View style={lgStyles.hairline} />
@@ -127,7 +127,7 @@ export default function GroupDetailScreen() {
               style={({ pressed }) => [lgStyles.primaryBtn, { opacity: pressed ? 0.85 : 1 }]}
             >
               <Feather name="check-circle" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Settle up</Text>
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{t('groups.detail.settle_up')}</Text>
             </Pressable>
           )}
         </View>
@@ -136,9 +136,9 @@ export default function GroupDetailScreen() {
         {activeTrips.length > 0 && (
           <>
             <View style={lgStyles.sectionRow}>
-              <Text style={lgStyles.sectionTitle}>Trips</Text>
+              <Text style={lgStyles.sectionTitle}>{t('groups.detail.trips_section')}</Text>
               <Pressable onPress={handleNewTrip} hitSlop={8}>
-                <Text style={lgStyles.sectionAction}>New trip</Text>
+                <Text style={lgStyles.sectionAction}>{t('groups.detail.fab_new_trip')}</Text>
               </Pressable>
             </View>
             {activeTrips.map(trip => (
@@ -186,9 +186,9 @@ export default function GroupDetailScreen() {
         {groupExpenses.length > 0 && (
           <>
             <View style={lgStyles.sectionRow}>
-              <Text style={lgStyles.sectionTitle}>Expenses</Text>
+              <Text style={lgStyles.sectionTitle}>{t('groups.detail.expenses_section')}</Text>
               <Pressable onPress={handleNewExpense} hitSlop={8}>
-                <Text style={lgStyles.sectionAction}>Add</Text>
+                <Text style={lgStyles.sectionAction}>{t('groups.detail.add_action')}</Text>
               </Pressable>
             </View>
             <View style={lgStyles.card}>
@@ -199,7 +199,7 @@ export default function GroupDetailScreen() {
                     {i > 0 && <View style={lgStyles.rowDivider} />}
                     <DetailExpenseRow
                       description={expense.description}
-                      payerName={payer ? payer.displayName : 'Unknown'}
+                      payerName={payer ? payer.displayName : t('common.unknown_user')}
                       amountCents={expense.totalAmountCents}
                       currency={group.currency}
                       onPress={() => handleExpensePress(expense)}
@@ -213,12 +213,12 @@ export default function GroupDetailScreen() {
 
         {/* Members section */}
         <View style={lgStyles.sectionRow}>
-          <Text style={lgStyles.sectionTitle}>Members</Text>
+          <Text style={lgStyles.sectionTitle}>{t('groups.detail.members_section')}</Text>
         </View>
         <ParticipantsRow
           members={group.members}
           onInvitePress={handleAddMember}
-          inviteLabel="Invite"
+          inviteLabel={t('groups.detail.invite_label')}
           onMemberPress={isOwner ? (m) => setInviteTarget(m as GroupMember) : undefined}
           unlinkedLabel={t('groups.detail.unlinked_label')}
         />
@@ -312,7 +312,7 @@ export default function GroupDetailScreen() {
         <Pressable
           onPress={() => setFabOpen(o => !o)}
           accessibilityRole="button"
-          accessibilityLabel="Open actions"
+          accessibilityLabel={t('groups.detail.open_actions_accessibility')}
           style={({ pressed }) => ({
             width: FAB_SIZE, height: FAB_SIZE, borderRadius: FAB_SIZE / 2,
             backgroundColor: ledgerColors.primary.default,
