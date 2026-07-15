@@ -87,6 +87,8 @@ export interface TripSessionActions {
   removeGroup(groupId: string): void;
   /** Append a new member to a cached group (no repo call). */
   addMemberToGroupInStore(groupId: string, member: GroupMember): void;
+  /** Replace a member in a cached group by userId (no repo call). */
+  updateGroupMemberInStore(groupId: string, member: GroupMember): void;
 
   /** Replace the entire recurring expense list for a group in the cache (no repo call). */
   setRecurringExpensesForGroup(groupId: string, items: RecurringExpense[]): void;

@@ -558,6 +558,16 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       }));
     },
 
+    updateGroupMemberInStore(groupId: string, member: GroupMember): void {
+      set((state) => ({
+        groups: state.groups.map(g =>
+          g.id === groupId
+            ? { ...g, members: g.members.map(m => m.userId === member.userId ? member : m) }
+            : g,
+        ),
+      }));
+    },
+
     // ── Recurring expenses ───────────────────────────────────────────────────
 
     setRecurringExpensesForGroup(groupId: string, items: RecurringExpense[]): void {

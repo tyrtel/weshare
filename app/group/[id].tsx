@@ -7,14 +7,19 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { Text } from '../../src/components/ui/Text';
 import { ParticipantsRow, DetailHeaderBar, DetailExpenseRow } from '../../src/components/ui';
 import { ClosedTripCard } from '../../src/features/trips/components/ClosedTripCard';
+import { SendInviteSheet } from '../../src/features/groups/components/SendInviteSheet';
 import { useGroupDetail } from '../../src/features/groups/hooks/useGroupDetail';
+import { useSendGroupInvite } from '../../src/features/groups/hooks/useSendGroupInvite';
 import { BalanceViewSelector } from '../../src/components/ui/BalanceViewSelector';
 import { useBalanceView } from '../../src/core/hooks/useBalanceView';
+import { useService } from '../../src/core/di/ServiceContext';
+import { AUTH } from '../../src/core/di/tokens';
 import { ledgerColors } from '../../src/theme/colors';
 import { tokens, ledgerRadius, ledgerShadow, ledgerFonts } from '../../src/theme/tokens';
 import { toBalancesRecord, toBalanceBarMembers } from '../../src/core/utils/balanceView';
 import type { Trip } from '../../src/core/models/Trip';
 import type { Expense } from '../../src/core/models/Expense';
+import type { GroupMember } from '../../src/core/models/GroupMember';
 
 const FAB_SIZE   = 56;
 const FAB_SPRING = { damping: 18, stiffness: 220 } as const;
@@ -23,6 +28,7 @@ export default function GroupDetailScreen() {
   const { t }  = useTranslation();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const auth   = useService(AUTH);
 
   const {
     group,
@@ -33,9 +39,11 @@ export default function GroupDetailScreen() {
     settlements,
     memberBalances,
   } = useGroupDetail(id);
+  const { sendInvite, sending } = useSendGroupInvite();
 
   const [fabOpen, setFabOpen] = useState(false);
   const [showPast, setShowPast] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState<GroupMember | null>(null);
 
   const fabRotation = useSharedValue(0);
   const item0 = useSharedValue(0);
@@ -69,6 +77,8 @@ export default function GroupDetailScreen() {
   const { group: groupBalanceView, setGroup: setGroupBalanceView } = useBalanceView();
 
   if (!group) return null;
+
+  const isOwner = auth.currentUser()?.id === group.ownerId;
 
   const handleTripPress  = (trip: Trip)    => router.push(`/trip/${trip.id}` as Parameters<typeof router.push>[0]);
   const handleNewTrip    = () => { setFabOpen(false); router.push(`/trip/create?groupId=${group.id}` as Parameters<typeof router.push>[0]); };
@@ -205,8 +215,27 @@ export default function GroupDetailScreen() {
         <View style={lgStyles.sectionRow}>
           <Text style={lgStyles.sectionTitle}>Members</Text>
         </View>
-        <ParticipantsRow members={group.members} onInvitePress={handleAddMember} inviteLabel="Invite" />
+        <ParticipantsRow
+          members={group.members}
+          onInvitePress={handleAddMember}
+          inviteLabel="Invite"
+          onMemberPress={isOwner ? (m) => setInviteTarget(m as GroupMember) : undefined}
+          unlinkedLabel={t('groups.detail.unlinked_label')}
+        />
       </ScrollView>
+
+      {inviteTarget && (
+        <SendInviteSheet
+          visible
+          memberName={inviteTarget.displayName}
+          defaultEmail={inviteTarget.email}
+          busy={sending}
+          onClose={() => setInviteTarget(null)}
+          onConfirm={(email) => {
+            void sendInvite(group, inviteTarget, email).then(() => setInviteTarget(null));
+          }}
+        />
+      )}
 
       {/* FAB speed-dial */}
       <View style={{ position: 'absolute', bottom: tokens.spacing.xl, right: tokens.spacing.md, alignItems: 'flex-end', zIndex: 20 }}>

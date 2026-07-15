@@ -20,4 +20,6 @@ export interface IGroupRepository {
     newUserId: string,
     newDisplayName: string,
   ): Promise<Result<GroupMember, AppError>>;
+  /** Sets (or replaces) a member's email — e.g. when an owner sends a no-email guest an invite. */
+  updateMemberEmail(groupId: string, userId: string, email: string): Promise<Result<GroupMember, AppError>>;
 }

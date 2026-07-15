@@ -164,4 +164,25 @@ describe('InMemoryGroupRepository', () => {
       if (!result.ok) expect(result.error.kind).toBe('NotFoundError');
     });
   });
+
+  describe('updateMemberEmail', () => {
+    it('sets the email on an existing member', async () => {
+      const guest = groupMemberFactory({ userId: 'guest_1', groupId: 'g1', displayName: 'Jay', isGuest: true });
+      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [guest] })]);
+
+      const result = await repo.updateMemberEmail('g1', 'guest_1', 'jay@example.com');
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.email).toBe('jay@example.com');
+
+      const group = await repo.getGroup('g1');
+      if (group.ok) expect(group.value.members[0].email).toBe('jay@example.com');
+    });
+
+    it('returns NotFoundError when the member does not exist', async () => {
+      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [] })]);
+      const result = await repo.updateMemberEmail('g1', 'guest_missing', 'jay@example.com');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.kind).toBe('NotFoundError');
+    });
+  });
 });

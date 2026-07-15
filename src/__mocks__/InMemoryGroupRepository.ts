@@ -118,4 +118,17 @@ export class InMemoryGroupRepository implements IGroupRepository {
     this.memberRows.set(groupId, next);
     return ok(updated);
   };
+
+  updateMemberEmail = async (groupId: string, userId: string, email: string): Promise<Result<GroupMember, AppError>> => {
+    const list = this.memberRows.get(groupId) ?? [];
+    const idx = list.findIndex(m => m.userId === userId);
+    if (idx === -1) {
+      return err({ kind: 'NotFoundError', resource: 'GroupMember', id: userId });
+    }
+    const updated: GroupMember = { ...list[idx], email };
+    const next = [...list];
+    next[idx] = updated;
+    this.memberRows.set(groupId, next);
+    return ok(updated);
+  };
 }

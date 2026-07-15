@@ -186,7 +186,19 @@
       "delete_title": "Delete group?",
       "delete_message": "This will not delete the trips or expenses inside it.",
       "delete_confirm": "Delete",
-      "settle_up": "Settle up"
+      "settle_up": "Settle up",
+      "unlinked_label": "Hasn't joined yet — tap to send an invite"
+    },
+    "send_invite": {
+      "title": "Send an invite",
+      "subtitle": "Enter {{name}}'s email to send them an invite link.",
+      "email_label": "Email",
+      "email_placeholder": "name@example.com",
+      "invalid_email": "Enter a valid email address.",
+      "confirm_button": "Send invite",
+      "confirm_label": "Send invite",
+      "cancel": "Cancel",
+      "close_label": "Close"
     },
     "add_member": {
       "title": "Add People",

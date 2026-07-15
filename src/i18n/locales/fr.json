@@ -186,7 +186,19 @@
       "delete_title": "Supprimer le groupe ?",
       "delete_message": "Les voyages et dépenses associés ne seront pas supprimés.",
       "delete_confirm": "Supprimer",
-      "settle_up": "Régler"
+      "settle_up": "Régler",
+      "unlinked_label": "N'a pas encore rejoint — appuyez pour envoyer une invitation"
+    },
+    "send_invite": {
+      "title": "Envoyer une invitation",
+      "subtitle": "Saisissez l'e-mail de {{name}} pour lui envoyer un lien d'invitation.",
+      "email_label": "E-mail",
+      "email_placeholder": "nom@exemple.com",
+      "invalid_email": "Saisissez une adresse e-mail valide.",
+      "confirm_button": "Envoyer l'invitation",
+      "confirm_label": "Envoyer l'invitation",
+      "cancel": "Annuler",
+      "close_label": "Fermer"
     },
     "add_member": {
       "title": "Ajouter des personnes",

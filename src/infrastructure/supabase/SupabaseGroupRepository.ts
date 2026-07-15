@@ -194,4 +194,16 @@ export class SupabaseGroupRepository implements IGroupRepository {
     if (error || !data) return err(toAppError(error ?? { message: 'Member not found after claim', code: '404', details: '', hint: '' }, 'GroupMember'));
     return rowToGroupMember(data);
   }
+
+  async updateMemberEmail(groupId: string, userId: string, email: string): Promise<Result<GroupMember, AppError>> {
+    const { data, error } = await supabase
+      .from('group_members')
+      .update({ email })
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+    if (error) return err(toAppError(error, 'GroupMember', userId));
+    return rowToGroupMember(data);
+  }
 }

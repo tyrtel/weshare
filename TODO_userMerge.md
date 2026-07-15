@@ -37,7 +37,10 @@ hold, but the specifics changed:
    first login" idea — still true, not addressed by Chunk A's work below.
 
 **Chunk A shipped 2026-07-15** with this redesign folded in (see the chunk
-below for exactly what was built). **Chunks B and C are still not started.**
+below for exactly what was built). **Chunk C (C1/C2) also shipped
+2026-07-15** — simpler than originally sketched, since it reuses Chunk A's
+join flow and invite link instead of adding a separate per-guest token.
+**Chunk B (and C3, its client-triggered fallback) are still not started.**
 
 ---
 
@@ -296,39 +299,53 @@ Recommendation: Edge Function.
 
 ---
 
-## Chunk C — UX for guests with no email  [ ]
+## Chunk C — UX for guests with no email  [~]
 
-**Scope:** ~1 day. Low risk (UI over existing infrastructure after Chunk A).
+**C1 and C2 shipped 2026-07-15.** C3 is a deliberately separate, larger piece —
+not started, see below.
 
-### C1 — "Unlinked members" indicator in group detail  [ ]
+### C1 — "Unlinked members" indicator in group detail  [x]
 
-In `app/group/[id].tsx`, guests who are still `isGuest: true` (not yet claimed)
-show a small indicator — a dashed ring on the avatar or a "·" badge.
+Shipped in `app/group/[id].tsx` + `src/components/ui/ParticipantsRow.tsx`.
+`ParticipantsRow` (shared with `TripDetailScreen`) gained optional
+`isGuest`/`email` fields on its member type and an optional `onMemberPress` +
+`unlinkedLabel` prop — additive, so the trip call site (which never passes
+these) is unaffected. A small dot badge renders on any `isGuest` member's
+avatar when `onMemberPress` is provided; `app/group/[id].tsx` only passes it
+when `group.ownerId === auth.currentUser()?.id`, so the indicator and the tap
+target are both owner-only, per spec.
 
-Only visible to the group owner.
+### C2 — "Send invite" action per unlinked guest  [x]
 
-### C2 — "Send invite" action per unlinked guest  [ ]
+Shipped: `src/features/groups/components/SendInviteSheet.tsx` (bottom sheet,
+same Modal/backdrop/handle-bar structure as `RecordPaymentSheet` — display
+name + email field pre-filled if stored, "Send invite" button, basic format
+validation via the existing `validateAndNormalizeEmail` util) and a new
+`useSendGroupInvite` hook.
 
-Owner taps an unlinked guest avatar (or a context menu on the member row).
-A bottom sheet appears with:
-- Guest's current display name
-- Email field (pre-filled if stored, empty if not)
-- "Send invite" button
-
-If email is new, save it to `group_members.email` first (needs an `updateMemberEmail`
-method or inline `UPDATE`). Then generate a one-time invite link scoped to that guest
-using an existing or new token column on `group_members`.
-
-When the guest taps the link → signs in → Chunk A email-match fires automatically.
+**Deliberately simpler than the original sketch**: no per-guest token, no new
+token column. Since `useJoinGroup` (Chunk A) already claims a placeholder by
+matching the signed-in user's email against *any* `group_members` row with
+that email, "sending an invite" to one specific guest is just (a) saving
+their email via the new `IGroupRepository.updateMemberEmail` if it's new or
+changed, then (b) sharing the group's *existing* invite link (the same
+`shareGroup` Chunk A built) — reusing infrastructure rather than adding a
+parallel one. When the guest taps that link → signs in → Chunk A's
+email-match fires automatically, exactly as originally specified.
 
 ### C3 — "Claim my spot" prompt on first login  [ ]
 
-If auto-merge (Chunk B) is not yet implemented, show a one-time prompt after first
-login: "Were you added to any groups or trips before signing up? Enter the email used
-to find your history." Triggers a client-side call to a search RPC and surfaces matches
-for the user to confirm before merging.
+**Not started — deliberately.** Re-scoped during this pass: this needs a
+search across *all* groups and trips the user was ever pre-added to (not
+one group like C1/C2), which is functionally a client-triggered slice of
+Chunk B's bulk-merge logic, not a small standalone UI item. Still a fallback
+only needed if Chunk B isn't shipped — worth deciding alongside Chunk B
+rather than building in isolation now.
 
-This is a fallback — if Chunk B is shipped, this prompt is never needed.
+Verified (C1/C2): full suite green and stable across repeated runs
+(1045/1045), typechecked clean (diffed against a pre-Chunk-C baseline — the
+one new "error" is the same class of pre-existing stale-Supabase-types gap
+already present throughout `SupabaseGroupRepository.ts`), lint clean.
 
 ---
 
@@ -338,18 +355,18 @@ This is a fallback — if Chunk B is shipped, this prompt is never needed.
 |-------|-----------|--------|------------------|--------|
 | A — Group claiming | Larger than ~1 day estimated — no join-link flow existed, had to be built from scratch | Low | none (port of trip pattern) | **Done 2026-07-15** |
 | B — Auto-merge on signup | ~2 days | Medium | A (uses same cascade logic) | Not started |
-| C — No-email UX | ~1 day | Low | A (sends invite → Chunk A claim) | Not started |
+| C — No-email UX | C1/C2 smaller than estimated (reused A's link instead of a new token); C3 not started | Low (C1/C2) | A (sends invite → Chunk A claim) | **C1/C2 done 2026-07-15**, C3 open |
 
 **Recommended order:** A → C → B.
 A closes the functional gap, C delivers the UX for the hard case, B makes the whole
 thing transparent to the user so they never have to take any action at all.
 
-**Next up: Chunk C.** With A's join flow and RLS policy now in place, C1's
-"unlinked members" indicator and C2's per-guest "send invite" bottom sheet
-are UI work over infrastructure that already exists — no new DB migration
-needed. B still has no auth-webhook infrastructure to build on (see
-re-analysis above) and is the larger, riskier piece; C is the natural next
-step per the doc's own original ordering.
+**Next up: Chunk B**, now that A and C1/C2 are both done. This is the one
+remaining piece that's genuinely new infrastructure (a Supabase Auth webhook
++ Edge Function, or the client-triggered fallback in C3) rather than an
+extension of something that already exists — worth its own focused pass and
+an explicit decision on the webhook-vs-client-trigger question before
+starting, given neither exists today.
 
 ---
 

@@ -9,25 +9,45 @@ interface ParticipantMember {
   userId: string;
   displayName: string;
   avatarUrl?: string;
+  isGuest?: boolean;
+  email?: string;
 }
 
 interface ParticipantsRowProps {
   members: ParticipantMember[];
   onInvitePress: () => void;
   inviteLabel: string;
+  /** When provided, unclaimed (isGuest) members render a small indicator and become tappable — owner-only, so pass this conditionally. */
+  onMemberPress?: (member: ParticipantMember) => void;
+  unlinkedLabel?: string;
 }
 
 // Stacked avatar-over-first-name row with a trailing dashed "invite" circle.
 // Extracted from TripDetailScreen's Participants row — the design the user
 // picked as the winner over GroupDetailScreen's side-by-side pill chips.
-export function ParticipantsRow({ members, onInvitePress, inviteLabel }: ParticipantsRowProps) {
+export function ParticipantsRow({ members, onInvitePress, inviteLabel, onMemberPress, unlinkedLabel }: ParticipantsRowProps) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
       {members.map(m => {
         const pc = personColorFor(m.userId, members);
+        const unlinked = Boolean(m.isGuest) && Boolean(onMemberPress);
+        const avatar = (
+          <View>
+            <Avatar initials={m.displayName} bg={pc.bg} url={m.avatarUrl} size="lg" />
+            {unlinked && <View style={styles.unlinkedDot} />}
+          </View>
+        );
         return (
           <View key={m.userId} style={{ alignItems: 'center', gap: 4 }}>
-            <Avatar initials={m.displayName} bg={pc.bg} url={m.avatarUrl} size="lg" />
+            {unlinked ? (
+              <Pressable
+                onPress={() => onMemberPress!(m)}
+                accessibilityRole="button"
+                accessibilityLabel={unlinkedLabel}
+              >
+                {avatar}
+              </Pressable>
+            ) : avatar}
             <Text style={{ fontSize: 12, fontWeight: '500', color: ledgerColors.text.primary }}>
               {m.displayName.split(' ')[0]}
             </Text>
@@ -52,5 +72,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderStyle: 'dashed', borderColor: ledgerColors.primary.default,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: ledgerColors.primary.subtle,
+  },
+  unlinkedDot: {
+    position: 'absolute', top: 0, right: 0,
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: ledgerColors.primary.default,
+    borderWidth: 2, borderColor: ledgerColors.surface,
   },
 });
