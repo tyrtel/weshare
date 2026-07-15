@@ -7,8 +7,9 @@ jest.mock('@expo/vector-icons', () => mockVectorIconsModule());
 jest.mock('react-native-svg', () => mockSvgModule());
 
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: mockBack }),
+  useRouter: () => ({ push: mockPush, back: mockBack }),
   useLocalSearchParams: () => ({ id: 'g1' }),
   Stack: { Screen: () => null },
 }));
@@ -35,6 +36,7 @@ const GROUP = groupFactory({ id: 'g1', name: 'Roomies', currency: 'EUR', members
 
 beforeEach(() => {
   mockBack.mockClear();
+  mockPush.mockClear();
 });
 
 function render(container: ServiceContainer = createTestContainer()) {
@@ -105,5 +107,46 @@ describe('GroupSettlementScreen', () => {
 
     expect(screen.getByText('Everyone is settled up.')).toBeTruthy();
     expect(screen.queryByText('Settle everything')).toBeNull();
+  });
+
+  // Phase 4d — tapping a transfer navigates to the shared, group-scoped ledger view.
+  it('tapping a transfer navigates to the group-scoped ledger history', () => {
+    mockUseGroupDetail.mockReturnValue({
+      group: GROUP,
+      settlements: [{ fromUserId: 'u2', toUserId: 'u1', amountCents: 1500, currency: 'EUR' }],
+      memberBalances: [
+        { userId: 'u1', balanceCents: 1500 },
+        { userId: 'u2', balanceCents: -1500 },
+      ],
+    });
+
+    render();
+    fireEvent.press(screen.getByText('Bob → Alice'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/group/settle/audit/g1',
+      params: { groupId: 'g1', fromUserId: 'u2', toUserId: 'u1', fromName: 'Bob', toName: 'Alice' },
+    });
+  });
+
+  // Phase 4d — per-pair "Record" action, using the same RecordPaymentSheet trip uses.
+  it('recording a payment for one transfer calls recordPayment with the entered amount', async () => {
+    const recordPayment = jest.fn().mockResolvedValue(undefined);
+    mockUseGroupDetail.mockReturnValue({
+      group: GROUP,
+      settlements: [{ fromUserId: 'u2', toUserId: 'u1', amountCents: 1500, currency: 'EUR' }],
+      memberBalances: [
+        { userId: 'u1', balanceCents: 1500 },
+        { userId: 'u2', balanceCents: -1500 },
+      ],
+      recordPayment,
+      recording: false,
+    });
+
+    render();
+    fireEvent.press(screen.getByLabelText('Record a payment from Bob to Alice'));
+    fireEvent.press(screen.getByLabelText('Confirm recorded payment'));
+
+    await waitFor(() => expect(recordPayment).toHaveBeenCalledWith('u2', 'u1', 1500, 'EUR'));
   });
 });

@@ -88,9 +88,15 @@
 > landed alongside 4c rather than as a separate later step. Full detail in
 > the 4c entry below. Nothing is mid-edit — working tree typechecked, full
 > suite green and stable across repeated runs (1001/1001).
-> **Next up:** 4d — extending the ledger/record-a-payment view to group's
-> settle screen (`app/group/settle/[id].tsx`), the one piece of the original
-> Phase 4 plan not covered by any of the four decisions above.
+> **4d now also landed (2026-07-15) — Phase 4 is complete.** The group settle
+> screen's suggested transfers are now tappable into the same shared ledger
+> view trip uses (`AuditDetailScreen`, generalized to accept either a
+> `tripId` or a `groupId`) and gained a "Record" action wired to the same
+> `RecordPaymentSheet`, via a new `useGroupLedgerHistory` hook and a
+> `recordPayment` primitive added to `useGroupDetail`. Full detail in the 4d
+> entry below. **Checkpoint 4 is signed off — Phase 4 (4a–4e) is done.**
+> Nothing is mid-edit — working tree typechecked, full suite green and
+> stable across repeated runs (1011/1011).
 
 Working sequence agreed 2026-07-13, now four phases (Phase 4 added mid-stream once
 the balance/stat card question in 3a turned into a real feature ask) — each has a
@@ -117,8 +123,8 @@ Full detail lives in companion docs, referenced inline rather than repeated here
 - [x] **Checkpoint 2** — review
 - [x] **Phase 3** — duplicate screen unification
 - [x] **Checkpoint 3** — review
-- [ ] **Phase 4** — ongoing settlement ledger (trip + group)
-- [ ] **Checkpoint 4** — review
+- [x] **Phase 4** — ongoing settlement ledger (trip + group)
+- [x] **Checkpoint 4** — review
 
 ---
 
@@ -975,19 +981,61 @@ name:
       button made this unavoidable rather than a later, separate step).
       Trip/expense closing is purely organizational now and has stopped
       being a debt-visibility mechanism anywhere in the app.
-- [ ] **4d — Extend the ledger view to group.**
-      - [ ] Wire 4b's `RecordPaymentSheet`/ledger-history component and 4a's
-            primitive into `app/group/settle/[id].tsx`, scoped to `groupId`
-            — reusing the same component (not a parallel one) is the point.
-            Not built yet — the group settle screen still only has the bulk
-            "Settle everything" action from 4c/4e, no per-pair drill-down
-            ledger view or individual "record a payment" affordance the way
-            trip's Settle screen has. Decision 4 only asked for trip/expense
-            **history** visibility, not this — still open.
+- [x] **4d — Extend the ledger view to group.** Done (2026-07-15).
+      - [x] **`useGroupDetail` gained the group-scoped write/read primitives**
+            4b's trip-side hook already had: a `recordPayment(fromUserId,
+            toUserId, amountCents, currency)` (same
+            `createManualPaymentRequest()` factory as trip's, just with
+            `groupId` set instead of `tripId`), a `recording` busy flag, and
+            `completedPayments` gained the `id`/`date` fields the ledger view
+            needs (previously built only for the balance calculation, which
+            doesn't need them). Also now returns `groupTrips` (previously
+            only its `activeTrips`/`closedTrips` subsets) so a ledger's
+            "all expenses touching this group" list can be assembled outside
+            the hook without re-deriving it.
+      - [x] **New `useGroupLedgerHistory(groupId, fromUserId, toUserId)`**
+            hook — the group-scoped counterpart of 4b's `useLedgerHistory`,
+            reusing the same pure `buildLedgerHistory()` function from
+            `core/logic/settlement.ts`. Deliberately a separate thin hook
+            rather than one hook branching internally on scope: it mirrors
+            the existing `useSettlement` (trip) / `useGroupDetail` (group)
+            split already established, not new duplication.
+      - [x] **`AuditDetailScreen` generalized to both scopes** — the actual
+            "reuse the same component" ask. `auditParamsSchema` now accepts
+            either `tripId` or `groupId` (exactly one, enforced via `.refine`).
+            Restructured into three small pieces: `AuditDetailScreenContent`
+            picks a scope, `TripLedgerView`/`GroupLedgerView` each call their
+            own hook (unconditionally, one per component — correct under
+            Rules of Hooks) and hand the result to one shared `LedgerView`
+            that owns 100% of the actual rendering (header, entries list,
+            empty/error states, the "Record a payment" button and sheet) —
+            not a single line of UI duplicated between scopes. New route
+            `app/group/settle/audit/[groupId].tsx` added (same thin
+            re-export pattern as the existing trip route); the trip route
+            was left alone rather than renamed, so both can coexist and pass
+            different param shapes to the one screen component.
+      - [x] **`app/group/settle/[id].tsx` wired up**: each suggested-transfer
+            card is now tappable (navigates to the new group audit route,
+            same as trip's `SettlementRow`) and gained a "Record" action
+            opening the same `RecordPaymentSheet` component 4b built for
+            trip, pre-filled with that pair's full outstanding amount but
+            editable. **Deliberately did not** restructure this screen's own
+            card-based layout to match trip's `SettlementRow` row layout —
+            unifying the two settle screens' visual structure was explicitly
+            scoped out back in `trip-group-unification-analysis.md` (two
+            incompatible payment abstractions sit underneath them) and
+            nothing about this task changes that; only the ledger view and
+            the record-payment primitive are shared, as asked.
+      - Verified: full suite green and stable across repeated runs
+            (1011/1011), typechecked clean (one real new issue caught and
+            fixed — `AuditDetailScreen`'s `error` prop is `unknown` in the
+            now-shared `LedgerView`, and `{error && ...}` doesn't type-check
+            as a bare truthy-check on `unknown` in JSX; wrapped in
+            `Boolean(error)`), lint clean.
 
 ### Checkpoint 4
 
-- [x] 4a, 4b, 4c, 4e landed and reviewed — **4d still open** (see above)
+- [x] 4a–4e landed and reviewed
 - [x] The dead-button regression test from 4b is in place and passing —
       this is the concrete, verifiable proof the feature actually works
 - [x] Overpayment produces a credit that visibly carries forward onto a
@@ -996,4 +1044,4 @@ name:
 - [x] 4c's behavior change was explicitly signed off before landing (you
       reviewed the options rundown and made all four decisions explicitly),
       not folded in silently as part of "finishing the phase"
-- [ ] Mark this checkpoint `[x]` — sequence complete once 4d lands too
+- [x] Mark this checkpoint `[x]` — sequence complete

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, Pressable, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import { Text } from '../../../src/components/ui/Text';
 import { Card } from '../../../src/components/ui/Card';
 import { Avatar } from '../../../src/components/ui';
 import { ErrorBanner } from '../../../src/components/ui/ErrorBanner';
+import { RecordPaymentSheet } from '../../../src/features/settlement/components/RecordPaymentSheet';
 import { useGroupDetail } from '../../../src/features/groups/hooks/useGroupDetail';
 import { useSettleAllGroupDebts } from '../../../src/features/groups/hooks/useSettleAllGroupDebts';
 import { useService } from '../../../src/core/di/ServiceContext';
@@ -17,6 +18,7 @@ import { useColors } from '../../../src/theme/colors';
 import { personColors } from '../../../src/theme/colors';
 import { tokens } from '../../../src/theme/tokens';
 import { formatCurrency } from '../../../src/core/utils/formatCurrency';
+import type { Settlement } from '../../../src/core/models/Settlement';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -31,8 +33,9 @@ export default function GroupSettlementScreen() {
   const { id }         = useLocalSearchParams<{ id: string }>();
   const paymentService = useService(PAYMENT);
 
-  const { group, settlements, memberBalances } = useGroupDetail(id);
+  const { group, settlements, memberBalances, recordPayment, recording } = useGroupDetail(id);
   const { settleAll, loading, error }          = useSettleAllGroupDebts(id, settlements);
+  const [recordTarget, setRecordTarget] = useState<Settlement | null>(null);
 
   const handleWeroPay = async (phone: string, amountCents: number, currency: string, toName: string) => {
     const url = paymentService.buildPaymentLink('wero', amountCents, currency, phone);
@@ -143,7 +146,17 @@ export default function GroupSettlementScreen() {
               const toPhone = toInfo?.member.phone;
               return (
                 <Card key={i} style={{ marginBottom: tokens.spacing.sm }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: `/group/settle/audit/${group.id}` as never,
+                        params: { groupId: group.id, fromUserId: s.fromUserId, toUserId: s.toUserId, fromName, toName },
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={t('settlement.row.history_label', { from: fromName, to: toName })}
+                    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.85 : 1 })}
+                  >
                     <Avatar initials={getInitials(fromName)} bg={fromPalette.bg} url={fromInfo?.member.avatarUrl} size="sm" />
                     <Ionicons name="arrow-forward" size={16} color={colors.text.tertiary} style={{ marginHorizontal: tokens.spacing.sm }} />
                     <Avatar initials={getInitials(toName)} bg={toPalette.bg} url={toInfo?.member.avatarUrl} size="sm" />
@@ -153,29 +166,43 @@ export default function GroupSettlementScreen() {
                     <Text variant="label" color={colors.primary.default}>
                       {formatCurrency(s.amountCents, s.currency)}
                     </Text>
-                  </View>
-                  {toPhone != null && (
+                    <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} style={{ marginLeft: tokens.spacing.xs }} />
+                  </Pressable>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      marginTop: tokens.spacing.sm,
+                      paddingTop: tokens.spacing.sm,
+                      borderTopWidth: 1,
+                      borderTopColor: colors.borderMuted,
+                      gap: tokens.spacing.lg,
+                    }}
+                  >
                     <Pressable
-                      onPress={() => void handleWeroPay(toPhone, s.amountCents, s.currency, toName)}
+                      onPress={() => setRecordTarget(s)}
                       accessibilityRole="button"
-                      accessibilityLabel={t('groups.settle.pay_with_wero')}
-                      style={({ pressed }) => ({
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: tokens.spacing.xs,
-                        marginTop: tokens.spacing.sm,
-                        paddingTop: tokens.spacing.sm,
-                        borderTopWidth: 1,
-                        borderTopColor: colors.borderMuted,
-                        opacity: pressed ? 0.7 : 1,
-                      })}
+                      accessibilityLabel={t('settlement.row.record_payment_label', { from: fromName, to: toName })}
+                      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs, opacity: pressed ? 0.7 : 1 })}
                     >
-                      <Ionicons name="wallet-outline" size={16} color={colors.primary.default} />
+                      <Ionicons name="add-circle-outline" size={16} color={colors.primary.default} />
                       <Text variant="label" color={colors.primary.default}>
-                        {t('groups.settle.pay_with_wero')}
+                        {t('settlement.row.record_payment')}
                       </Text>
                     </Pressable>
-                  )}
+                    {toPhone != null && (
+                      <Pressable
+                        onPress={() => void handleWeroPay(toPhone, s.amountCents, s.currency, toName)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('groups.settle.pay_with_wero')}
+                        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs, opacity: pressed ? 0.7 : 1 })}
+                      >
+                        <Ionicons name="wallet-outline" size={16} color={colors.primary.default} />
+                        <Text variant="label" color={colors.primary.default}>
+                          {t('groups.settle.pay_with_wero')}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </Card>
               );
             })}
@@ -216,6 +243,22 @@ export default function GroupSettlementScreen() {
           </View>
         )}
       </ScrollView>
+
+      {recordTarget && (
+        <RecordPaymentSheet
+          visible
+          fromLabel={memberMap.get(recordTarget.fromUserId)?.member.displayName ?? recordTarget.fromUserId}
+          toLabel={memberMap.get(recordTarget.toUserId)?.member.displayName ?? recordTarget.toUserId}
+          defaultAmountCents={recordTarget.amountCents}
+          currency={recordTarget.currency}
+          busy={recording}
+          onClose={() => setRecordTarget(null)}
+          onConfirm={(amountCents) => {
+            void recordPayment(recordTarget.fromUserId, recordTarget.toUserId, amountCents, recordTarget.currency)
+              .then(() => setRecordTarget(null));
+          }}
+        />
+      )}
     </ScreenWrapper>
   );
 }

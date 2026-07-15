@@ -9,17 +9,21 @@ import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
 import { Text } from '../../../components/ui/Text';
 import { RecordPaymentSheet } from '../components/RecordPaymentSheet';
 import { useLedgerHistory } from '../hooks/useLedgerHistory';
+import { useGroupLedgerHistory } from '../../groups/hooks/useGroupLedgerHistory';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import type { LedgerEntry } from '../../../core/logic/settlement';
 
 const auditParamsSchema = z.object({
-  tripId:     z.string().min(1),
+  tripId:     z.string().min(1).optional(),
+  groupId:    z.string().min(1).optional(),
   fromUserId: z.string().min(1),
   toUserId:   z.string().min(1),
   fromName:   z.string().default(''),
   toName:     z.string().default(''),
+}).refine(p => Boolean(p.tripId) !== Boolean(p.groupId), {
+  message: 'Exactly one of tripId or groupId must be provided',
 });
 
 interface LedgerEntryRowProps {
@@ -106,13 +110,52 @@ export function AuditDetailScreen() {
 
 type AuditParams = z.infer<typeof auditParamsSchema>;
 
-function AuditDetailScreenContent({ params }: { params: AuditParams }) {
-  const { t } = useTranslation();
-  const { tripId, fromUserId, toUserId, fromName, toName } = params;
-  const colors = useColors();
+// Scope-specific: each just calls its own hook and hands the ledger state to
+// the one shared view below — this is the "reuse the same component, not a
+// parallel one" the Phase 4d plan asks for.
 
-  const { entries, balanceCents, currency, loading, error, settling, recordPayment } =
-    useLedgerHistory(tripId, fromUserId, toUserId);
+function AuditDetailScreenContent({ params }: { params: AuditParams }) {
+  const { fromUserId, toUserId, fromName, toName } = params;
+  return params.tripId ? (
+    <TripLedgerView tripId={params.tripId} fromUserId={fromUserId} toUserId={toUserId} fromName={fromName} toName={toName} />
+  ) : (
+    <GroupLedgerView groupId={params.groupId!} fromUserId={fromUserId} toUserId={toUserId} fromName={fromName} toName={toName} />
+  );
+}
+
+interface ScopedLedgerViewProps {
+  fromUserId: string;
+  toUserId: string;
+  fromName: string;
+  toName: string;
+}
+
+function TripLedgerView({ tripId, fromUserId, toUserId, fromName, toName }: ScopedLedgerViewProps & { tripId: string }) {
+  const ledger = useLedgerHistory(tripId, fromUserId, toUserId);
+  return <LedgerView {...ledger} fromUserId={fromUserId} toUserId={toUserId} fromName={fromName} toName={toName} />;
+}
+
+function GroupLedgerView({ groupId, fromUserId, toUserId, fromName, toName }: ScopedLedgerViewProps & { groupId: string }) {
+  const ledger = useGroupLedgerHistory(groupId, fromUserId, toUserId);
+  return <LedgerView {...ledger} fromUserId={fromUserId} toUserId={toUserId} fromName={fromName} toName={toName} />;
+}
+
+interface LedgerViewProps extends ScopedLedgerViewProps {
+  entries: LedgerEntry[];
+  balanceCents: number;
+  currency: string;
+  loading: boolean;
+  error: unknown;
+  settling: boolean;
+  recordPayment: (amountCents: number) => Promise<void>;
+}
+
+function LedgerView({
+  fromUserId, toUserId, fromName, toName,
+  entries, balanceCents, currency, loading, error, settling, recordPayment,
+}: LedgerViewProps) {
+  const { t } = useTranslation();
+  const colors = useColors();
   const [recording, setRecording] = useState(false);
 
   const fromLabel = fromName || fromUserId;
@@ -151,7 +194,7 @@ function AuditDetailScreenContent({ params }: { params: AuditParams }) {
         </View>
       )}
 
-      {error && !loading && (
+      {Boolean(error) && !loading && (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.lg }}>
           <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
             {t('settlement.audit.error_load')}

@@ -12,14 +12,20 @@ jest.mock('../hooks/useLedgerHistory', () => ({
   useLedgerHistory: jest.fn(),
 }));
 
+jest.mock('../../groups/hooks/useGroupLedgerHistory', () => ({
+  useGroupLedgerHistory: jest.fn(),
+}));
+
 import { useLocalSearchParams } from 'expo-router';
 import { AuditDetailScreen } from '../screens/AuditDetailScreen';
 import { useLedgerHistory } from '../hooks/useLedgerHistory';
+import { useGroupLedgerHistory } from '../../groups/hooks/useGroupLedgerHistory';
 import { renderScreen } from '../../../__testUtils__/renderScreen';
 import { createTestContainer } from '../../../core/di/testContainer';
 
-const mockParams            = useLocalSearchParams as jest.Mock;
-const mockUseLedgerHistory   = useLedgerHistory as jest.Mock;
+const mockParams              = useLocalSearchParams as jest.Mock;
+const mockUseLedgerHistory     = useLedgerHistory as jest.Mock;
+const mockUseGroupLedgerHistory = useGroupLedgerHistory as jest.Mock;
 
 function render() {
   return renderScreen(<AuditDetailScreen />, createTestContainer());
@@ -98,5 +104,61 @@ describe('AuditDetailScreen', () => {
     fireEvent.press(screen.getByLabelText('Confirm recorded payment'));
 
     expect(recordPayment).toHaveBeenCalledWith(2500);
+  });
+
+  it('shows the invalid-params error when both tripId and groupId are provided', () => {
+    mockParams.mockReturnValue({
+      tripId: 't1', groupId: 'g1', fromUserId: 'u1', toUserId: 'u2',
+    });
+
+    render();
+
+    expect(screen.getByText('Invalid navigation parameters.')).toBeTruthy();
+  });
+
+  it('shows the invalid-params error when neither tripId nor groupId is provided', () => {
+    mockParams.mockReturnValue({ fromUserId: 'u1', toUserId: 'u2' });
+
+    render();
+
+    expect(screen.getByText('Invalid navigation parameters.')).toBeTruthy();
+  });
+});
+
+// ── Group scope (Phase 4d) ────────────────────────────────────────────────────
+
+describe('AuditDetailScreen — group scope', () => {
+  beforeEach(() => {
+    mockParams.mockReturnValue({
+      groupId: 'g1', fromUserId: 'u1', toUserId: 'u2', fromName: 'Alice', toName: 'Bob',
+    });
+  });
+
+  it('calls useGroupLedgerHistory (not useLedgerHistory) and renders its entries', () => {
+    mockUseGroupLedgerHistory.mockReturnValue({
+      ...BASE_STATE,
+      balanceCents: 2000,
+      entries: [
+        { id: 'e1', date: new Date('2025-06-01T12:00:00Z'), type: 'expense', description: 'Rent', amountCents: 2000, balanceCents: 2000, currency: 'EUR' },
+      ],
+    });
+
+    render();
+
+    expect(screen.getByText('Alice → Bob')).toBeTruthy();
+    expect(screen.getByText('Rent')).toBeTruthy();
+    expect(mockUseGroupLedgerHistory).toHaveBeenCalledWith('g1', 'u1', 'u2');
+  });
+
+  it('recording a payment calls the group hook\'s recordPayment', () => {
+    const { fireEvent } = require('@testing-library/react-native');
+    const recordPayment = jest.fn().mockResolvedValue(undefined);
+    mockUseGroupLedgerHistory.mockReturnValue({ ...BASE_STATE, balanceCents: 2000, recordPayment });
+
+    render();
+    fireEvent.press(screen.getByTestId('record-payment-button'));
+    fireEvent.press(screen.getByLabelText('Confirm recorded payment'));
+
+    expect(recordPayment).toHaveBeenCalledWith(2000);
   });
 });

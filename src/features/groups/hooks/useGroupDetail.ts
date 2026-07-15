@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { TRIP_STORE } from '../../../core/di/tokens';
 import { computeGroupBalances, type MemberBalance } from '../utils/computeGroupBalances';
 import type { LedgerPayment } from '../../../core/logic/settlement';
 import { selectGroupSplitRequests } from '../../../store/selectors';
+import { createManualPaymentRequest } from '../../../core/models/SplitRequest';
 import type { Settlement } from '../../../core/models/Settlement';
 import type { Expense } from '../../../core/models/Expense';
 import type { SplitRequest } from '../../../core/models/SplitRequest';
@@ -57,6 +58,8 @@ export function useGroupDetail(groupId: string) {
         payeeUserId: r.requesterUserId,
         amountCents: r.amountCents,
         currency:    r.currency,
+        id:          r.id,
+        date:        r.updatedAt,
       }));
   }, [groupSplitRequests, groupTrips, tripSplitRequests]);
 
@@ -71,14 +74,36 @@ export function useGroupDetail(groupId: string) {
     );
   }, [group, groupTrips, tripExpenses, groupExpenses, completedPayments]);
 
+  // The group-scoped counterpart of useSettlement's recordPayment — same
+  // ledger write primitive, just with groupId set instead of tripId.
+  const [recording, setRecording] = useState(false);
+
+  const recordPayment = useCallback(
+    async (fromUserId: string, toUserId: string, amountCents: number, currency: string): Promise<void> => {
+      setRecording(true);
+      try {
+        await storeApi.getState().saveSplitRequest(
+          createManualPaymentRequest({ groupId, payerUserId: fromUserId, requesterUserId: toUserId, amountCents, currency }),
+        );
+      } finally {
+        setRecording(false);
+      }
+    },
+    [groupId, storeApi],
+  );
+
   return {
     group,
     activeTrips,
     closedTrips,
+    groupTrips,
     tripExpenses,
     groupExpenses,
+    completedPayments,
     settlements,
     memberBalances,
+    recordPayment,
+    recording,
     loading: expensesLoading,
   };
 }
