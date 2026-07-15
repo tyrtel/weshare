@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Pressable, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../src/components/ui/ScreenWrapper';
 import { TAB_BAR_HEIGHT } from '../../../src/components/ui/UniversalTabBar';
 import { Text } from '../../../src/components/ui/Text';
-import { Badge } from '../../../src/components/ui/Badge';
 import { Avatar } from '../../../src/components/ui/Avatar';
 import { Divider } from '../../../src/components/ui/Divider';
 import { ExpensePaidByCard } from '../../../src/components/ui/ExpensePaidByCard';
 import { ExpenseReceiptSection } from '../../../src/components/ui/ExpenseReceiptSection';
-import { useSettleGroupExpense } from '../../../src/features/groups/hooks/useSettleGroupExpense';
 import { MakeRecurringSheet } from '../../../src/features/groups/components/MakeRecurringSheet';
 import { useService, useTripSessionStore } from '../../../src/core/di/ServiceContext';
 import { AUTH } from '../../../src/core/di/tokens';
@@ -28,11 +26,9 @@ function getInitials(name: string): string {
 
 export default function GroupExpenseDetailScreen() {
   const { t }                                       = useTranslation();
-  const router                                      = useRouter();
   const colors                                      = useColors();
   const auth                                        = useService(AUTH);
   const { id, groupId }                             = useLocalSearchParams<{ id: string; groupId: string }>();
-  const { settleGroupExpense, loading: settling }   = useSettleGroupExpense();
   const [recurringSheetOpen, setRecurringSheetOpen] = useState(false);
 
   const expense = useTripSessionStore(s =>
@@ -51,30 +47,11 @@ export default function GroupExpenseDetailScreen() {
     );
   }
 
-  const settled = !!expense.settledAt;
-
   const memberMap = new Map(group.members.map(m => [m.userId, m]));
   const payer     = memberMap.get(expense.paidByUserId);
   const payerName = payer?.displayName ?? 'Unknown';
 
   const currentUserId = auth.currentUser()?.id ?? '';
-
-  const handleSettle = () => {
-    Alert.alert(
-      t('groups.expense.settle_title'),
-      t('groups.expense.settle_message'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('groups.expense.settle_confirm'),
-          onPress: async () => {
-            const ok = await settleGroupExpense(expense.id, groupId);
-            if (ok && router.canGoBack()) router.back();
-          },
-        },
-      ],
-    );
-  };
 
   const handleRecurringSuccess = () => {
     setRecurringSheetOpen(false);
@@ -94,9 +71,6 @@ export default function GroupExpenseDetailScreen() {
             <Text variant="heading1" style={{ flex: 1 }} numberOfLines={2}>
               {expense.description}
             </Text>
-            {settled && (
-              <Badge label={t('expenses.detail.settled_badge')} bg={colors.success.bg} color={colors.success.default} />
-            )}
           </View>
           <Text variant="heading2" color={colors.primary.default}>
             {formatCurrency(expense.totalAmountCents, expense.currency)}
@@ -142,27 +116,6 @@ export default function GroupExpenseDetailScreen() {
               );
             })}
           </View>
-        )}
-
-        {/* Settle action */}
-        {!settled && (
-          <Pressable
-            onPress={handleSettle}
-            disabled={settling}
-            accessibilityRole="button"
-            style={({ pressed }) => ({
-              backgroundColor: colors.primary.default,
-              borderRadius: tokens.radius.md,
-              paddingVertical: tokens.spacing.md,
-              alignItems: 'center',
-              opacity: pressed || settling ? 0.7 : 1,
-              marginTop: tokens.spacing.sm,
-            })}
-          >
-            {settling
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text variant="label" color="#ffffff">{t('groups.expense.settle_button')}</Text>}
-          </Pressable>
         )}
 
         {/* Make recurring */}

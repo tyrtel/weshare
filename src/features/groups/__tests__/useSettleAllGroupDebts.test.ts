@@ -3,10 +3,11 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useSettleAllGroupDebts } from '../hooks/useSettleAllGroupDebts';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { EXPENSE_REPO, TRIP_STORE } from '../../../core/di/tokens';
-import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
-import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
-import { groupFactory, tripFactory, expenseFactory } from '../../../__testUtils__/factories';
+import { SPLIT_REQUEST_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { InMemorySplitRequestRepository } from '../../../__mocks__/InMemorySplitRequestRepository';
+import { err } from '../../../core/types/Result';
+import { groupFactory, tripFactory } from '../../../__testUtils__/factories';
+import type { Settlement } from '../../../core/models/Settlement';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 
 function makeWrapper(container: ServiceContainer) {
@@ -17,95 +18,78 @@ function makeWrapper(container: ServiceContainer) {
 
 const GROUP_ID = 'g1';
 
+const SETTLEMENTS: Settlement[] = [
+  { fromUserId: 'u2', toUserId: 'u1', amountCents: 1000, currency: 'EUR' },
+  { fromUserId: 'u3', toUserId: 'u1', amountCents: 500,  currency: 'EUR' },
+];
+
 describe('useSettleAllGroupDebts', () => {
   let container: ServiceContainer;
-  let expenseRepo: InMemoryExpenseRepository;
-  let tripRepo: InMemoryTripRepository;
 
-  const group       = groupFactory({ id: GROUP_ID, members: [] });
-  const activeTrip  = tripFactory({ id: 't1', groupId: GROUP_ID, status: 'active' });
-  const groupExp1   = expenseFactory({ id: 'e1', groupId: GROUP_ID, tripId: undefined, settledAt: null });
-  const groupExp2   = expenseFactory({ id: 'e2', groupId: GROUP_ID, tripId: undefined, settledAt: null });
-  const alreadySettled = expenseFactory({ id: 'e3', groupId: GROUP_ID, tripId: undefined, settledAt: new Date() });
-
-  beforeEach(async () => {
-    expenseRepo = new InMemoryExpenseRepository();
-    expenseRepo.seed([groupExp1, groupExp2, alreadySettled]);
-    tripRepo = new InMemoryTripRepository();
-    tripRepo.seed([activeTrip]);
-    container = createTestContainer({ expenseRepo, tripRepo });
-
+  beforeEach(() => {
+    container = createTestContainer();
     const store = container.resolve(TRIP_STORE).getState();
-    store.appendGroup(group);
-    store.appendTrip(activeTrip);
-    await store.loadGroupDetail(GROUP_ID);
+    store.appendGroup(groupFactory({ id: GROUP_ID, members: [] }));
   });
 
-  it('returns true when everything settles successfully', async () => {
-    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID), { wrapper: makeWrapper(container) });
+  it('returns true and records a completed group-scoped payment for every settlement', async () => {
+    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
 
     let ok = false;
     await act(async () => { ok = await result.current.settleAll(); });
 
     expect(ok).toBe(true);
     expect(result.current.error).toBeNull();
+
+    const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequestsForGroup(GROUP_ID);
+    expect(stored.ok).toBe(true);
+    if (!stored.ok) return;
+    expect(stored.value).toHaveLength(2);
+    expect(stored.value.every(r => r.status === 'paid' && r.groupId === GROUP_ID && r.tripId === undefined)).toBe(true);
+    expect(stored.value.find(r => r.payerUserId === 'u2')?.amountCents).toBe(1000);
+    expect(stored.value.find(r => r.payerUserId === 'u3')?.amountCents).toBe(500);
   });
 
-  it('marks all unsettled group expenses as settled in the repo', async () => {
-    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID), { wrapper: makeWrapper(container) });
+  // Phase 4c: settling debts no longer touches expenses or trips at all —
+  // those are independent, purely organizational actions now.
+  it('does not settle any expense or close any trip', async () => {
+    const trip = tripFactory({ id: 't1', groupId: GROUP_ID, status: 'active' });
+    container.resolve(TRIP_STORE).getState().appendTrip(trip);
 
+    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
     await act(async () => { await result.current.settleAll(); });
 
-    const e1 = await expenseRepo.getExpense('e1');
-    const e2 = await expenseRepo.getExpense('e2');
-    expect(e1.ok && e1.value.settledAt).not.toBeNull();
-    expect(e2.ok && e2.value.settledAt).not.toBeNull();
+    const storeTrip = container.resolve(TRIP_STORE).getState().trips.find(t => t.id === 't1');
+    expect(storeTrip?.status).toBe('active');
   });
 
-  it('reflects settled group expenses in the store', async () => {
-    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID), { wrapper: makeWrapper(container) });
+  it('records nothing and returns true when there are no outstanding settlements', async () => {
+    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, []), { wrapper: makeWrapper(container) });
 
-    await act(async () => { await result.current.settleAll(); });
+    let ok = false;
+    await act(async () => { ok = await result.current.settleAll(); });
 
-    const storeExpenses = container.resolve(TRIP_STORE).getState().groupExpenses[GROUP_ID] ?? [];
-    const e1 = storeExpenses.find(e => e.id === 'e1');
-    const e2 = storeExpenses.find(e => e.id === 'e2');
-    expect(e1?.settledAt).not.toBeNull();
-    expect(e2?.settledAt).not.toBeNull();
+    expect(ok).toBe(true);
+    const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequestsForGroup(GROUP_ID);
+    expect(stored.ok && stored.value).toHaveLength(0);
   });
 
-  it('skips expenses that are already settled', async () => {
-    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID), { wrapper: makeWrapper(container) });
+  it('surfaces a repo failure via error and returns false', async () => {
+    const repo = container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository;
+    const original = repo.saveSplitRequest;
+    repo.saveSplitRequest = async (req) => {
+      if (req.payerUserId === 'u2') {
+        return err({ kind: 'NetworkError', message: 'network failure' });
+      }
+      return original.call(repo, req);
+    };
 
-    // e3 is already settled — settledAt should not be changed.
-    const originalSettledAt = alreadySettled.settledAt;
-    await act(async () => { await result.current.settleAll(); });
+    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
 
-    const e3 = await expenseRepo.getExpense('e3');
-    expect(e3.ok && e3.value.settledAt?.getTime()).toBe(originalSettledAt?.getTime());
-  });
+    let ok = true;
+    await act(async () => { ok = await result.current.settleAll(); });
 
-  it('closes all active trips in the group', async () => {
-    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID), { wrapper: makeWrapper(container) });
-
-    await act(async () => { await result.current.settleAll(); });
-
-    const store = container.resolve(TRIP_STORE).getState();
-    const trip  = store.trips.find(t => t.id === 't1');
-    expect(trip?.status).toBe('closed');
-  });
-
-  it('does not close trips belonging to other groups', async () => {
-    const otherTrip = tripFactory({ id: 't2', groupId: 'other-group', status: 'active' });
-    tripRepo.seed([otherTrip]);
-    container.resolve(TRIP_STORE).getState().appendTrip(otherTrip);
-
-    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID), { wrapper: makeWrapper(container) });
-
-    await act(async () => { await result.current.settleAll(); });
-
-    const store = container.resolve(TRIP_STORE).getState();
-    const trip  = store.trips.find(t => t.id === 't2');
-    expect(trip?.status).toBe('active');
+    expect(ok).toBe(false);
+    expect(result.current.error).toMatchObject({ kind: 'NetworkError' });
   });
 });

@@ -71,7 +71,9 @@ describe('computeGroupBalances', () => {
     expect(settlements[0].amountCents).toBe(500);
   });
 
-  it('excludes settled group expenses from balance calculation', () => {
+  // Phase 4c: settling an expense is purely organizational now — it no
+  // longer hides debt from the group ledger (only a real payment does).
+  it('still includes settled group expenses in the balance calculation', () => {
     const settled = expenseFactory({
       id: 'e1', groupId: 'g1', tripId: undefined, currency: CURRENCY,
       totalAmountCents: 2000, paidByUserId: 'u1', settledAt: new Date(),
@@ -86,7 +88,7 @@ describe('computeGroupBalances', () => {
     const { settlements } = computeGroupBalances(['u1', 'u2'], [], {}, [settled, active]);
 
     expect(settlements).toHaveLength(1);
-    expect(settlements[0].amountCents).toBe(500);
+    expect(settlements[0].amountCents).toBe(1500);
   });
 
   it('returns even balances when all debts cancel out', () => {
@@ -133,7 +135,9 @@ describe('computeGroupBalances', () => {
     expect(settlements).toHaveLength(0);
   });
 
-  it('excludes expenses from closed trips', () => {
+  // Phase 4c: closing a trip is purely organizational now — it no longer
+  // hides debt from the group ledger (only a real payment does).
+  it('still includes expenses from closed trips', () => {
     const closedTrip = tripFactory({ id: 't1', groupId: 'g1', status: 'closed' });
     const tripExpense = expenseFactory({
       id: 'e1', tripId: 't1', groupId: undefined, currency: CURRENCY,
@@ -141,14 +145,14 @@ describe('computeGroupBalances', () => {
       splits: [makeSplit('u1', 1000), makeSplit('u2', 1000)],
     });
 
-    const { settlements, memberBalances } = computeGroupBalances(
+    const { settlements } = computeGroupBalances(
       ['u1', 'u2'],
       [closedTrip],
       { t1: [tripExpense] },
       [],
     );
 
-    expect(settlements).toHaveLength(0);
-    expect(memberBalances.every(b => b.balanceCents === 0)).toBe(true);
+    expect(settlements).toHaveLength(1);
+    expect(settlements[0]).toMatchObject({ fromUserId: 'u2', toUserId: 'u1', amountCents: 1000 });
   });
 });

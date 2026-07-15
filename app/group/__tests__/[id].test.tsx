@@ -21,7 +21,7 @@ import GroupDetailScreen from '../[id]';
 import { useGroupDetail } from '../../../src/features/groups/hooks/useGroupDetail';
 import { renderScreen } from '../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../src/core/di/testContainer';
-import { groupFactory, groupMemberFactory, expenseFactory } from '../../../src/__testUtils__/factories';
+import { groupFactory, groupMemberFactory, expenseFactory, tripFactory } from '../../../src/__testUtils__/factories';
 
 const mockUseGroupDetail = useGroupDetail as jest.Mock;
 
@@ -36,8 +36,8 @@ function setup(overrides: Partial<ReturnType<typeof useGroupDetail>> = {}) {
     group: GROUP,
     activeTrips: [],
     closedTrips: [],
-    activeGroupExpenses: [],
-    settledGroupExpenses: [],
+    tripExpenses: {},
+    groupExpenses: [],
     settlements: [],
     memberBalances: MEMBERS.map(m => ({ userId: m.userId, balanceCents: 0 })),
     loading: false,
@@ -57,7 +57,7 @@ function render() {
 describe('GroupDetailScreen', () => {
   it('renders the group name, currency-aware amounts, and the member list', () => {
     setup({
-      activeGroupExpenses: [expenseFactory({
+      groupExpenses: [expenseFactory({
         id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries',
         totalAmountCents: 3000, currency: 'EUR', paidByUserId: 'u1',
       })],
@@ -96,7 +96,7 @@ describe('GroupDetailScreen', () => {
 
   it('tapping an expense row navigates to its detail screen', () => {
     setup({
-      activeGroupExpenses: [expenseFactory({
+      groupExpenses: [expenseFactory({
         id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries',
         totalAmountCents: 3000, currency: 'EUR', paidByUserId: 'u1',
       })],
@@ -105,5 +105,22 @@ describe('GroupDetailScreen', () => {
 
     fireEvent.press(screen.getByText('Groceries'));
     expect(mockPush).toHaveBeenCalledWith('/group/expense/e1?groupId=g1');
+  });
+
+  // Phase 4c, decision 4: closed trips are hidden behind a "View past items"
+  // toggle rather than shown eagerly — the group ledger above already shows
+  // any debt they still carry; this is just where to go find/reopen one.
+  it('hides closed trips until "View past items" is pressed, then shows them', () => {
+    const closedTrip = tripFactory({ id: 't9', name: 'Old Trip', groupId: 'g1', status: 'closed', members: [] });
+    setup({ closedTrips: [closedTrip] });
+    render();
+
+    expect(screen.queryByText('Old Trip')).toBeNull();
+    expect(screen.getByText('View past items')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('View past items'));
+
+    expect(screen.getByText('Old Trip')).toBeTruthy();
+    expect(screen.getByText('Hide past items')).toBeTruthy();
   });
 });

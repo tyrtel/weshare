@@ -6,6 +6,7 @@ import type { LedgerPayment } from '../../../core/logic/settlement';
 import { useStripePoller } from './useStripePoller';
 import { selectExpenses, selectMembers, selectSplitRequests } from '../../../store/selectors';
 import type { Settlement } from '../../../core/models/Settlement';
+import { createManualPaymentRequest } from '../../../core/models/SplitRequest';
 import type { SplitRequest, SplitRequestStatus } from '../../../core/models/SplitRequest';
 import type { TripStatus } from '../../../core/models/Trip';
 import type { TripMember } from '../../../core/models/TripMember';
@@ -143,26 +144,9 @@ export function useSettlement(tripId: string) {
     async (fromUserId: string, toUserId: string, amountCents: number, currency: string): Promise<void> => {
       setSettling(true);
       try {
-        const newReq: SplitRequest = {
-          id:                  `sr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-          tripId,
-          requesterUserId:     toUserId,
-          payerUserId:         fromUserId,
-          amountCents,
-          currency,
-          note:                '',
-          status:              'paid',
-          preferredWallet:     'other',
-          externalRefId:       null,
-          stripePaymentLinkId: null,
-          stripeSessionId:     null,
-          obPaymentId:         null,
-          obProvider:          null,
-          rolledOverFromTripId: null,
-          createdAt:           new Date(),
-          updatedAt:           new Date(),
-        };
-        await storeApi.getState().saveSplitRequest(newReq);
+        await storeApi.getState().saveSplitRequest(
+          createManualPaymentRequest({ tripId, payerUserId: fromUserId, requesterUserId: toUserId, amountCents, currency }),
+        );
       } finally {
         setSettling(false);
       }

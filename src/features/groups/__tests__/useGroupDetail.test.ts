@@ -55,10 +55,11 @@ describe('useGroupDetail', () => {
     expect(ids).not.toContain('t3');
   });
 
-  it('splits active and settled group expenses', () => {
+  // Phase 4c: settling an expense is retired — group expenses are no longer
+  // split into active/settled buckets, both show up together.
+  it('returns all group expenses regardless of legacy settledAt', () => {
     const { result } = renderHook(() => useGroupDetail('g1'), { wrapper: makeWrapper(container) });
-    expect(result.current.activeGroupExpenses.map(e => e.id)).toEqual(['e1']);
-    expect(result.current.settledGroupExpenses.map(e => e.id)).toEqual(['e2']);
+    expect(result.current.groupExpenses.map(e => e.id).sort()).toEqual(['e1', 'e2']);
   });
 
   it('returns undefined group for unknown id', () => {

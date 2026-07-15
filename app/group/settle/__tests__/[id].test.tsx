@@ -21,8 +21,8 @@ import GroupSettlementScreen from '../[id]';
 import { useGroupDetail } from '../../../../src/features/groups/hooks/useGroupDetail';
 import { renderScreen } from '../../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../../src/core/di/testContainer';
-import { EXPENSE_REPO, TRIP_STORE } from '../../../../src/core/di/tokens';
-import { groupFactory, groupMemberFactory, expenseFactory, splitFactory } from '../../../../src/__testUtils__/factories';
+import { SPLIT_REQUEST_REPO, TRIP_STORE } from '../../../../src/core/di/tokens';
+import { groupFactory, groupMemberFactory } from '../../../../src/__testUtils__/factories';
 import type { ServiceContainer } from '../../../../src/core/di/ServiceContainer';
 
 const mockUseGroupDetail = useGroupDetail as jest.Mock;
@@ -60,20 +60,10 @@ describe('GroupSettlementScreen', () => {
     expect(screen.getByText('−€15.00')).toBeTruthy();
   });
 
-  it('confirming "Mark everything settled" settles group expenses and navigates back', async () => {
+  it('confirming "Settle everything" records a completed payment for each settlement and navigates back', async () => {
     const container = createTestContainer();
-    const expense = expenseFactory({
-      id: 'e1', tripId: undefined, groupId: 'g1', currency: 'EUR',
-      totalAmountCents: 1500, paidByUserId: 'u1', settledAt: null,
-      splits: [
-        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u1', amountOwedCents: 0 }),
-        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 1500 }),
-      ],
-    });
     const store = container.resolve(TRIP_STORE);
     store.getState().appendGroup(GROUP);
-    store.getState().appendGroupExpense(expense);
-    await container.resolve(EXPENSE_REPO).saveExpense(expense);
 
     mockUseGroupDetail.mockReturnValue({
       group: GROUP,
@@ -90,12 +80,15 @@ describe('GroupSettlementScreen', () => {
       buttons?.[1]?.onPress?.();
     });
 
-    fireEvent.press(screen.getByText('Mark everything settled'));
+    fireEvent.press(screen.getByText('Settle everything'));
 
     await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
 
-    const stored = await container.resolve(EXPENSE_REPO).getExpense('e1');
-    expect(stored.ok && stored.value.settledAt).not.toBeNull();
+    const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequestsForGroup('g1');
+    expect(stored.ok).toBe(true);
+    if (!stored.ok) return;
+    expect(stored.value).toHaveLength(1);
+    expect(stored.value[0]).toMatchObject({ payerUserId: 'u2', requesterUserId: 'u1', amountCents: 1500, status: 'paid' });
   });
 
   it('shows the all-settled state when there are no outstanding transfers', () => {
@@ -111,6 +104,6 @@ describe('GroupSettlementScreen', () => {
     render();
 
     expect(screen.getByText('Everyone is settled up.')).toBeTruthy();
-    expect(screen.queryByText('Mark everything settled')).toBeNull();
+    expect(screen.queryByText('Settle everything')).toBeNull();
   });
 });

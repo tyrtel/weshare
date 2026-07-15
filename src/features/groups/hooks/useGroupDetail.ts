@@ -39,10 +39,11 @@ export function useGroupDetail(groupId: string) {
     for (const trip of groupTrips) void storeApi.getState().loadSplitRequests(trip.id);
   }, [groupTrips, storeApi]);
 
-  const activeTrips          = useMemo(() => groupTrips.filter(t => t.status !== 'closed'), [groupTrips]);
-  const closedTrips          = useMemo(() => groupTrips.filter(t => t.status === 'closed'), [groupTrips]);
-  const activeGroupExpenses  = useMemo(() => groupExpenses.filter(e => !e.settledAt), [groupExpenses]);
-  const settledGroupExpenses = useMemo(() => groupExpenses.filter(e => !!e.settledAt), [groupExpenses]);
+  // Phase 4c: closing a trip is purely organizational now (see closedTrips
+  // below) — it doesn't hide debt. Settling an expense is retired entirely;
+  // group expenses are no longer split into active/settled buckets.
+  const activeTrips = useMemo(() => groupTrips.filter(t => t.status !== 'closed'), [groupTrips]);
+  const closedTrips = useMemo(() => groupTrips.filter(t => t.status === 'closed'), [groupTrips]);
 
   const completedPayments = useMemo<LedgerPayment[]>(() => {
     const allRequests: SplitRequest[] = [
@@ -74,8 +75,8 @@ export function useGroupDetail(groupId: string) {
     group,
     activeTrips,
     closedTrips,
-    activeGroupExpenses,
-    settledGroupExpenses,
+    tripExpenses,
+    groupExpenses,
     settlements,
     memberBalances,
     loading: expensesLoading,

@@ -6,6 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Text } from '../../src/components/ui/Text';
 import { ParticipantsRow, DetailHeaderBar, DetailExpenseRow } from '../../src/components/ui';
+import { ClosedTripCard } from '../../src/features/trips/components/ClosedTripCard';
 import { useGroupDetail } from '../../src/features/groups/hooks/useGroupDetail';
 import { BalanceViewSelector } from '../../src/components/ui/BalanceViewSelector';
 import { useBalanceView } from '../../src/core/hooks/useBalanceView';
@@ -26,12 +27,15 @@ export default function GroupDetailScreen() {
   const {
     group,
     activeTrips,
-    activeGroupExpenses,
+    closedTrips,
+    tripExpenses,
+    groupExpenses,
     settlements,
     memberBalances,
   } = useGroupDetail(id);
 
   const [fabOpen, setFabOpen] = useState(false);
+  const [showPast, setShowPast] = useState(false);
 
   const fabRotation = useSharedValue(0);
   const item0 = useSharedValue(0);
@@ -142,8 +146,34 @@ export default function GroupDetailScreen() {
           </>
         )}
 
-        {/* Active expenses */}
-        {activeGroupExpenses.length > 0 && (
+        {/* Past (closed) trips — organizational only; still fully part of the
+            group ledger above, this is just where to go find and reopen one. */}
+        {closedTrips.length > 0 && (
+          <>
+            <Pressable
+              onPress={() => setShowPast(p => !p)}
+              hitSlop={8}
+              style={{ marginTop: activeTrips.length > 0 ? 12 : 24 }}
+            >
+              <Text style={lgStyles.sectionAction}>
+                {t(showPast ? 'groups.detail.hide_past' : 'groups.detail.view_past')}
+              </Text>
+            </Pressable>
+            {showPast && (
+              <>
+                <View style={lgStyles.sectionRow}>
+                  <Text style={lgStyles.sectionTitle}>{t('groups.detail.past_section')}</Text>
+                </View>
+                {closedTrips.map(trip => (
+                  <ClosedTripCard key={trip.id} trip={trip} expenseCount={tripExpenses[trip.id]?.length ?? 0} />
+                ))}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Expenses */}
+        {groupExpenses.length > 0 && (
           <>
             <View style={lgStyles.sectionRow}>
               <Text style={lgStyles.sectionTitle}>Expenses</Text>
@@ -152,7 +182,7 @@ export default function GroupDetailScreen() {
               </Pressable>
             </View>
             <View style={lgStyles.card}>
-              {activeGroupExpenses.map((expense, i) => {
+              {groupExpenses.map((expense, i) => {
                 const payer = group.members.find(m => m.userId === expense.paidByUserId);
                 return (
                   <View key={expense.id}>

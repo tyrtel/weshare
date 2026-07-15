@@ -28,14 +28,12 @@ export function computeGroupBalances(
   groupExpenses: Expense[],
   payments: LedgerPayment[] = [],
 ): GroupBalanceResult {
+  // Phase 4c: a trip's or expense's "closed"/"settled" state is purely
+  // organizational now — it no longer hides debt. The ledger (expenses minus
+  // completed payments) is the only thing that determines what shows up here.
   const allExpenses: Expense[] = [
-    // Closed trips are treated as fully settled — exclude their expenses.
-    // NOTE: this exclusion (and the settled-expense one below) is exactly
-    // what Phase 4's step 4c removes — deliberately left in place here since
-    // that's a live behavior change requiring explicit sign-off, not part
-    // of 4a's scope.
-    ...groupTrips.filter(t => t.status !== 'closed').flatMap(t => tripExpenses[t.id] ?? []),
-    ...groupExpenses.filter(e => !e.settledAt),
+    ...groupTrips.flatMap(t => tripExpenses[t.id] ?? []),
+    ...groupExpenses,
   ];
 
   const members = memberUserIds.map(userId => ({

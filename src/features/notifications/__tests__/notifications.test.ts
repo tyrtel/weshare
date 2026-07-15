@@ -7,9 +7,7 @@ import { AUTH, NOTIFICATION_SERVICE, TRIP_STORE } from '../../../core/di/tokens'
 import { MockNotificationService } from '../../../__mocks__/MockNotificationService';
 import { useRegisterPushToken } from '../hooks/useRegisterPushToken';
 import { useCreateGroupExpense } from '../../groups/hooks/useCreateGroupExpense';
-import { useSettleGroupExpense } from '../../groups/hooks/useSettleGroupExpense';
-import { groupFactory, groupMemberFactory, expenseFactory } from '../../../__testUtils__/factories';
-import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
+import { groupFactory, groupMemberFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 
 function makeWrapper(container: ServiceContainer) {
@@ -214,91 +212,3 @@ describe('useCreateGroupExpense — notifications', () => {
   });
 });
 
-// ── useSettleGroupExpense — notification integration ──────────────────────────
-
-describe('useSettleGroupExpense — notifications', () => {
-  let container: ServiceContainer;
-  let notificationService: MockNotificationService;
-
-  const expense = expenseFactory({
-    id:         'e1',
-    groupId:    GROUP_ID,
-    tripId:     undefined,
-    settledAt:  null,
-    paidByUserId: 'u1',
-    description:  'Rent',
-  });
-
-  beforeEach(async () => {
-    const expenseRepo = new InMemoryExpenseRepository();
-    expenseRepo.seed([expense]);
-    container           = createTestContainer({ expenseRepo });
-    notificationService = container.resolve(NOTIFICATION_SERVICE) as MockNotificationService;
-
-    const group = groupFactory({
-      id:      GROUP_ID,
-      name:    'Flatmates',
-      members: [
-        groupMemberFactory({ userId: 'u1', groupId: GROUP_ID }),
-        groupMemberFactory({ userId: 'u2', groupId: GROUP_ID }),
-      ],
-    });
-    container.resolve(TRIP_STORE).getState().appendGroup(group);
-    await container.resolve(TRIP_STORE).getState().loadGroupDetail(GROUP_ID);
-  });
-
-  it('enqueues a push notification for the expense creditor on settle', async () => {
-    const { result } = renderHook(
-      () => useSettleGroupExpense(),
-      { wrapper: makeWrapper(container) },
-    );
-
-    await act(async () => { await result.current.settleGroupExpense('e1', GROUP_ID); });
-
-    expect(notificationService.enqueueCalls).toHaveLength(1);
-    expect(notificationService.enqueueCalls[0]).toMatchObject({
-      userId:    'u1',   // paidByUserId — the creditor
-      channel:   'push',
-      eventType: 'expense_settled',
-    });
-  });
-
-  it('notification payload references the expense description and group name', async () => {
-    const { result } = renderHook(
-      () => useSettleGroupExpense(),
-      { wrapper: makeWrapper(container) },
-    );
-
-    await act(async () => { await result.current.settleGroupExpense('e1', GROUP_ID); });
-
-    const payload = notificationService.enqueueCalls[0].payload;
-    expect(String(payload.body)).toContain('Rent');
-    expect(payload.title).toBe('Flatmates');
-  });
-
-  it('does not enqueue when settle fails', async () => {
-    const { result } = renderHook(
-      () => useSettleGroupExpense(),
-      { wrapper: makeWrapper(container) },
-    );
-
-    await act(async () => { await result.current.settleGroupExpense('nonexistent', GROUP_ID); });
-
-    expect(notificationService.enqueueCalls).toHaveLength(0);
-  });
-
-  it('settle succeeds even if notification service would fail', async () => {
-    notificationService.enqueue = async () => { throw new Error('provider down'); };
-
-    const { result } = renderHook(
-      () => useSettleGroupExpense(),
-      { wrapper: makeWrapper(container) },
-    );
-
-    let ok = false;
-    await act(async () => { ok = await result.current.settleGroupExpense('e1', GROUP_ID); });
-
-    expect(ok).toBe(true);
-    expect(result.current.error).toBeNull();
-  });
-});

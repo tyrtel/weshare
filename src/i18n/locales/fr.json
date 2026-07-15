@@ -194,10 +194,10 @@
       "transfers_section": "Virements suggérés",
       "even": "Équilibré",
       "all_settled": "Tout le monde est réglé.",
-      "settle_all_button": "Tout marquer comme réglé",
-      "settle_all_error": "Une erreur s'est produite. Certains éléments n'ont peut-être pas été réglés.",
-      "confirm_title": "Tout marquer comme réglé ?",
-      "confirm_message": "Cela réglera toutes les dépenses du groupe et clôturera tous les voyages actifs. Cette action est irréversible.",
+      "settle_all_button": "Tout régler",
+      "settle_all_error": "Une erreur s'est produite. Certains paiements n'ont peut-être pas été enregistrés.",
+      "confirm_title": "Tout régler ?",
+      "confirm_message": "Ceci enregistrera chaque dette en cours dans ce groupe comme payée. Cette action est irréversible.",
       "confirm_action": "Tout régler",
       "pay_with_wero": "Payer avec Wero",
       "wero_not_installed": "Wero ne semble pas installé. Ouvrez votre application bancaire et payez {{name}} manuellement."
@@ -206,11 +206,7 @@
       "add_title": "Nouvelle dépense",
       "add_heading": "Ajouter une dépense",
       "split_among_label": "Répartir entre",
-      "split_equal_note": "Réparti équitablement entre {{count}} membres",
-      "settle_title": "Marquer comme réglée ?",
-      "settle_message": "Cette dépense sera déplacée vers les éléments passés.",
-      "settle_confirm": "Marquer réglée",
-      "settle_button": "Marquer comme réglée"
+      "split_equal_note": "Réparti équitablement entre {{count}} membres"
     },
     "recurring": {
       "make_recurring_button": "Rendre récurrente",
@@ -418,6 +414,7 @@
       "all_settled_bar": "Tout est réglé — Clôturer le voyage",
       "roll_over_debts": "Reporter les dettes",
       "close_trip": "Clôturer le voyage",
+      "reopen_trip": "Rouvrir le voyage",
       "payment_confirm_title": "Avez-vous effectué le paiement ?",
       "payment_confirm_message": "Avez-vous envoyé {{amount}} via {{wallet}} ?",
       "payment_confirm_yes": "Oui, j'ai payé"

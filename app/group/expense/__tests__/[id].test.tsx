@@ -1,16 +1,13 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { mockVectorIconsModule, mockSvgModule } from '../../../../src/__testUtils__/standardMocks';
 
 jest.mock('@expo/vector-icons', () => mockVectorIconsModule());
 jest.mock('react-native-svg', () => mockSvgModule());
 
-const mockBack       = jest.fn();
-const mockCanGoBack   = jest.fn(() => true);
 const mockSearchParams = jest.fn(() => ({ id: 'e1', groupId: 'g1' }));
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: mockBack, canGoBack: mockCanGoBack }),
+  useRouter: () => ({ push: jest.fn() }),
   useLocalSearchParams: () => mockSearchParams(),
   Stack: { Screen: () => null },
 }));
@@ -18,7 +15,7 @@ jest.mock('expo-router', () => ({
 import GroupExpenseDetailScreen from '../[id]';
 import { renderScreen } from '../../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../../src/core/di/testContainer';
-import { EXPENSE_REPO, TRIP_STORE, AUTH } from '../../../../src/core/di/tokens';
+import { TRIP_STORE, AUTH } from '../../../../src/core/di/tokens';
 import { groupFactory, groupMemberFactory, expenseFactory, splitFactory } from '../../../../src/__testUtils__/factories';
 import type { ServiceContainer } from '../../../../src/core/di/ServiceContainer';
 
@@ -41,9 +38,6 @@ async function seed(container: ServiceContainer, expenseOverrides: Parameters<ty
   const store = container.resolve(TRIP_STORE);
   store.getState().appendGroup(group);
   store.getState().appendGroupExpense(expense);
-  // Also persist to the repo — useSettleGroupExpense settles through EXPENSE_REPO,
-  // not the store, so a settle test needs the expense to actually exist there.
-  await container.resolve(EXPENSE_REPO).saveExpense(expense);
 
   return { group, expense, members };
 }
@@ -54,7 +48,6 @@ function render(container: ServiceContainer = createTestContainer()) {
 
 beforeEach(() => {
   mockSearchParams.mockReturnValue({ id: 'e1', groupId: 'g1' });
-  mockBack.mockClear();
 });
 
 describe('GroupExpenseDetailScreen', () => {
@@ -71,40 +64,17 @@ describe('GroupExpenseDetailScreen', () => {
     expect(screen.getAllByText('€20.00')).toHaveLength(2);
   });
 
-  it('shows the settle button and no "Settled" badge when unsettled', async () => {
-    const container = createTestContainer();
-    await seed(container, { settledAt: null });
-    render(container);
-
-    expect(screen.getByText('Mark as settled')).toBeTruthy();
-    expect(screen.queryByText('Settled')).toBeNull();
-  });
-
-  it('hides the settle button and shows "Settled" once settledAt is set', async () => {
+  // Phase 4c: the per-expense "Mark as settled" button/badge is retired
+  // entirely — settling an expense no longer affects the group ledger, so
+  // there's nothing left for it to mean. This holds regardless of whatever
+  // legacy `settledAt` value an expense happens to carry.
+  it('never renders a settle button or "Settled" badge, settled or not', async () => {
     const container = createTestContainer();
     await seed(container, { settledAt: new Date('2025-06-02T00:00:00Z') });
     render(container);
 
     expect(screen.queryByText('Mark as settled')).toBeNull();
-    expect(screen.getByText('Settled')).toBeTruthy();
-  });
-
-  it('pressing settle confirms via Alert, calls settleGroupExpense, and navigates back', async () => {
-    const container = createTestContainer();
-    await seed(container, { settledAt: null });
-    render(container);
-
-    jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-      // Second button is the destructive/confirm action per the source's array order.
-      buttons?.[1]?.onPress?.();
-    });
-
-    fireEvent.press(screen.getByText('Mark as settled'));
-
-    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
-
-    const stored = await container.resolve(EXPENSE_REPO).getExpense('e1');
-    expect(stored.ok && stored.value.settledAt).not.toBeNull();
+    expect(screen.queryByText('Settled')).toBeNull();
   });
 
   it('"Make recurring" opens the recurring setup sheet', async () => {

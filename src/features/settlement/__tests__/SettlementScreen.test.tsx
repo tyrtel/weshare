@@ -195,3 +195,40 @@ describe('SettlementScreen — Close Trip link', () => {
     expect(screen.queryByTestId('close-trip-button')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Reopen Trip link (Phase 4c, decision 3 — closing is now reversible)
+// ---------------------------------------------------------------------------
+
+describe('SettlementScreen — Reopen Trip link', () => {
+  beforeEach(() => {
+    mockParams.mockReturnValue({ tripId: 't1' });
+  });
+
+  it('hides Reopen Trip when tripStatus is active', () => {
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, tripStatus: 'active' });
+    render(<SettlementScreen />);
+    expect(screen.queryByTestId('reopen-trip-button')).toBeNull();
+  });
+
+  it('shows Reopen Trip when tripStatus is closed', () => {
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, tripStatus: 'closed' });
+    render(<SettlementScreen />);
+    expect(screen.getByTestId('reopen-trip-button')).toBeTruthy();
+  });
+
+  it('shows Reopen Trip even when allSettled is true — a closed trip can still carry debt', () => {
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, tripStatus: 'closed', allSettled: true, settlements: [] });
+    render(<SettlementScreen />);
+    expect(screen.getByTestId('reopen-trip-button')).toBeTruthy();
+  });
+
+  it('calls reopenTrip when pressed', async () => {
+    const { fireEvent, act } = require('@testing-library/react-native');
+    const reopenTrip = jest.fn().mockResolvedValue(undefined);
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, tripStatus: 'closed', reopenTrip });
+    render(<SettlementScreen />);
+    await act(async () => { fireEvent.press(screen.getByTestId('reopen-trip-button')); });
+    expect(reopenTrip).toHaveBeenCalledTimes(1);
+  });
+});

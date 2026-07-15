@@ -194,10 +194,10 @@
       "transfers_section": "Suggested transfers",
       "even": "Even",
       "all_settled": "Everyone is settled up.",
-      "settle_all_button": "Mark everything settled",
-      "settle_all_error": "Something went wrong. Some items may not have been settled.",
-      "confirm_title": "Mark everything settled?",
-      "confirm_message": "This will settle all group expenses and close all active trips in this group. This cannot be undone.",
+      "settle_all_button": "Settle everything",
+      "settle_all_error": "Something went wrong. Some payments may not have been recorded.",
+      "confirm_title": "Settle everything?",
+      "confirm_message": "This will record every outstanding debt in this group as paid. This cannot be undone.",
       "confirm_action": "Settle everything",
       "pay_with_wero": "Pay with Wero",
       "wero_not_installed": "Wero doesn't seem to be installed. Open your banking app and pay {{name}} manually."
@@ -206,11 +206,7 @@
       "add_title": "New Expense",
       "add_heading": "Add expense",
       "split_among_label": "Split among",
-      "split_equal_note": "Split equally between {{count}} members",
-      "settle_title": "Mark as settled?",
-      "settle_message": "This expense will be moved to past items.",
-      "settle_confirm": "Mark settled",
-      "settle_button": "Mark as settled"
+      "split_equal_note": "Split equally between {{count}} members"
     },
     "recurring": {
       "make_recurring_button": "Make recurring",
@@ -418,6 +414,7 @@
       "all_settled_bar": "All settled — Close Trip",
       "roll_over_debts": "Roll Over Debts",
       "close_trip": "Close Trip",
+      "reopen_trip": "Reopen Trip",
       "payment_confirm_title": "Did you complete the payment?",
       "payment_confirm_message": "Did you send {{amount}} via {{wallet}}?",
       "payment_confirm_yes": "Yes, I paid"

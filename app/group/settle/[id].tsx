@@ -32,7 +32,7 @@ export default function GroupSettlementScreen() {
   const paymentService = useService(PAYMENT);
 
   const { group, settlements, memberBalances } = useGroupDetail(id);
-  const { settleAll, loading, error }          = useSettleAllGroupDebts(id);
+  const { settleAll, loading, error }          = useSettleAllGroupDebts(id, settlements);
 
   const handleWeroPay = async (phone: string, amountCents: number, currency: string, toName: string) => {
     const url = paymentService.buildPaymentLink('wero', amountCents, currency, phone);

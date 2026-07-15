@@ -64,6 +64,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
     allSettled,
     updateRequestStatus,
     closeTrip,
+    reopenTrip,
     recordPayment,
     refetch,
   } = useSettlement(tripId);
@@ -79,6 +80,11 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     void closeTrip().then(() => router.back());
   }, [closeTrip, router]);
+
+  const handleReopenTrip = useCallback(() => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void reopenTrip();
+  }, [reopenTrip]);
 
   const [payTarget, setPayTarget]           = useState<EnrichedSettlement | null>(null);
   const [recordTarget, setRecordTarget]     = useState<EnrichedSettlement | null>(null);
@@ -313,6 +319,22 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
               <Text variant="caption" color={colors.text.tertiary}>{t('settlement.screen.close_trip')}</Text>
             </Pressable>
           )}
+        </View>
+      )}
+
+      {/* Reopen — closing is purely organizational now, so it's reversible;
+          shown regardless of allSettled since a closed trip can still carry
+          real outstanding debt after Phase 4c. */}
+      {tripStatus === 'closed' && (
+        <View style={{ paddingBottom: tokens.spacing.lg }}>
+          <Pressable
+            testID="reopen-trip-button"
+            onPress={handleReopenTrip}
+            hitSlop={8}
+            style={{ alignItems: 'center', paddingVertical: tokens.spacing.sm }}
+          >
+            <Text variant="caption" color={colors.primary.default}>{t('settlement.screen.reopen_trip')}</Text>
+          </Pressable>
         </View>
       )}
     </ScreenWrapper>

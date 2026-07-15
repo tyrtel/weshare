@@ -37,3 +37,38 @@ export interface SplitRequest {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/**
+ * Builds a completed SplitRequest for a manually-recorded payment — the
+ * ledger's write primitive (see core/logic/settlement.ts's LedgerPayment).
+ * Scope is trip-or-group, matching every other trip/group-dual model.
+ */
+export function createManualPaymentRequest(params: {
+  tripId?: string;
+  groupId?: string;
+  payerUserId: string;
+  requesterUserId: string;
+  amountCents: number;
+  currency: string;
+}): SplitRequest {
+  return {
+    id:                  `sr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    tripId:              params.tripId,
+    groupId:             params.groupId,
+    requesterUserId:     params.requesterUserId,
+    payerUserId:         params.payerUserId,
+    amountCents:         params.amountCents,
+    currency:            params.currency,
+    note:                '',
+    status:              'paid',
+    preferredWallet:     'other',
+    externalRefId:       null,
+    stripePaymentLinkId: null,
+    stripeSessionId:     null,
+    obPaymentId:         null,
+    obProvider:          null,
+    rolledOverFromTripId: null,
+    createdAt:           new Date(),
+    updatedAt:           new Date(),
+  };
+}

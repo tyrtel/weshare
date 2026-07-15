@@ -76,9 +76,21 @@
 > `markDebtPaid`/`markDebtOwed`/`markSettled` UI actions retired in favor of
 > it. Full detail in the 4b entry below. Nothing is mid-edit — working tree
 > typechecked, full suite green and stable across repeated runs (1009/1009).
-> **Next up:** 4c — decoupling trip/expense-closing from group debt
-> visibility. This is explicitly flagged as a live behavior change needing
-> your sign-off before it lands, not a routine continuation.
+> **4c now also landed (2026-07-15)**, after you reviewed a rundown of the
+> options and made four explicit decisions: closing a trip is purely
+> organizational (Decision 1); the group's per-expense "Mark as settled"
+> button is retired entirely, not repurposed (Decision 2); trip closing is
+> now reversible via a new "Reopen Trip" link (Decision 3); and closed trips
+> are discoverable from the group screen behind a "View past items" toggle
+> (Decision 4). Retiring Decision 2's button required also reconciling the
+> group's bulk "Settle everything" action (4e) in the same pass — it would
+> otherwise have kept doing something that no longer meant anything — so 4e
+> landed alongside 4c rather than as a separate later step. Full detail in
+> the 4c entry below. Nothing is mid-edit — working tree typechecked, full
+> suite green and stable across repeated runs (1001/1001).
+> **Next up:** 4d — extending the ledger/record-a-payment view to group's
+> settle screen (`app/group/settle/[id].tsx`), the one piece of the original
+> Phase 4 plan not covered by any of the four decisions above.
 
 Working sequence agreed 2026-07-13, now four phases (Phase 4 added mid-stream once
 the balance/stat card question in 3a turned into a real feature ask) — each has a
@@ -885,51 +897,103 @@ name:
             new issue caught along the way — a `setState`-in-`useEffect`
             pattern in `RecordPaymentSheet`, rewritten as the React-recommended
             "adjust state during render on a prop change" pattern instead).
-- [ ] **4c — Decouple trip/expense-closing from group debt visibility.**
-      - [ ] Remove `computeGroupBalances`'s two wholesale-exclusion filters
+- [x] **4c — Decouple trip/expense-closing from group debt visibility.** Done
+      (2026-07-15) — landed exactly the four decisions you made after
+      reviewing the options rundown:
+      - **Decision 1 — closing a trip is purely organizational.** Done.
+            `computeGroupBalances`'s two wholesale-exclusion filters
             (`groupTrips.filter(t => t.status !== 'closed')`,
-            `groupExpenses.filter(e => !e.settledAt)`) in
-            `src/features/groups/utils/computeGroupBalances.ts` — the
-            ledger, not trip/expense lifecycle state, becomes the only thing
-            that determines whether a debt shows up.
-      - [ ] Reconcile `app/group/expense/[id].tsx`'s "Mark as settled"
-            button / `useSettleGroupExpense` — flagged above as the third
-            dead-end this change creates. Likely retire it (consistent with
-            dropping per-expense settled granularity everywhere else in this
-            phase), but that's your call to confirm, not mine to assume.
-      - [ ] Update `src/features/groups/__tests__/computeGroupBalances.test.ts`
-            and any other test relying on the old exclusion behavior, as
-            part of this item, not after.
-      - [ ] **This is a live behavior change, not a refactor** — today,
-            closing a trip or settling an expense makes its debts disappear
-            from the group ledger; after this, they persist until actually
-            paid down. **Needs your explicit sign-off before landing**, same
-            as flagged throughout the analysis doc.
+            `groupExpenses.filter(e => !e.settledAt)`) are gone — the ledger
+            (expenses minus completed payments) is the only thing that
+            determines what shows up. `computeGroupBalances.test.ts`'s two
+            exclusion tests rewritten to assert the opposite (closed-trip
+            and settled expenses now count).
+      - **Decision 2 — retire the per-expense "Mark as settled" button
+            entirely.** Done. Removed the button/badge/confirm-dialog from
+            `app/group/expense/[id].tsx`; deleted `useSettleGroupExpense.ts`
+            and its test outright (not superseded-in-place — the whole
+            per-expense granularity concept is gone, matching how trip's
+            split badges and `ExpenseDetailScreen`'s badge were retired in
+            4b). Its push-notification integration tests
+            (`useSettleGroupExpense — notifications` in
+            `notifications.test.ts`) deleted along with it. `Expense.settledAt`
+            and the `settleExpense` repo method/store action are left in the
+            model as dormant plumbing — same deferred-cleanup precedent as
+            4a's `Split.amountPaidCents`/`settledAt`, not removed here.
+            `useGroupDetail`'s `activeGroupExpenses`/`settledGroupExpenses`
+            split collapsed into one `groupExpenses` list (all of them, no
+            bucket) — there's no more "settled" state to bucket by.
+      - **Necessary follow-through, flagged rather than assumed:** retiring
+            the per-expense button left the group's bulk **"Settle
+            everything"** action incoherent — it still called `settleExpense`
+            + closed every trip, which (once decision 1 landed) no longer
+            reduces anyone's actual debt. Folded in the minimal fix this
+            requires (this is 4e's own described design, pulled forward
+            because leaving the button broken/misleading wasn't an option):
+            `useSettleAllGroupDebts` now takes the group's current
+            `settlements` and records one completed, group-scoped payment
+            per pair via a new `createManualPaymentRequest()` factory in
+            `core/models/SplitRequest.ts` (shared with `useSettlement`'s
+            `recordPayment`, which was refactored to use it too — same
+            object-construction logic, no longer duplicated). It **no
+            longer touches expenses or trips at all** — paying off debt and
+            archiving are independent actions now. Calls the split-request
+            repo directly rather than the store's `saveSplitRequest`
+            wrapper, since the latter only tracks one `hydrationError` at a
+            time and would race when saving several pairs concurrently.
+            Button copy updated ("Mark everything settled" →
+            "Settle everything") to match what it actually does now.
+      - **Decision 3 — reversibility.** Done, scoped to trip reopening (the
+            only thing left that's reversible once decision 2 removed
+            per-expense settling from existence — there's nothing left to
+            "un-settle"). `SettlementScreen.tsx` now shows a "Reopen Trip"
+            link whenever `tripStatus === 'closed'`, wired to `reopenTrip()`
+            — which already existed on `useSettlement` since 4b's day one
+            but had no UI entry point. Shown regardless of `allSettled`,
+            since a closed trip can now genuinely still carry debt.
+      - **Decision 4 — a History view.** Done. `app/group/[id].tsx` gained a
+            "View past items" / "Hide past items" toggle (reusing
+            `groups.detail.view_past`/`hide_past`/`past_section` i18n keys
+            that already existed in both locale files but were never wired
+            to anything) revealing closed trips, rendered with the existing
+            `ClosedTripCard` component (already built for the standalone
+            trips list, reused as-is — same navigation to `/trip/${id}`).
+            `useGroupDetail` now also returns `tripExpenses` so the card's
+            `expenseCount` prop has something to read. There's no equivalent
+            "past expenses" section — decision 2 means there's no separate
+            settled-expense bucket left to show one for.
+      - Verified: full suite green and stable across repeated runs
+            (1001/1001 — count differs from 4b's 1009 by the tests removed
+            with `useSettleGroupExpense`'s retirement, not a regression),
+            typechecked clean (diffed — the handful of remaining errors are
+            all confirmed pre-existing, unrelated to this pass), lint clean
+            (one real issue caught and fixed — a stray unused import in
+            `notifications.test.ts` left behind after deleting the describe
+            block that used it).
+- [x] **4e — Reconcile the bulk "settle everything" action.** Landed as part
+      of 4c above (see "necessary follow-through" — retiring the per-expense
+      button made this unavoidable rather than a later, separate step).
+      Trip/expense closing is purely organizational now and has stopped
+      being a debt-visibility mechanism anywhere in the app.
 - [ ] **4d — Extend the ledger view to group.**
-      - [ ] Wire 4b's component and 4a's primitive into
-            `app/group/settle/[id].tsx`, scoped to `groupId` — reusing the
-            same component (not a parallel one) is the point: "as close to
-            identical as possible" comes from sharing the view and the
-            action, not converging two separate screens after the fact.
-- [ ] **4e — Reconcile the bulk "settle everything" action.**
-      - [ ] Reshape `src/features/groups/hooks/useSettleAllGroupDebts.ts`
-            from its current wholesale exclude-and-close operation (settle
-            every active expense, close every active trip) into a
-            convenience wrapper that calls 4a's primitive with each pair's
-            full net balance — same mechanism as an individual payment, not
-            a separate code path.
-      - [ ] Trip/expense closing (whatever it ends up meaning after 4c's
-            still-open question) becomes purely organizational from here on
-            and stops being a debt-visibility mechanism anywhere in the app.
+      - [ ] Wire 4b's `RecordPaymentSheet`/ledger-history component and 4a's
+            primitive into `app/group/settle/[id].tsx`, scoped to `groupId`
+            — reusing the same component (not a parallel one) is the point.
+            Not built yet — the group settle screen still only has the bulk
+            "Settle everything" action from 4c/4e, no per-pair drill-down
+            ledger view or individual "record a payment" affordance the way
+            trip's Settle screen has. Decision 4 only asked for trip/expense
+            **history** visibility, not this — still open.
 
 ### Checkpoint 4
 
-- [ ] 4a–4e landed and reviewed
-- [ ] The dead-button regression test from 4b is in place and passing —
+- [x] 4a, 4b, 4c, 4e landed and reviewed — **4d still open** (see above)
+- [x] The dead-button regression test from 4b is in place and passing —
       this is the concrete, verifiable proof the feature actually works
-- [ ] Overpayment produces a credit that visibly carries forward onto a
+- [x] Overpayment produces a credit that visibly carries forward onto a
       later expense in at least one test — the concrete, verifiable proof
       the core conceptual change actually works, not just that it compiles
-- [ ] 4c's behavior change was explicitly signed off before landing, not
-      folded in silently as part of "finishing the phase"
-- [ ] Mark this checkpoint `[x]` — sequence complete
+- [x] 4c's behavior change was explicitly signed off before landing (you
+      reviewed the options rundown and made all four decisions explicitly),
+      not folded in silently as part of "finishing the phase"
+- [ ] Mark this checkpoint `[x]` — sequence complete once 4d lands too
