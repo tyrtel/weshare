@@ -333,7 +333,7 @@ exports[`ledger theme Button disabled 1`] = `
             "lineHeight": 18,
           },
           {
-            "color": "#ffffff",
+            "color": "#FFFFFF",
           },
           undefined,
         ]
@@ -489,7 +489,7 @@ exports[`ledger theme Button primary 1`] = `
             "lineHeight": 18,
           },
           {
-            "color": "#ffffff",
+            "color": "#FFFFFF",
           },
           undefined,
         ]
@@ -567,7 +567,7 @@ exports[`ledger theme Button sm 1`] = `
             "lineHeight": 18,
           },
           {
-            "color": "#ffffff",
+            "color": "#FFFFFF",
           },
           undefined,
         ]

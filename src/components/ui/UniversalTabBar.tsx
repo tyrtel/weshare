@@ -20,13 +20,19 @@ const TABS: TabDef[] = [
     label:    'Home',
     icon:     'home-outline',
     route:    '/',
-    isActive: (p) => p !== '/balance' && !p.startsWith('/settle'),
+    isActive: (p) => p !== '/balance' && p !== '/reports' && !p.startsWith('/settle'),
   },
   {
     label:    'Balance',
     icon:     'wallet-outline',
     route:    '/balance',
     isActive: (p) => p === '/balance' || p.startsWith('/settle'),
+  },
+  {
+    label:    'Reports',
+    icon:     'document-text-outline',
+    route:    '/reports',
+    isActive: (p) => p === '/reports',
   },
 ];
 

@@ -31,8 +31,8 @@ export function HeaderConfirmButton({ onPress, disabled, loading, accessibilityL
       })}
     >
       {loading
-        ? <ActivityIndicator color="#fff" size="small" />
-        : <Ionicons name="checkmark" size={20} color="#fff" />}
+        ? <ActivityIndicator color={colors.text.inverse} size="small" />
+        : <Ionicons name="checkmark" size={20} color={colors.text.inverse} />}
     </Pressable>
   );
 }

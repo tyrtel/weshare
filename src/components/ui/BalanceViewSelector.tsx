@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Avatar } from './Avatar';
 import { LedgerBars } from './LedgerBars';
 import { Segmented } from './Segmented';
 import type { BalanceViewMode } from '../../core/hooks/useBalanceView';
-import { ledgerColors, personColorFor } from '../../theme/colors';
+import { useColors, personColorFor } from '../../theme/colors';
+import type { ColorPalette } from '../../theme/colors';
 import { ledgerRadius, ledgerFonts } from '../../theme/tokens';
 import { formatCurrency } from '../../core/utils/formatCurrency';
 
@@ -29,6 +30,8 @@ interface Props {
 }
 
 export function BalanceViewSelector({ balances, members, viewMode, onChangeView, currency = 'EUR' }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const memberMap = new Map(members.map(m => [m.userId, m]));
   const sorted = Object.entries(balances).sort((a, b) => b[1] - a[1]);
 
@@ -52,8 +55,8 @@ export function BalanceViewSelector({ balances, members, viewMode, onChangeView,
               if (!member) return null;
               const isOwed = cents >= 0;
               const color = cents === 0
-                ? ledgerColors.text.tertiary
-                : isOwed ? ledgerColors.success.default : ledgerColors.error.default;
+                ? colors.text.tertiary
+                : isOwed ? colors.success.default : colors.error.default;
               const sign = cents === 0 ? '' : isOwed ? '+' : '−';
               const initials = member.displayName.trim().charAt(0).toUpperCase();
               const pc = personColorFor(userId, members);
@@ -80,11 +83,11 @@ export function BalanceViewSelector({ balances, members, viewMode, onChangeView,
               if (!member) return null;
               const isOwed = cents >= 0;
               const ringColor = cents === 0
-                ? ledgerColors.border
-                : isOwed ? ledgerColors.success.default : ledgerColors.error.default;
+                ? colors.border
+                : isOwed ? colors.success.default : colors.error.default;
               const amountColor = cents === 0
-                ? ledgerColors.text.tertiary
-                : isOwed ? ledgerColors.success.default : ledgerColors.error.default;
+                ? colors.text.tertiary
+                : isOwed ? colors.success.default : colors.error.default;
               const sign = cents === 0 ? '' : isOwed ? '+' : '−';
               const initials = member.displayName.trim().charAt(0).toUpperCase();
               const firstName = member.displayName.split(' ')[0];
@@ -108,12 +111,12 @@ export function BalanceViewSelector({ balances, members, viewMode, onChangeView,
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorPalette) => StyleSheet.create({
   root: { gap: 12 },
   content: {},
 
   list: { gap: 0 },
-  divider: { height: 1, backgroundColor: ledgerColors.border, marginLeft: 44 },
+  divider: { height: 1, backgroundColor: colors.border, marginLeft: 44 },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -124,7 +127,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: ledgerFonts.bodyMedium,
     fontSize: 13.5,
-    color: ledgerColors.text.primary,
+    color: colors.text.primary,
   },
   listAmount: {
     fontFamily: ledgerFonts.displaySemibold,
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
   bubbleName: {
     fontFamily: ledgerFonts.bodyMedium,
     fontSize: 11,
-    color: ledgerColors.text.secondary,
+    color: colors.text.secondary,
     textAlign: 'center',
   },
 });

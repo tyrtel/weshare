@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
-import { ledgerColors, personColorFor } from '../../theme/colors';
+import { useColors, personColorFor } from '../../theme/colors';
 
 interface ParticipantMember {
   userId: string;
@@ -26,6 +26,7 @@ interface ParticipantsRowProps {
 // Extracted from TripDetailScreen's Participants row — the design the user
 // picked as the winner over GroupDetailScreen's side-by-side pill chips.
 export function ParticipantsRow({ members, onInvitePress, inviteLabel, onMemberPress, unlinkedLabel }: ParticipantsRowProps) {
+  const colors = useColors();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
       {members.map(m => {
@@ -34,7 +35,7 @@ export function ParticipantsRow({ members, onInvitePress, inviteLabel, onMemberP
         const avatar = (
           <View>
             <Avatar initials={m.displayName} bg={pc.bg} url={m.avatarUrl} size="lg" />
-            {unlinked && <View style={styles.unlinkedDot} />}
+            {unlinked && <View style={[styles.unlinkedDot, { backgroundColor: colors.primary.default, borderColor: colors.surface }]} />}
           </View>
         );
         return (
@@ -48,17 +49,17 @@ export function ParticipantsRow({ members, onInvitePress, inviteLabel, onMemberP
                 {avatar}
               </Pressable>
             ) : avatar}
-            <Text style={{ fontSize: 12, fontWeight: '500', color: ledgerColors.text.primary }}>
+            <Text style={{ fontSize: 12, fontWeight: '500', color: colors.text.primary }}>
               {m.displayName.split(' ')[0]}
             </Text>
           </View>
         );
       })}
       <Pressable onPress={onInvitePress} style={{ alignItems: 'center', gap: 4 }}>
-        <View style={styles.inviteCircle}>
-          <Feather name="user-plus" size={18} color={ledgerColors.primary.default} />
+        <View style={[styles.inviteCircle, { borderColor: colors.primary.default, backgroundColor: colors.primary.subtle }]}>
+          <Feather name="user-plus" size={18} color={colors.primary.default} />
         </View>
-        <Text style={{ fontSize: 12, fontWeight: '500', color: ledgerColors.primary.default }}>
+        <Text style={{ fontSize: 12, fontWeight: '500', color: colors.primary.default }}>
           {inviteLabel}
         </Text>
       </Pressable>
@@ -69,14 +70,12 @@ export function ParticipantsRow({ members, onInvitePress, inviteLabel, onMemberP
 const styles = StyleSheet.create({
   inviteCircle: {
     width: 44, height: 44, borderRadius: 22,
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: ledgerColors.primary.default,
+    borderWidth: 1.5, borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: ledgerColors.primary.subtle,
   },
   unlinkedDot: {
     position: 'absolute', top: 0, right: 0,
     width: 12, height: 12, borderRadius: 6,
-    backgroundColor: ledgerColors.primary.default,
-    borderWidth: 2, borderColor: ledgerColors.surface,
+    borderWidth: 2,
   },
 });

@@ -10,7 +10,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import { InMemoryTripRepository } from '../../__mocks__/InMemoryTripRepository';
@@ -32,10 +32,12 @@ import { MockExchangeRateService } from '../../__mocks__/MockExchangeRateService
 import { InMemoryGroupRepository } from '../../__mocks__/InMemoryGroupRepository';
 import { InMemoryRecurringExpenseRepository } from '../../__mocks__/InMemoryRecurringExpenseRepository';
 import { MockNotificationService } from '../../__mocks__/MockNotificationService';
+import { MockReportService } from '../../__mocks__/MockReportService';
 
 import { restaurantScenario, RESTAURANT_CURRENT_USER, RESTAURANT_CURRENT_USER_EMAIL } from '../../__mocks__/fixtures/restaurantScenario';
 import { twoPersonScenario } from '../../__mocks__/fixtures/twoPersonScenario';
 import { settlingScenario } from '../../__mocks__/fixtures/settlingScenario';
+import { groupScenario } from '../../__mocks__/fixtures/groupScenario';
 import type { StorageFixtures } from '../../__mocks__/fixtures/types';
 import { logger } from '../utils/logger';
 
@@ -46,6 +48,7 @@ function mergeFixtures(...scenarios: StorageFixtures[]): StorageFixtures {
     expenses:      scenarios.flatMap(s => s.expenses      ?? []),
     splits:        scenarios.flatMap(s => s.splits        ?? []),
     splitRequests: scenarios.flatMap(s => s.splitRequests ?? []),
+    groups:        scenarios.flatMap(s => s.groups        ?? []),
   };
 }
 
@@ -63,7 +66,7 @@ export function createSimulationContainer(): Promise<ServiceContainer> {
 
 async function _create(): Promise<ServiceContainer> {
   logger.log('[simulationContainer] start');
-  const merged = mergeFixtures(restaurantScenario, twoPersonScenario, settlingScenario);
+  const merged = mergeFixtures(restaurantScenario, twoPersonScenario, settlingScenario, groupScenario);
 
   const tripRepo   = new InMemoryTripRepository().seed(merged.trips ?? []);
   const memberRepo = new InMemoryMemberRepository().seed(merged.members ?? []);
@@ -95,10 +98,11 @@ async function _create(): Promise<ServiceContainer> {
   container.register(RECEIPT_PARSER, new MockReceiptParserService());
   container.register(RECEIPT_STORAGE,  new MockReceiptStorage());
   container.register(EXCHANGE_RATE,    new MockExchangeRateService());
-  const groupRepo = new InMemoryGroupRepository();
+  const groupRepo = new InMemoryGroupRepository().seed(merged.groups ?? []);
   container.register(GROUP_REPO,             groupRepo);
   container.register(RECURRING_EXPENSE_REPO,  new InMemoryRecurringExpenseRepository());
   container.register(NOTIFICATION_SERVICE,    new MockNotificationService());
+  container.register(REPORT_SERVICE,          new MockReportService());
   container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }));
   return container;
 }

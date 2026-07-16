@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { ledgerColors } from '../../theme/colors';
+import { useColors } from '../../theme/colors';
 import { ledgerRadius, ledgerShadow } from '../../theme/tokens';
 
 interface SegmentedOption {
@@ -15,17 +15,18 @@ interface SegmentedProps {
 }
 
 export function Segmented({ options, value, onChange }: SegmentedProps) {
+  const colors = useColors();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.border }]}>
       {options.map(option => {
         const active = option.key === value;
         return (
           <Pressable
             key={option.key}
             onPress={() => onChange(option.key)}
-            style={[styles.segment, active && styles.segmentActive]}
+            style={[styles.segment, active && [styles.segmentActive, { backgroundColor: colors.surface }]]}
           >
-            <Text style={[styles.label, active && styles.labelActive]}>
+            <Text style={[styles.label, { color: active ? colors.text.primary : colors.text.secondary }]}>
               {option.label}
             </Text>
           </Pressable>
@@ -38,7 +39,6 @@ export function Segmented({ options, value, onChange }: SegmentedProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: ledgerColors.border,
     borderRadius: ledgerRadius.md,
     padding: 3,
   },
@@ -49,15 +49,10 @@ const styles = StyleSheet.create({
     borderRadius: ledgerRadius.md - 3,
   },
   segmentActive: {
-    backgroundColor: ledgerColors.surface,
     ...ledgerShadow.card,
   },
   label: {
     fontSize: 13,
     fontWeight: '500',
-    color: ledgerColors.text.secondary,
-  },
-  labelActive: {
-    color: ledgerColors.text.primary,
   },
 });

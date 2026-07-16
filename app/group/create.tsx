@@ -290,7 +290,7 @@ export default function CreateGroupScreen() {
                 opacity: (!memberInput.trim() || isDuplicateMember) ? 0.4 : pressed ? 0.8 : 1,
               })}
             >
-              <Text variant="label" color="#ffffff">{t('groups.add_member.add_button')}</Text>
+              <Text variant="label" color={colors.text.inverse}>{t('groups.add_member.add_button')}</Text>
             </Pressable>
           </View>
           {isDuplicateMember && (

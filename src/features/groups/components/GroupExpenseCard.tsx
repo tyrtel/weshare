@@ -1,5 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
 import { Badge } from '../../../components/ui/Badge';
@@ -15,6 +16,7 @@ interface GroupExpenseCardProps {
 }
 
 export function GroupExpenseCard({ expense, payerName, onPress }: GroupExpenseCardProps) {
+  const { t } = useTranslation();
   const colors = useColors();
   const settled = !!expense.settledAt;
 
@@ -35,7 +37,7 @@ export function GroupExpenseCard({ expense, payerName, onPress }: GroupExpenseCa
           </Text>
           {settled && (
             <Badge
-              label="Settled"
+              label={t('expenses.detail.closed_badge')}
               bg={colors.success.bg}
               color={colors.success.default}
             />

@@ -16,7 +16,7 @@ import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
-import { ledgerColors as C } from '../../src/theme/colors';
+import { useColors } from '../../src/theme/colors';
 import { validateAndNormalizeEmail } from '../../src/core/utils/emailValidation';
 
 export default function ForgotPasswordScreen() {
@@ -24,6 +24,7 @@ export default function ForgotPasswordScreen() {
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const C      = useColors();
 
   const [email, setEmail] = useState('');
   const [busy, setBusy]   = useState(false);
@@ -56,7 +57,7 @@ export default function ForgotPasswordScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.root,
-          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+          { backgroundColor: C.background, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -69,7 +70,7 @@ export default function ForgotPasswordScreen() {
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>{t('auth.forgot_password.title')}</Text>
+          <Text variant="heading" style={[styles.title, { color: C.text.primary }]}>{t('auth.forgot_password.title')}</Text>
           <Text variant="body" color={C.text.secondary} style={styles.subtitle}>
             {t('auth.forgot_password.subtitle')}
           </Text>
@@ -77,7 +78,7 @@ export default function ForgotPasswordScreen() {
 
         <View style={styles.form}>
           {error ? (
-            <View style={styles.errorBanner}>
+            <View style={[styles.errorBanner, { backgroundColor: C.error.bg }]}>
               <Text variant="caption" color={C.error.default}>{error}</Text>
             </View>
           ) : null}
@@ -93,7 +94,7 @@ export default function ForgotPasswordScreen() {
             returnKeyType="go"
             onSubmitEditing={handleSend}
             editable={!busy}
-            style={styles.input}
+            style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text.primary }]}
             accessibilityLabel={t('auth.email_accessibility')}
           />
 
@@ -102,6 +103,7 @@ export default function ForgotPasswordScreen() {
             disabled={busy}
             style={({ pressed }) => [
               styles.primaryButton,
+              { backgroundColor: C.primary.default },
               busy && styles.disabledButton,
               pressed && styles.pressed,
             ]}
@@ -122,7 +124,6 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   root: {
     flexGrow: 1,
-    backgroundColor: C.background,
     paddingHorizontal: 24,
     gap: 24,
   },
@@ -136,7 +137,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: C.text.primary,
   },
   subtitle: {
     lineHeight: 22,
@@ -145,22 +145,17 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   errorBanner: {
-    backgroundColor: C.error.bg,
     borderRadius: 8,
     padding: 12,
   },
   input: {
-    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: C.text.primary,
   },
   primaryButton: {
-    backgroundColor: C.primary.default,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

@@ -168,7 +168,7 @@ All written copy is in `store-assets/play-store-metadata.md`:
 ### Remaining checklist
 - [x] Add URL to `app.config.ts → extra.privacyPolicyUrl`
 - [ ] Submit URL in Google Play Console → App content → Privacy policy
-- [ ] In-app link to policy added to auth / settings screen (future task)
+- [x] In-app link to policy added to auth / settings screen (Welcome screen footer, `app/auth/index.tsx`)
 - [ ] Submit URL in App Store Connect when iOS phase begins
 
 ---
@@ -205,7 +205,7 @@ All written copy is in `store-assets/play-store-metadata.md`:
 ## 8 — External Service Wiring  🟡 NEARLY COMPLETE
 
 - [x] Stripe webhook registered (see Section 2 above for step-by-step)
-- [x] Supabase migrations deployed to production: all 15 migrations applied
+- [x] Supabase migrations deployed to production: all 37 migrations applied via `supabase db push`, confirmed with `supabase db push --dry-run` → "Remote database is up to date." (Migrations 001–031 were already live; 032–037 — guest-merge and this session's push-notification work — were pushed together.)
 - [x] Supabase Edge Functions deployed: all 7 functions live (create-payment-link, ob-initiate, ob-status, ob-webhook, parse-receipt, payment-status, stripe-webhook)
 - [x] Verify Supabase project is in **EU region** (Frankfurt or West EU) — required for GDPR (confirmed eu-west-1 Ireland)
 - [ ] **Resend SMTP configured** (see steps below)
@@ -322,17 +322,19 @@ Supabase's built-in shared SMTP caps at **2 emails per hour**. Resend has a free
 ## 11 — Nice-to-Have (v1.1)
 
 - [ ] Guest → account upgrade prompt after first trip created
-- [ ] Swipe-to-mark-paid gesture in `SettlementRow`
 - [ ] Tink `BankSelectorSheet` — requires Tink sandbox credentials
-- [ ] Push notifications for settlement status changes
+- [x] **Push notifications for settlement status changes** ✅ done — client: `expo-notifications` installed + config plugin, `useRegisterPushToken` mounted in `AuthGate`, sign-out unregisters the device token (best-effort). Backend: migration `035` adds a single DB trigger on `split_requests` covering both manual "Record Payment" inserts and Stripe/Open Banking webhook updates — notifies the requester on success (`expense_settled`) and the payer on `declined`/`expired` (new `payment_failed` event type). Functionally verified against real Postgres (Docker), not just eyeballed.
+  - Along the way, found and fixed 3 pre-existing bugs in `split_requests` that predate this session and would have broken real deployments: (1) `group_id` column never existed despite application code assuming it (migration `034`) — group-level "Record Payment" never worked against real Postgres; (2) `payer_user_id`/`requester_user_id` were still `uuid`, rejecting guest ids like `guest_<uuid>` (migration `034`); (3) the `status` CHECK constraint never allowed `'paid'` or `'owed'` (migration `037`) — **every manual "Record Payment" and the rollover bootstrap flow have been rejected by Postgres in any real deployment until this fix**, only ever exercised against the in-memory test repo.
+  - Also closes a related gap: `unregisterDeviceToken`/`device_tokens` cleanup on account deletion (migration `036`), fulfilling the privacy policy's retention promise.
+  - Migrations 034–037 (and 032–033) are now live in production — see §8. **Still needed**: a dev-client build to test real push delivery on a physical device (Expo Go dropped remote push support), and `pg_cron`'s `process-notification-queue` job (part of migration 030, already live) should be spot-checked in the Supabase Dashboard to confirm it's actually running every minute.
 - [ ] Android / iOS tablet layout optimisation
-- [ ] **Localisation — Engineering**
-  - [ ] Install `expo-localization`, `i18next`, `react-i18next`
-  - [ ] Create `src/i18n/` with `en.json` and `fr.json` (key/value pairs)
-  - [ ] Wire up `i18next` init in `app/_layout.tsx`, reading locale from `expo-localization`
-  - [ ] Replace hardcoded display strings across components with `t('key')` hook calls
-  - [ ] Add `ILocalisationService` + mock to DI container if locale-switching is needed at runtime
-- [ ] **Localisation — Translations**
-  - [ ] Audit all user-facing strings and list them as keys in `en.json`
-  - [ ] Produce French translations for all keys in `fr.json`
-  - [ ] Verify French copy with a native speaker or translation service
+- [x] **Localisation — Engineering** ✅ done
+  - [x] Install `expo-localization`, `i18next`, `react-i18next`
+  - [x] Create `src/i18n/` with `en.json` and `fr.json` (key/value pairs)
+  - [x] Wire up `i18next` init in `src/i18n/index.ts` (imported at the top of `app/_layout.tsx`), reading device locale via `expo-localization`
+  - [x] Replace hardcoded display strings across components with `t('key')` hook calls
+  - [ ] Add `ILocalisationService` + mock to DI container if locale-switching is needed at runtime — deferred; not needed since device locale is read once at boot and there's no in-app language switcher yet
+- [x] **Localisation — Translations** ✅ done
+  - [x] Audit all user-facing strings and list them as keys in `en.json` — zero key-parity drift between `en.json`/`fr.json` confirmed, ~41 hardcoded strings found and wired through `t()`
+  - [x] Produce French translations for all keys in `fr.json`
+  - [ ] Verify French copy with a native speaker or translation service — machine/AI-drafted FR text, not yet reviewed by a native speaker

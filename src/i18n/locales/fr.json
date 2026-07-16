@@ -118,12 +118,20 @@
   "home": {
     "title": "Accueil",
     "fab_label": "Nouveau",
-    "hero_sub": "Au total, vous êtes",
-    "hero_ahead": "en avance",
-    "hero_behind": "en retard",
-    "unsettled_badge": "Non réglé",
+    "hero_label": "Au total",
     "trip_people_count_one": "{{count}} personne",
-    "trip_people_count_other": "{{count}} personnes"
+    "trip_people_count_other": "{{count}} personnes",
+    "profile_menu": {
+      "open_label": "Ouvrir le menu",
+      "close_label": "Fermer le menu",
+      "theme_label": "Apparence",
+      "theme_light": "Clair",
+      "theme_dark": "Sombre",
+      "theme_system": "Système",
+      "log_out": "Se déconnecter",
+      "log_out_confirm_title": "Se déconnecter ?",
+      "log_out_confirm_body": "Vous devrez vous reconnecter pour voir vos voyages et groupes."
+    }
   },
   "groups": {
     "list": {
@@ -194,6 +202,7 @@
       "delete_message": "Les voyages et dépenses associés ne seront pas supprimés.",
       "delete_confirm": "Supprimer",
       "settle_up": "Régler",
+      "settle_up_hint": "Payez individuellement, ou réglez tout en une fois",
       "unlinked_label": "N'a pas encore rejoint — appuyez pour envoyer une invitation",
       "balances_label": "SOLDES",
       "trips_section": "Voyages",
@@ -201,7 +210,11 @@
       "add_action": "Ajouter",
       "members_section": "Membres",
       "invite_label": "Inviter",
-      "open_actions_accessibility": "Ouvrir les actions"
+      "open_actions_accessibility": "Ouvrir les actions",
+      "payments_section": "Paiements récents",
+      "payment_row": "{{from}} a payé {{to}}",
+      "view_closed_expenses": "Voir les dépenses clôturées",
+      "hide_closed_expenses": "Masquer les dépenses clôturées"
     },
     "send_invite": {
       "title": "Envoyer une invitation",
@@ -464,7 +477,15 @@
       "delete_label": "Supprimer la dépense",
       "edit_label": "Modifier la dépense",
       "delete_alert_title": "Supprimer cette dépense ?",
-      "delete_alert_confirm": "Supprimer"
+      "delete_alert_confirm": "Supprimer",
+      "closed_badge": "Clôturée",
+      "close_button": "Clôturer la dépense",
+      "close_label": "Clôturer la dépense",
+      "close_alert_title": "Clôturer cette dépense ?",
+      "close_alert_message": "Elle sera retirée de votre liste active. Cela n'affecte pas les soldes du groupe, et vous pouvez la rouvrir à tout moment.",
+      "close_alert_confirm": "Clôturer la dépense",
+      "reopen_button": "Rouvrir la dépense",
+      "reopen_label": "Rouvrir la dépense"
     }
   },
 
@@ -547,7 +568,7 @@
     "row": {
       "pay_button": "Payer",
       "pay_label": "Payer {{name}}",
-      "record_payment": "Enregistrer",
+      "record_payment": "Paiement",
       "record_payment_label": "Enregistrer un paiement de {{from}} à {{to}}",
       "payment_in_progress": "Paiement en cours",
       "history_label": "Voir l'historique des paiements entre {{from}} et {{to}}"
@@ -592,7 +613,9 @@
     },
     "list": {
       "trip_count_one": "{{count}} voyage",
-      "trip_count_other": "{{count}} voyages"
+      "trip_count_other": "{{count}} voyages",
+      "group_count_one": "{{count}} groupe",
+      "group_count_other": "{{count}} groupes"
     },
     "row": {
       "owed": "doit {{amount}}",
@@ -600,7 +623,29 @@
       "settled": "réglé",
       "member_count_one": "{{count}} participant",
       "member_count_other": "{{count}} participants",
-      "view_trip_label": "Voir le voyage {{name}}"
+      "view_trip_label": "Voir le voyage {{name}}",
+      "view_group_label": "Voir le groupe {{name}}"
+    }
+  },
+
+  "reports": {
+    "generate_button": "Générer le PDF",
+    "generate_label": "Générer le rapport PDF pour {{name}}",
+    "screen": {
+      "title": "Rapports",
+      "remaining_one": "{{count}} rapport restant aujourd'hui",
+      "remaining_other": "{{count}} rapports restants aujourd'hui",
+      "limit_note": "Générez jusqu'à 5 rapports PDF par jour"
+    },
+    "trips": {
+      "section_title": "Rapports de voyage",
+      "empty": "Aucun voyage pour l'instant."
+    },
+    "groups": {
+      "section_title": "Rapports de groupe",
+      "empty": "Aucun groupe pour l'instant.",
+      "prev_month_label": "Mois précédent",
+      "next_month_label": "Mois suivant"
     }
   },
 

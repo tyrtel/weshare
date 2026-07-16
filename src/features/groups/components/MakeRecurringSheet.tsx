@@ -183,8 +183,8 @@ export function MakeRecurringSheet({
           })}
         >
           {loading
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Text variant="label" color="#ffffff">{t('groups.recurring.confirm_button')}</Text>
+            ? <ActivityIndicator color={colors.text.inverse} size="small" />
+            : <Text variant="label" color={colors.text.inverse}>{t('groups.recurring.confirm_button')}</Text>
           }
         </Pressable>
       </Animated.View>

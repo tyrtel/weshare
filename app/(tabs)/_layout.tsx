@@ -13,15 +13,6 @@ export default function TabLayout() {
         },
       }}
       screenOptions={{
-        tabBarActiveTintColor: '#1D9E75',
-        tabBarInactiveTintColor: '#5a5a7a',
-        tabBarStyle: {
-          backgroundColor: '#16213e',
-          borderTopColor: '#2a2a4a',
-        },
-        headerStyle: { backgroundColor: '#16213e' },
-        headerTintColor: '#e8e8f5',
-        headerShadowVisible: false,
         headerShown: false,
       }}
     >
@@ -42,6 +33,16 @@ export default function TabLayout() {
           tabBarLabel: 'Summary',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="wallet-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: 'Reports',
+          tabBarLabel: 'Reports',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="document-text-outline" size={size} color={color} />
           ),
         }}
       />

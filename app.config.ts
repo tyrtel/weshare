@@ -74,6 +74,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         iosUrlScheme: process.env.GOOGLE_IOS_URL_SCHEME ?? 'com.googleusercontent.apps.placeholder',
       },
     ],
+    'expo-notifications',
   ],
   extra: {
     // Consumed by ServiceProvider to swap in mock implementations.

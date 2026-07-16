@@ -72,7 +72,7 @@ export class InMemoryExpenseRepository implements IExpenseRepository {
     return ok(result);
   };
 
-  settleExpense = async (id: string, settledAt: Date): Promise<Result<Expense, AppError>> => {
+  settleExpense = async (id: string, settledAt: Date | null): Promise<Result<Expense, AppError>> => {
     const expense = this.expenses.get(id);
     if (!expense) return err({ kind: 'NotFoundError', resource: 'Expense', id });
     const settled = { ...expense, settledAt };

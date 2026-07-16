@@ -77,7 +77,7 @@ export function SplitMemberRow({
           }}
         >
           {included && (
-            <Text variant="caption" color="#fff" style={{ lineHeight: 14 }}>✓</Text>
+            <Text variant="caption" color={colors.text.inverse} style={{ lineHeight: 14 }}>✓</Text>
           )}
         </View>
 

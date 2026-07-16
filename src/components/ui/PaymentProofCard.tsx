@@ -70,11 +70,11 @@ export function PaymentProofCard({ splitRequest, payerName, payeeName }: Payment
         })}
       >
         {exporting ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color={colors.text.inverse} />
         ) : (
           <>
-            <Ionicons name="download-outline" size={15} color="#fff" />
-            <Text variant="caption" color="#fff">Download proof</Text>
+            <Ionicons name="download-outline" size={15} color={colors.text.inverse} />
+            <Text variant="caption" color={colors.text.inverse}>Download proof</Text>
           </>
         )}
       </Pressable>

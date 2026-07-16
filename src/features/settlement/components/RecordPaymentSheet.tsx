@@ -104,8 +104,8 @@ export function RecordPaymentSheet({
               })}
             >
               {busy
-                ? <ActivityIndicator size="small" color="#ffffff" />
-                : <Text variant="label" color="#ffffff">{t('settlement.record_payment.confirm_button')}</Text>
+                ? <ActivityIndicator size="small" color={colors.text.inverse} />
+                : <Text variant="label" color={colors.text.inverse}>{t('settlement.record_payment.confirm_button')}</Text>
               }
             </Pressable>
 

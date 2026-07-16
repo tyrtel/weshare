@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from './Text';
-import { ledgerColors } from '../../theme/colors';
+import { useColors } from '../../theme/colors';
 import { ledgerFonts } from '../../theme/tokens';
 
 interface DetailHeaderBarProps {
@@ -15,15 +15,16 @@ interface DetailHeaderBarProps {
 }
 
 export function DetailHeaderBar({ title, onBack, actionIcon, actionIconSize = 20, onAction }: DetailHeaderBarProps) {
+  const colors = useColors();
   return (
-    <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.background }}>
+    <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
       <View style={styles.titleRow}>
         <Pressable onPress={onBack} hitSlop={10}>
-          <Feather name="chevron-left" size={26} color={ledgerColors.text.primary} />
+          <Feather name="chevron-left" size={26} color={colors.text.primary} />
         </Pressable>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.title, { color: colors.text.primary }]} numberOfLines={1}>{title}</Text>
         <Pressable onPress={onAction} hitSlop={10}>
-          <Feather name={actionIcon} size={actionIconSize} color={ledgerColors.text.secondary} />
+          <Feather name={actionIcon} size={actionIconSize} color={colors.text.secondary} />
         </Pressable>
       </View>
     </SafeAreaView>
@@ -35,5 +36,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
   },
-  title: { fontFamily: ledgerFonts.display, fontSize: 20, color: ledgerColors.text.primary, letterSpacing: -0.3, flex: 1, textAlign: 'center' },
+  title: { fontFamily: ledgerFonts.display, fontSize: 20, letterSpacing: -0.3, flex: 1, textAlign: 'center' },
 });

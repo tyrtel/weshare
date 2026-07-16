@@ -2,15 +2,16 @@ import React from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BalanceSummaryScreen } from '../../src/features/balance/screens/BalanceSummaryScreen';
-import { ledgerColors } from '../../src/theme/colors';
+import { useColors } from '../../src/theme/colors';
 
 export default function BalanceTab() {
+  const colors = useColors();
   return (
-    <View style={{ flex: 1, backgroundColor: ledgerColors.background }}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.surface }}>
         <View style={{
           height: 1,
-          backgroundColor: ledgerColors.border,
+          backgroundColor: colors.border,
         }} />
       </SafeAreaView>
       <BalanceSummaryScreen />

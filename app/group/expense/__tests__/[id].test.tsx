@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { mockVectorIconsModule, mockSvgModule } from '../../../../src/__testUtils__/standardMocks';
 
@@ -6,8 +7,10 @@ jest.mock('@expo/vector-icons', () => mockVectorIconsModule());
 jest.mock('react-native-svg', () => mockSvgModule());
 
 const mockSearchParams = jest.fn(() => ({ id: 'e1', groupId: 'g1' }));
+const mockPush = jest.fn();
+const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: mockBack }),
   useLocalSearchParams: () => mockSearchParams(),
   Stack: { Screen: () => null },
 }));
@@ -15,7 +18,7 @@ jest.mock('expo-router', () => ({
 import GroupExpenseDetailScreen from '../[id]';
 import { renderScreen } from '../../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../../src/core/di/testContainer';
-import { TRIP_STORE, AUTH } from '../../../../src/core/di/tokens';
+import { TRIP_STORE, AUTH, EXPENSE_REPO } from '../../../../src/core/di/tokens';
 import { groupFactory, groupMemberFactory, expenseFactory, splitFactory } from '../../../../src/__testUtils__/factories';
 import type { ServiceContainer } from '../../../../src/core/di/ServiceContainer';
 
@@ -47,6 +50,7 @@ function render(container: ServiceContainer = createTestContainer()) {
 }
 
 beforeEach(() => {
+  jest.clearAllMocks();
   mockSearchParams.mockReturnValue({ id: 'e1', groupId: 'g1' });
 });
 
@@ -104,5 +108,72 @@ describe('GroupExpenseDetailScreen', () => {
     render(container);
 
     expect(screen.queryByText('Receipt')).toBeNull();
+  });
+
+  describe('close / reopen', () => {
+    it('shows a close button, not a delete button', async () => {
+      const container = createTestContainer();
+      await seed(container);
+      render(container);
+
+      expect(screen.getByText('Close expense')).toBeTruthy();
+      expect(screen.queryByText('Delete expense')).toBeNull();
+    });
+
+    it('closes the expense and navigates back on confirm, without removing it', async () => {
+      const container = createTestContainer();
+      await seed(container);
+      const expenseRepo = container.resolve(EXPENSE_REPO);
+      await expenseRepo.saveExpense(expenseFactory({ id: 'e1', groupId: 'g1', tripId: undefined, settledAt: null }));
+
+      // confirm()'s button order is [confirmButton, cancelButton] — press index 0.
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+        buttons?.[0]?.onPress?.();
+      });
+
+      render(container);
+      fireEvent.press(screen.getByText('Close expense'));
+
+      await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+
+      const remaining = container.resolve(TRIP_STORE).getState().groupExpenses['g1'];
+      const closed = remaining?.find(e => e.id === 'e1');
+      expect(closed).toBeTruthy();
+      expect(closed?.settledAt).toBeTruthy();
+    });
+
+    it('does not close when the confirmation is cancelled', async () => {
+      const container = createTestContainer();
+      await seed(container);
+
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+        buttons?.[1]?.onPress?.();
+      });
+
+      render(container);
+      fireEvent.press(screen.getByText('Close expense'));
+
+      expect(mockBack).not.toHaveBeenCalled();
+      const remaining = container.resolve(TRIP_STORE).getState().groupExpenses['g1'];
+      expect(remaining?.find(e => e.id === 'e1')?.settledAt).toBeNull();
+    });
+
+    it('shows a reopen button for a closed expense, and reopens it without navigating away', async () => {
+      const container = createTestContainer();
+      await seed(container, { settledAt: new Date('2025-06-02T00:00:00Z') });
+      const expenseRepo = container.resolve(EXPENSE_REPO);
+      await expenseRepo.saveExpense(expenseFactory({ id: 'e1', groupId: 'g1', tripId: undefined, settledAt: new Date('2025-06-02T00:00:00Z') }));
+
+      render(container);
+
+      expect(screen.getByText('Reopen expense')).toBeTruthy();
+      fireEvent.press(screen.getByText('Reopen expense'));
+
+      await waitFor(() => {
+        const remaining = container.resolve(TRIP_STORE).getState().groupExpenses['g1'];
+        expect(remaining?.find(e => e.id === 'e1')?.settledAt).toBeNull();
+      });
+      expect(mockBack).not.toHaveBeenCalled();
+    });
   });
 });

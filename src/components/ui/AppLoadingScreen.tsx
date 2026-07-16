@@ -3,10 +3,7 @@ import { View, Image, ActivityIndicator, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { tokens } from '../../theme/tokens';
-import { ledgerColors } from '../../theme/colors';
-
-const BG      = ledgerColors.background;
-const PRIMARY = ledgerColors.primary.default;
+import { useColors } from '../../theme/colors';
 
 interface AppLoadingScreenProps {
   message?:       string;
@@ -17,6 +14,9 @@ interface AppLoadingScreenProps {
 
 export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppLoadingScreenProps) {
   const { t } = useTranslation();
+  const colors = useColors();
+  const BG      = colors.background;
+  const PRIMARY = colors.primary.default;
   return (
     <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
       <Image
@@ -27,7 +27,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
 
       {error ? (
         <>
-          <Text variant="body" style={{ color: ledgerColors.text.secondary, textAlign: 'center', marginBottom: tokens.spacing.md }}>
+          <Text variant="body" style={{ color: colors.text.secondary, textAlign: 'center', marginBottom: tokens.spacing.md }}>
             {error}
           </Text>
           {onRetry && (
@@ -54,7 +54,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
           {message && (
             <Text
               variant="caption"
-              style={{ color: ledgerColors.text.secondary, marginTop: tokens.spacing.md, textAlign: 'center' }}
+              style={{ color: colors.text.secondary, marginTop: tokens.spacing.md, textAlign: 'center' }}
             >
               {message}
             </Text>
@@ -75,7 +75,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
             opacity: pressed ? 0.7 : 0.35,
           })}
         >
-          <Text variant="caption" style={{ color: ledgerColors.text.secondary }}>{t('common.debug.reset_auth_button')}</Text>
+          <Text variant="caption" style={{ color: colors.text.secondary }}>{t('common.debug.reset_auth_button')}</Text>
         </Pressable>
       )}
     </View>

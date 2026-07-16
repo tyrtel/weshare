@@ -16,7 +16,7 @@ import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
-import { ledgerColors as C } from '../../src/theme/colors';
+import { useColors } from '../../src/theme/colors';
 
 const CODE_LENGTH = 6;
 
@@ -25,6 +25,7 @@ export default function VerifyScreen() {
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const C      = useColors();
 
   const { email = '', name = '' } = useLocalSearchParams<{ email: string; name: string }>();
 
@@ -116,7 +117,7 @@ export default function VerifyScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.root,
-          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+          { backgroundColor: C.background, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -129,7 +130,7 @@ export default function VerifyScreen() {
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>{t('auth.verify.title')}</Text>
+          <Text variant="heading" style={[styles.title, { color: C.text.primary }]}>{t('auth.verify.title')}</Text>
           <Text variant="body" color={C.text.secondary} style={styles.subtitle}>
             {t('auth.verify.subtitle')}{'\n'}
             <Text variant="body" color={C.text.primary}>{email}</Text>
@@ -148,14 +149,17 @@ export default function VerifyScreen() {
               maxLength={CODE_LENGTH}
               editable={!busy}
               selectTextOnFocus
-              style={[styles.digitBox, digit ? styles.digitBoxFilled : null]}
+              style={[
+                styles.digitBox,
+                { backgroundColor: C.surface, borderColor: digit ? C.primary.default : C.border, color: C.text.primary },
+              ]}
               accessibilityLabel={t('auth.verify.digit_label', { number: i + 1 })}
             />
           ))}
         </View>
 
         {error ? (
-          <View style={styles.errorBanner}>
+          <View style={[styles.errorBanner, { backgroundColor: C.error.bg }]}>
             <Text variant="caption" color={C.error.default}>{error}</Text>
           </View>
         ) : null}
@@ -165,6 +169,7 @@ export default function VerifyScreen() {
           disabled={busy || !isComplete}
           style={({ pressed }) => [
             styles.primaryButton,
+            { backgroundColor: C.primary.default },
             (!isComplete || busy) && styles.disabledButton,
             pressed && styles.pressed,
           ]}
@@ -195,7 +200,6 @@ export default function VerifyScreen() {
 const styles = StyleSheet.create({
   root: {
     flexGrow: 1,
-    backgroundColor: C.background,
     paddingHorizontal: 24,
     gap: 28,
   },
@@ -209,7 +213,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: C.text.primary,
   },
   subtitle: {
     lineHeight: 22,
@@ -222,25 +225,17 @@ const styles = StyleSheet.create({
   digitBox: {
     flex: 1,
     aspectRatio: 1,
-    backgroundColor: C.surface,
     borderWidth: 1.5,
-    borderColor: C.border,
     borderRadius: 12,
     textAlign: 'center',
     fontSize: 24,
     fontWeight: '700',
-    color: C.text.primary,
-  },
-  digitBoxFilled: {
-    borderColor: C.primary.default,
   },
   errorBanner: {
-    backgroundColor: C.error.bg,
     borderRadius: 8,
     padding: 12,
   },
   primaryButton: {
-    backgroundColor: C.primary.default,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

@@ -134,10 +134,10 @@ export class SupabaseExpenseRepository implements IExpenseRepository {
     return ok(expenses);
   }
 
-  async settleExpense(id: string, settledAt: Date): Promise<Result<Expense, AppError>> {
+  async settleExpense(id: string, settledAt: Date | null): Promise<Result<Expense, AppError>> {
     const { data, error } = await supabase
       .from('expenses')
-      .update({ settled_at: settledAt.toISOString() })
+      .update({ settled_at: settledAt ? settledAt.toISOString() : null })
       .eq('id', id)
       .select('*, splits(*)')
       .single();

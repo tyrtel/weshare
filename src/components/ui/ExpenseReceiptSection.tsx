@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { Text } from './Text';
 import { useReceiptStorage } from '../../hooks/useReceiptStorage';
-import { ledgerColors } from '../../theme/colors';
+import { useColors } from '../../theme/colors';
 import { ledgerRadius } from '../../theme/tokens';
 
 interface ExpenseReceiptSectionProps {
@@ -14,6 +14,7 @@ interface ExpenseReceiptSectionProps {
 
 export function ExpenseReceiptSection({ receiptPath }: ExpenseReceiptSectionProps) {
   const { t } = useTranslation();
+  const colors = useColors();
   const { getReceiptUrl } = useReceiptStorage();
   const [receiptUrl,        setReceiptUrl]        = useState<string | null>(null);
   const [receiptImgLoaded,  setReceiptImgLoaded]  = useState(false);
@@ -28,10 +29,10 @@ export function ExpenseReceiptSection({ receiptPath }: ExpenseReceiptSectionProp
 
   return (
     <View style={{ marginBottom: 16 }}>
-      <Text style={styles.fieldLabel}>{t('expenses.detail.receipt_label')}</Text>
+      <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>{t('expenses.detail.receipt_label')}</Text>
       {!receiptUrl ? (
-        <View style={styles.receiptBox}>
-          <ActivityIndicator color={ledgerColors.primary.default} />
+        <View style={[styles.receiptBox, { backgroundColor: colors.surface }]}>
+          <ActivityIndicator color={colors.primary.default} />
         </View>
       ) : (
         <Pressable
@@ -41,14 +42,14 @@ export function ExpenseReceiptSection({ receiptPath }: ExpenseReceiptSectionProp
         >
           <Image
             source={{ uri: receiptUrl }}
-            style={styles.receiptBox}
+            style={[styles.receiptBox, { backgroundColor: colors.surface }]}
             resizeMode="contain"
             accessibilityLabel={t('expenses.detail.receipt_image_label')}
             onLoad={() => setReceiptImgLoaded(true)}
           />
           {!receiptImgLoaded && (
-            <View style={[styles.receiptBox, { position: 'absolute', top: 0, left: 0 }]}>
-              <ActivityIndicator color={ledgerColors.primary.default} />
+            <View style={[styles.receiptBox, { backgroundColor: colors.surface, position: 'absolute', top: 0, left: 0 }]}>
+              <ActivityIndicator color={colors.primary.default} />
             </View>
           )}
           {receiptImgLoaded && (
@@ -90,13 +91,12 @@ export function ExpenseReceiptSection({ receiptPath }: ExpenseReceiptSectionProp
 
 const styles = StyleSheet.create({
   fieldLabel: {
-    fontSize: 12, fontWeight: '600', color: ledgerColors.text.secondary,
+    fontSize: 12, fontWeight: '600',
     textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8,
   },
   receiptBox: {
     width: '100%', height: 220,
     borderRadius: ledgerRadius.card,
-    backgroundColor: ledgerColors.surface,
     alignItems: 'center', justifyContent: 'center',
   },
   receiptExpandBadge: {

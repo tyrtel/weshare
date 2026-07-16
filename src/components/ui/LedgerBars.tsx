@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Avatar } from './Avatar';
-import { ledgerColors } from '../../theme/colors';
+import { useColors } from '../../theme/colors';
+import type { ColorPalette } from '../../theme/colors';
 import { ledgerRadius, ledgerFonts } from '../../theme/tokens';
 import { formatCurrency } from '../../core/utils/formatCurrency';
 
@@ -12,6 +13,8 @@ interface LedgerBarsProps {
 }
 
 export function LedgerBars({ balances, members, compact = false }: LedgerBarsProps) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const memberMap = new Map(members.map(m => [m.userId, m]));
   const entries = Object.entries(balances).sort((a, b) => b[1] - a[1]);
   const max = Math.max(1, ...entries.map(([, v]) => Math.abs(v)));
@@ -32,7 +35,7 @@ export function LedgerBars({ balances, members, compact = false }: LedgerBarsPro
               <View style={styles.who}>
                 <Avatar
                   initials={initials}
-                  bg={ledgerColors.primary.subtle}
+                  bg={colors.primary.subtle}
                   size="sm"
                   url={member.avatarUrl}
                 />
@@ -44,7 +47,7 @@ export function LedgerBars({ balances, members, compact = false }: LedgerBarsPro
                 {!isOwed && (
                   <View style={[styles.bar, styles.barLeft, {
                     width: `${Math.max(frac * 100, 4)}%`,
-                    backgroundColor: ledgerColors.error.default,
+                    backgroundColor: colors.error.default,
                   }]} />
                 )}
               </View>
@@ -53,13 +56,13 @@ export function LedgerBars({ balances, members, compact = false }: LedgerBarsPro
                 {isOwed && cents !== 0 && (
                   <View style={[styles.bar, styles.barRight, {
                     width: `${Math.max(frac * 100, 4)}%`,
-                    backgroundColor: ledgerColors.success.default,
+                    backgroundColor: colors.success.default,
                   }]} />
                 )}
               </View>
             </View>
             <View style={styles.amount}>
-              <Text style={[styles.amountText, { color: isOwed ? ledgerColors.success.default : ledgerColors.error.default }]}>
+              <Text style={[styles.amountText, { color: isOwed ? colors.success.default : colors.error.default }]}>
                 {amountText}
               </Text>
             </View>
@@ -70,7 +73,7 @@ export function LedgerBars({ balances, members, compact = false }: LedgerBarsPro
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorPalette) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -87,7 +90,7 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: ledgerFonts.bodyMedium,
     fontSize: 13,
-    color: ledgerColors.text.primary,
+    color: colors.text.primary,
     flexShrink: 1,
   },
   track: {
@@ -104,7 +107,7 @@ const styles = StyleSheet.create({
   spine: {
     width: 2,
     height: 18,
-    backgroundColor: ledgerColors.borderMuted,
+    backgroundColor: colors.borderMuted,
     borderRadius: 1,
   },
   bar: { height: 10 },

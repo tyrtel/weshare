@@ -10,10 +10,11 @@ import {
   Inter_500Medium,
   Inter_600SemiBold,
 } from '@expo-google-fonts/inter';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView, Alert, Appearance } from 'react-native';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StatusBar } from 'expo-status-bar';
 import { ServiceProvider, useService } from '../src/core/di/ServiceContext';
 import { AUTH, TRIP_STORE } from '../src/core/di/tokens';
 import type { User } from '../src/core/models/User';
@@ -24,8 +25,9 @@ import { UniversalTabBar } from '../src/components/ui/UniversalTabBar';
 import * as Sentry from '@sentry/react-native';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
-import { ledgerColors } from '../src/theme/colors';
-import { ThemeProvider } from '../src/core/ThemeContext';
+import { useColors, getColors } from '../src/theme/colors';
+import { useResolvedTheme } from '../src/store/themeStore';
+import { useRegisterPushToken } from '../src/features/notifications/hooks/useRegisterPushToken';
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -58,16 +60,17 @@ class ErrorBoundary extends React.Component<
   }
   render() {
     if (this.state.error) {
+      const colors = getColors(Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
       return (
-        <View style={{ flex: 1, backgroundColor: ledgerColors.background, padding: 24, paddingTop: 60 }}>
-          <Text style={{ color: ledgerColors.error.default, fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
+        <View style={{ flex: 1, backgroundColor: colors.background, padding: 24, paddingTop: 60 }}>
+          <Text style={{ color: colors.error.default, fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
             {i18next.t('common.render_error')}
           </Text>
           <ScrollView>
-            <Text style={{ color: ledgerColors.error.default, fontSize: 13, fontFamily: 'monospace' }}>
+            <Text style={{ color: colors.error.default, fontSize: 13, fontFamily: 'monospace' }}>
               {this.state.error.message}
             </Text>
-            <Text style={{ color: ledgerColors.text.tertiary, fontSize: 11, marginTop: 16, fontFamily: 'monospace' }}>
+            <Text style={{ color: colors.text.tertiary, fontSize: 11, marginTop: 16, fontFamily: 'monospace' }}>
               {this.state.error.stack}
             </Text>
           </ScrollView>
@@ -90,6 +93,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router      = useRouter();
   const navState    = useRootNavigationState();
   const didResetRef = useRef(false);
+
+  useRegisterPushToken();
 
   // Sequential startup: auth rehydration first, then initial trips load.
   // Nothing in the app renders until both phases complete — PostgREST only
@@ -217,24 +222,26 @@ export default Sentry.wrap(function RootLayout() {
     'Inter-Medium': Inter_500Medium,
     'Inter-SemiBold': Inter_600SemiBold,
   });
+  const colors = useColors();
+  const resolvedTheme = useResolvedTheme();
 
   if (!fontsLoaded) return <AppLoadingScreen />;
 
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
       <SafeAreaProvider>
         <ServiceProvider>
           <AuthGate>
+            <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
             <SimulationBanner />
             <OfflineBanner />
             <View style={{ flex: 1 }}>
               <Stack
                 style={{ flex: 1 }}
                 screenOptions={{
-                  headerStyle: { backgroundColor: ledgerColors.surface },
-                  headerTintColor: ledgerColors.text.primary,
+                  headerStyle: { backgroundColor: colors.surface },
+                  headerTintColor: colors.text.primary,
                   headerShadowVisible: false,
                   headerBackTitle: '',
                 }}
@@ -267,7 +274,6 @@ export default Sentry.wrap(function RootLayout() {
           </AuthGate>
         </ServiceProvider>
       </SafeAreaProvider>
-      </ThemeProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

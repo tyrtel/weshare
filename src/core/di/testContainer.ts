@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE,
 } from './tokens';
 import type { ITripRepository } from '../interfaces/ITripRepository';
 import type { IMemberRepository } from '../interfaces/IMemberRepository';
@@ -23,6 +23,7 @@ import type { TripSessionStoreApi } from '../../store/tripSessionStore';
 import type { IGroupRepository } from '../interfaces/IGroupRepository';
 import type { IRecurringExpenseRepository } from '../interfaces/IRecurringExpenseRepository';
 import type { INotificationService } from '../interfaces/INotificationService';
+import type { IReportService } from '../interfaces/IReportService';
 
 export interface ContainerOverrides {
   tripRepo?:         ITripRepository;
@@ -45,6 +46,7 @@ export interface ContainerOverrides {
   groupRepo?:             IGroupRepository;
   recurringExpenseRepo?:  IRecurringExpenseRepository;
   notificationService?:   INotificationService;
+  reportService?:         IReportService;
 }
 
 /**
@@ -114,6 +116,8 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   container.register(RECURRING_EXPENSE_REPO, overrides.recurringExpenseRepo ?? new InMemoryRecurringExpenseRepository());
   const { MockNotificationService } = require('../../__mocks__/MockNotificationService');
   container.register(NOTIFICATION_SERVICE,   overrides.notificationService  ?? new MockNotificationService());
+  const { MockReportService } = require('../../__mocks__/MockReportService');
+  container.register(REPORT_SERVICE,         overrides.reportService        ?? new MockReportService());
   container.register(
     TRIP_STORE,
     overrides.tripStore ?? createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }),

@@ -82,8 +82,8 @@ export function AddMemberNameField({
           })}
         >
           {saving
-            ? <ActivityIndicator size="small" color="#fff" />
-            : <Text variant="label" color="#ffffff">{addButtonLabel}</Text>}
+            ? <ActivityIndicator size="small" color={colors.text.inverse} />
+            : <Text variant="label" color={colors.text.inverse}>{addButtonLabel}</Text>}
         </Pressable>
       </View>
       {isDuplicate && (

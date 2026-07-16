@@ -5,7 +5,8 @@ export type NotificationEventType =
   | 'expense_settled'
   | 'group_invite'
   | 'debt_owed'
-  | 'payment_request';
+  | 'payment_request'
+  | 'payment_failed';
 
 export interface EnqueueNotificationInput {
   userId:      string;

@@ -248,8 +248,8 @@ function LedgerView({
             ...tokens.shadow.lg,
           })}
         >
-          <Ionicons name="add-circle-outline" size={18} color="#ffffff" />
-          <Text variant="label" color="#ffffff">{t('settlement.audit.record_payment_button')}</Text>
+          <Ionicons name="add-circle-outline" size={18} color={colors.text.inverse} />
+          <Text variant="label" color={colors.text.inverse}>{t('settlement.audit.record_payment_button')}</Text>
         </Pressable>
       )}
 

@@ -118,8 +118,8 @@ export function SendInviteSheet({
               })}
             >
               {busy
-                ? <ActivityIndicator size="small" color="#ffffff" />
-                : <Text variant="label" color="#ffffff">{t('groups.send_invite.confirm_button')}</Text>
+                ? <ActivityIndicator size="small" color={colors.text.inverse} />
+                : <Text variant="label" color={colors.text.inverse}>{t('groups.send_invite.confirm_button')}</Text>
               }
             </Pressable>
 

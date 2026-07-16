@@ -336,8 +336,8 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
             })}
           >
             {submitting
-              ? <ActivityIndicator color="#fff" />
-              : <Text variant="label" color="#fff">{t('settlement.bank.pay_button')}</Text>
+              ? <ActivityIndicator color={colors.text.inverse} />
+              : <Text variant="label" color={colors.text.inverse}>{t('settlement.bank.pay_button')}</Text>
             }
           </Pressable>
         )}
@@ -354,7 +354,7 @@ function BankPaymentScreenContent({ params }: { params: BankPaymentParams }) {
               opacity:         pressed ? 0.8 : 1,
             })}
           >
-            <Text variant="label" color="#fff">{t('settlement.bank.go_back')}</Text>
+            <Text variant="label" color={colors.text.inverse}>{t('settlement.bank.go_back')}</Text>
           </Pressable>
         )}
       </ScrollView>

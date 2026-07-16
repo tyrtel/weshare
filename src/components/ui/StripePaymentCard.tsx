@@ -158,8 +158,8 @@ export function StripePaymentCard({ splitRequest, checkoutUrl, payerName, payeeN
             opacity:         pressed ? 0.7 : 1,
           })}
         >
-          <Ionicons name="open-outline" size={14} color="#ffffff" style={{ marginRight: 4 }} />
-          <Text variant="caption" color="#ffffff">Open</Text>
+          <Ionicons name="open-outline" size={14} color={colors.text.inverse} style={{ marginRight: 4 }} />
+          <Text variant="caption" color={colors.text.inverse}>Open</Text>
         </Pressable>
       </View>
 

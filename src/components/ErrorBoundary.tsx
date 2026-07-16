@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { ledgerColors } from '../theme/colors';
+import { View, Text, Pressable, StyleSheet, Appearance } from 'react-native';
+import { getColors } from '../theme/colors';
 import { ledgerRadius } from '../theme/tokens';
 
 interface Props {
@@ -29,18 +29,19 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      const colors = getColors(Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
       return (
-        <View style={styles.container}>
-          <View style={styles.card}>
-            <Text style={styles.title}>Something went wrong</Text>
-            <Text style={styles.message}>{this.state.error.message}</Text>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <View style={[styles.card, { backgroundColor: colors.surface, shadowColor: colors.text.primary }]}>
+            <Text style={[styles.title, { color: colors.error.default }]}>Something went wrong</Text>
+            <Text style={[styles.message, { color: colors.text.secondary }]}>{this.state.error.message}</Text>
             <Pressable
-              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+              style={({ pressed }) => [styles.button, { backgroundColor: colors.primary.default }, pressed && styles.buttonPressed]}
               onPress={this.handleRetry}
               accessibilityLabel="Retry"
               accessibilityRole="button"
             >
-              <Text style={styles.buttonLabel}>Retry</Text>
+              <Text style={[styles.buttonLabel, { color: colors.text.inverse }]}>Retry</Text>
             </Pressable>
           </View>
         </View>
@@ -53,36 +54,30 @@ export class ErrorBoundary extends React.Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: ledgerColors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
   card: {
-    backgroundColor: ledgerColors.surface,
     borderRadius: ledgerRadius.card,
     padding: 24,
     width: '100%',
-    shadowColor: '#182420',
     shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
   title: {
-    color: ledgerColors.error.default,
     fontSize: 17,
     fontWeight: '700',
     marginBottom: 8,
   },
   message: {
-    color: ledgerColors.text.secondary,
     fontSize: 13,
     marginBottom: 24,
     lineHeight: 19,
   },
   button: {
-    backgroundColor: ledgerColors.primary.default,
     borderRadius: ledgerRadius.md,
     paddingVertical: 12,
     alignItems: 'center',
@@ -91,7 +86,6 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   buttonLabel: {
-    color: '#ffffff',
     fontSize: 15,
     fontWeight: '600',
   },

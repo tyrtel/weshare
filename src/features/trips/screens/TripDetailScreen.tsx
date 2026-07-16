@@ -15,7 +15,8 @@ import { useBalanceView } from '../../../core/hooks/useBalanceView';
 import { useTripDetail } from '../hooks/useTripDetail';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { AUTH, TRIP_STORE } from '../../../core/di/tokens';
-import { ledgerColors } from '../../../theme/colors';
+import { useColors } from '../../../theme/colors';
+import type { ColorPalette } from '../../../theme/colors';
 import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import { computeMemberNetBalances } from '../../../core/logic/settlement';
@@ -30,6 +31,8 @@ export function TripDetailScreen() {
   const router = useRouter();
   const auth   = useService(AUTH);
   const storeApi = useService(TRIP_STORE);
+  const colors = useColors();
+  const tripStyles = useMemo(() => makeTripStyles(colors), [colors]);
   const { trip: tripBalanceView, setTrip: setTripBalanceView } = useBalanceView();
   const { trip, expenses, loading, error, refetch } = useTripDetail(id);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,7 +75,7 @@ export function TripDetailScreen() {
     return (
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <Text variant="body" color={ledgerColors.error.default} style={{ textAlign: 'center' }}>
+          <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
             {error?.kind === 'NotFoundError' ? t('trips.detail.error_not_found') : t('trips.detail.error_load')}
           </Text>
         </View>
@@ -122,12 +125,12 @@ export function TripDetailScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={ledgerColors.primary.default}
-            colors={[ledgerColors.primary.default]}
+            tintColor={colors.primary.default}
+            colors={[colors.primary.default]}
           />
         }
         ListHeaderComponent={
-          <View style={{ backgroundColor: ledgerColors.background }}>
+          <View style={{ backgroundColor: colors.background }}>
             {/* Stat strip */}
             <View style={[tripStyles.card, { marginBottom: 20, marginTop: 8 }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -143,7 +146,7 @@ export function TripDetailScreen() {
                 <View style={tripStyles.statDivider} />
                 <View style={tripStyles.stat}>
                   <Text style={tripStyles.statLabel}>{t('trips.detail.stat_your_net')}</Text>
-                  <Text style={[tripStyles.statValue, { color: myBalance >= 0 ? ledgerColors.success.default : ledgerColors.error.default }]}>
+                  <Text style={[tripStyles.statValue, { color: myBalance >= 0 ? colors.success.default : colors.error.default }]}>
                     {myBalance >= 0 ? '+' : '−'}{formatCurrency(Math.abs(myBalance), trip.currency)}
                   </Text>
                 </View>
@@ -161,8 +164,8 @@ export function TripDetailScreen() {
                   onPress={handleSettleUp}
                   style={({ pressed }) => [tripStyles.settleBtn, { opacity: pressed ? 0.85 : 1, marginTop: 12 }]}
                 >
-                  <Feather name="check-circle" size={16} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>{t('trips.detail.settle_trip_button')}</Text>
+                  <Feather name="check-circle" size={16} color={colors.text.inverse} />
+                  <Text style={{ color: colors.text.inverse, fontWeight: '600', fontSize: 15 }}>{t('trips.detail.settle_trip_button')}</Text>
                 </Pressable>
               )}
             </View>
@@ -175,7 +178,7 @@ export function TripDetailScreen() {
               <Text style={tripStyles.sectionTitle}>{t('trips.detail.expenses_section')}</Text>
               {trip.status !== 'closed' && (
                 <Pressable onPress={handleAddExpense} hitSlop={8}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>{t('trips.detail.add_action')}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary.default }}>{t('trips.detail.add_action')}</Text>
                 </Pressable>
               )}
             </View>
@@ -183,7 +186,7 @@ export function TripDetailScreen() {
         }
         ListEmptyComponent={
           <View style={{ padding: 24, alignItems: 'center' }}>
-            <Text style={{ color: ledgerColors.text.tertiary, fontSize: 13 }}>{t('trips.detail.empty_expenses_short')}</Text>
+            <Text style={{ color: colors.text.tertiary, fontSize: 13 }}>{t('trips.detail.empty_expenses_short')}</Text>
           </View>
         }
       />
@@ -198,17 +201,17 @@ export function TripDetailScreen() {
   );
 }
 
-const tripStyles = StyleSheet.create({
-  card:        { backgroundColor: ledgerColors.surface, borderRadius: ledgerRadius.card, padding: 16, ...ledgerShadow.card },
+const makeTripStyles = (colors: ColorPalette) => StyleSheet.create({
+  card:        { backgroundColor: colors.surface, borderRadius: ledgerRadius.card, padding: 16, ...ledgerShadow.card },
   stat:        { flex: 1, alignItems: 'center', gap: 4 },
-  statLabel:   { fontSize: 10, fontWeight: '600', color: ledgerColors.text.secondary, textTransform: 'uppercase', letterSpacing: 0.6 },
-  statValue:   { fontFamily: ledgerFonts.display, fontSize: 20, color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
-  statDivider: { width: 1, height: 34, backgroundColor: ledgerColors.border },
-  hairline:    { height: 1, backgroundColor: ledgerColors.border, marginVertical: 12 },
+  statLabel:   { fontSize: 10, fontWeight: '600', color: colors.text.secondary, textTransform: 'uppercase', letterSpacing: 0.6 },
+  statValue:   { fontFamily: ledgerFonts.display, fontSize: 20, color: colors.text.primary, fontVariant: ['tabular-nums'] },
+  statDivider: { width: 1, height: 34, backgroundColor: colors.border },
+  hairline:    { height: 1, backgroundColor: colors.border, marginVertical: 12 },
   settleBtn: {
     flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
     paddingVertical: 13, borderRadius: ledgerRadius.md,
-    backgroundColor: ledgerColors.primary.default,
+    backgroundColor: colors.primary.default,
   },
-  sectionTitle: { fontFamily: ledgerFonts.display, fontSize: 18, color: ledgerColors.text.primary, letterSpacing: -0.3 },
+  sectionTitle: { fontFamily: ledgerFonts.display, fontSize: 18, color: colors.text.primary, letterSpacing: -0.3 },
 });

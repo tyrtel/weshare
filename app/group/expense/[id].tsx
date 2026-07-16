@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Pressable, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../src/components/ui/ScreenWrapper';
 import { TAB_BAR_HEIGHT } from '../../../src/components/ui/UniversalTabBar';
 import { Text } from '../../../src/components/ui/Text';
@@ -12,11 +12,13 @@ import { ExpensePaidByCard } from '../../../src/components/ui/ExpensePaidByCard'
 import { ExpenseReceiptSection } from '../../../src/components/ui/ExpenseReceiptSection';
 import { MakeRecurringSheet } from '../../../src/features/groups/components/MakeRecurringSheet';
 import { useService, useTripSessionStore } from '../../../src/core/di/ServiceContext';
-import { AUTH } from '../../../src/core/di/tokens';
+import { AUTH, TRIP_STORE, EXPENSE_REPO } from '../../../src/core/di/tokens';
 import { useColors, personColorFor } from '../../../src/theme/colors';
 import { personColors } from '../../../src/theme/colors';
 import { tokens } from '../../../src/theme/tokens';
 import { formatCurrency } from '../../../src/core/utils/formatCurrency';
+import { confirm } from '../../../src/core/utils/confirm';
+import { isOk } from '../../../src/core/types/Result';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -28,6 +30,9 @@ export default function GroupExpenseDetailScreen() {
   const { t }                                       = useTranslation();
   const colors                                      = useColors();
   const auth                                        = useService(AUTH);
+  const router                                      = useRouter();
+  const storeApi                                    = useService(TRIP_STORE);
+  const expenseRepo                                 = useService(EXPENSE_REPO);
   const { id, groupId }                             = useLocalSearchParams<{ id: string; groupId: string }>();
   const [recurringSheetOpen, setRecurringSheetOpen] = useState(false);
 
@@ -56,6 +61,25 @@ export default function GroupExpenseDetailScreen() {
   const handleRecurringSuccess = () => {
     setRecurringSheetOpen(false);
     Alert.alert(t('groups.recurring.success_title'), t('groups.recurring.success_message'));
+  };
+
+  const handleClose = () => {
+    void confirm(t('expenses.detail.close_alert_title'), t('expenses.detail.close_alert_message'), t('expenses.detail.close_alert_confirm')).then(async confirmed => {
+      if (!confirmed) return;
+      const settledAt = new Date();
+      const result = await expenseRepo.settleExpense(expense.id, settledAt);
+      if (isOk(result)) {
+        storeApi.getState().settleGroupExpenseInStore(expense.id, groupId, settledAt);
+        router.back();
+      }
+    });
+  };
+
+  const handleReopen = async () => {
+    const result = await expenseRepo.settleExpense(expense.id, null);
+    if (isOk(result)) {
+      storeApi.getState().settleGroupExpenseInStore(expense.id, groupId, null);
+    }
   };
 
   return (
@@ -135,6 +159,46 @@ export default function GroupExpenseDetailScreen() {
           <Ionicons name="repeat-outline" size={16} color={colors.primary.default} />
           <Text variant="label" color={colors.primary.default}>{t('groups.recurring.make_recurring_button')}</Text>
         </Pressable>
+
+        {/* Close / reopen — organizational only, mirrors closing a trip.
+            Never deletes the expense or touches the group's ledger. */}
+        {expense.settledAt ? (
+          <Pressable
+            onPress={handleReopen}
+            accessibilityRole="button"
+            accessibilityLabel={t('expenses.detail.reopen_label')}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              marginTop: 8,
+              paddingVertical: 10,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Feather name="rotate-ccw" size={15} color={colors.primary.default} />
+            <Text variant="label" color={colors.primary.default}>{t('expenses.detail.reopen_button')}</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={handleClose}
+            accessibilityRole="button"
+            accessibilityLabel={t('expenses.detail.close_label')}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              marginTop: 8,
+              paddingVertical: 10,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Feather name="archive" size={15} color={colors.text.secondary} />
+            <Text variant="label" color={colors.text.secondary}>{t('expenses.detail.close_button')}</Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       {recurringSheetOpen && (

@@ -29,7 +29,8 @@ import type { GroupMember } from '../../../core/models/GroupMember';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ledgerColors, personColorFor } from '../../../theme/colors';
+import { useColors, personColorFor } from '../../../theme/colors';
+import type { ColorPalette } from '../../../theme/colors';
 import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
 import { Segmented } from '../../../components/ui/Segmented';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -127,6 +128,8 @@ export function ExpenseFormScreen() {
   const { tripId, id: expenseId, groupId, recurring } = useLocalSearchParams<{ tripId?: string; id?: string; groupId?: string; recurring?: string }>();
   const router  = useRouter();
   const auth    = useService(AUTH);
+  const colors  = useColors();
+  const addStyles = useMemo(() => makeAddStyles(colors), [colors]);
 
   const isGroupMode    = !!groupId && !tripId && !expenseId;
   const isRecurring    = isGroupMode && recurring === 'true';
@@ -364,7 +367,7 @@ export function ExpenseFormScreen() {
       <ScreenWrapper>
         <Stack.Screen options={{ title }} />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={ledgerColors.primary.default} />
+          <ActivityIndicator size="large" color={colors.primary.default} />
         </View>
       </ScreenWrapper>
     );
@@ -373,14 +376,14 @@ export function ExpenseFormScreen() {
   return (
     <>
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: ledgerColors.background }}
+        style={{ flex: 1, backgroundColor: colors.background }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Stack.Screen options={{ headerShown: false }} />
-        <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.background }}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
           <View style={addStyles.titleRow}>
             <Pressable onPress={() => router.back()} hitSlop={10}>
-              <Feather name="x" size={24} color={ledgerColors.text.primary} />
+              <Feather name="x" size={24} color={colors.text.primary} />
             </Pressable>
             <Text style={addStyles.screenTitle}>{t('expenses.form.screen_title')}</Text>
             <View style={{ width: 24 }} />
@@ -401,7 +404,7 @@ export function ExpenseFormScreen() {
                 hitSlop={8}
               >
                 <Text style={addStyles.currency}>{currencySymbol(expenseCurrency)}</Text>
-                <Feather name="chevron-down" size={14} color={ledgerColors.text.tertiary} />
+                <Feather name="chevron-down" size={14} color={colors.text.tertiary} />
               </Pressable>
               <TextInput
                 testID="expense-amount-input"
@@ -414,22 +417,22 @@ export function ExpenseFormScreen() {
                 }}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
-                placeholderTextColor={ledgerColors.text.tertiary}
+                placeholderTextColor={colors.text.tertiary}
               />
             </View>
             {isForeign && (
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6 }}>
                 {rate.loading ? (
                   <>
-                    <ActivityIndicator size="small" color={ledgerColors.text.tertiary} />
+                    <ActivityIndicator size="small" color={colors.text.tertiary} />
                     <Text style={addStyles.rateText}>{t('expenses.form.rate_fetching')}</Text>
                   </>
                 ) : rate.error ? (
                   <>
-                    <Feather name="alert-triangle" size={12} color={ledgerColors.warning.default} />
-                    <Text style={[addStyles.rateText, { color: ledgerColors.warning.default }]}>{t('expenses.form.rate_unavailable')}</Text>
+                    <Feather name="alert-triangle" size={12} color={colors.warning.default} />
+                    <Text style={[addStyles.rateText, { color: colors.warning.default }]}>{t('expenses.form.rate_unavailable')}</Text>
                     <Pressable onPress={rate.refresh} hitSlop={8}>
-                      <Text style={[addStyles.rateText, { color: ledgerColors.primary.default, fontWeight: '600' }]}>{t('common.retry')}</Text>
+                      <Text style={[addStyles.rateText, { color: colors.primary.default, fontWeight: '600' }]}>{t('common.retry')}</Text>
                     </Pressable>
                   </>
                 ) : rate.result ? (
@@ -445,7 +448,7 @@ export function ExpenseFormScreen() {
               value={description}
               onChangeText={setDescription}
               placeholder={t('expenses.form.title_placeholder')}
-              placeholderTextColor={ledgerColors.text.tertiary}
+              placeholderTextColor={colors.text.tertiary}
             />
           </View>
 
@@ -463,14 +466,14 @@ export function ExpenseFormScreen() {
                   style={{ alignItems: 'center', gap: 4, opacity: active ? 1 : 0.5 }}
                 >
                   <View style={{
-                    borderWidth: active ? 2 : 0, borderColor: ledgerColors.primary.default,
+                    borderWidth: active ? 2 : 0, borderColor: colors.primary.default,
                     borderRadius: 999, padding: active ? 2 : 0,
                   }}>
                     <Avatar initials={m.displayName} bg={palette.bg} url={m.avatarUrl} size="lg" />
                   </View>
                   {label && (
                     <Text
-                      style={{ fontSize: 11, fontWeight: '500', color: active ? ledgerColors.primary.default : ledgerColors.text.secondary, maxWidth: 64 }}
+                      style={{ fontSize: 11, fontWeight: '500', color: active ? colors.primary.default : colors.text.secondary, maxWidth: 64 }}
                       numberOfLines={1}
                     >
                       {label}
@@ -514,7 +517,7 @@ export function ExpenseFormScreen() {
                     {i > 0 && <View style={addStyles.rowDivider} />}
                     <Pressable style={addStyles.splitRow} onPress={() => split.handleToggleMember(entry.userId)}>
                       <View style={[addStyles.check, entry.included && addStyles.checkOn]}>
-                        {entry.included && <Feather name="check" size={13} color="#fff" />}
+                        {entry.included && <Feather name="check" size={13} color={colors.text.inverse} />}
                       </View>
                       <Avatar
                         initials={member.displayName}
@@ -523,7 +526,7 @@ export function ExpenseFormScreen() {
                         size="sm"
                       />
                       <Text style={addStyles.splitName}>{member.displayName}</Text>
-                      <Text style={[addStyles.splitAmount, { color: entry.included ? ledgerColors.text.primary : ledgerColors.text.tertiary }]}>
+                      <Text style={[addStyles.splitAmount, { color: entry.included ? colors.text.primary : colors.text.tertiary }]}>
                         {formatCurrency(share, expenseCurrency)}
                         {convertedLabel(share) && (
                           <Text style={addStyles.convertedAmount}> {convertedLabel(share)}</Text>
@@ -559,7 +562,7 @@ export function ExpenseFormScreen() {
                       <Text style={[addStyles.splitName, { flex: 1 }]}>{member.displayName}</Text>
                       <View style={{ alignItems: 'flex-end' }}>
                         <View style={addStyles.exactBox}>
-                          <Text style={{ fontSize: 14, color: ledgerColors.text.secondary }}>
+                          <Text style={{ fontSize: 14, color: colors.text.secondary }}>
                             {currencySymbol(expenseCurrency)}
                           </Text>
                           <TextInput
@@ -567,7 +570,7 @@ export function ExpenseFormScreen() {
                             style={addStyles.exactInput}
                             keyboardType="decimal-pad"
                             placeholder="0.00"
-                            placeholderTextColor={ledgerColors.text.tertiary}
+                            placeholderTextColor={colors.text.tertiary}
                             value={displayVal}
                             onChangeText={v => {
                               const cleaned = sanitizeAmountInput(v);
@@ -586,13 +589,13 @@ export function ExpenseFormScreen() {
                   </View>
                 );
               })}
-              <View style={{ height: 1, backgroundColor: ledgerColors.border, marginVertical: 8 }} />
+              <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 13, fontWeight: '500', color: ledgerColors.text.secondary }}>
+                <Text style={{ fontSize: 13, fontWeight: '500', color: colors.text.secondary }}>
                   {t('expenses.form.unassigned_label')}
                 </Text>
                 <Text style={[addStyles.splitAmount, {
-                  color: unassignedCents === 0 ? ledgerColors.success.default : ledgerColors.error.default,
+                  color: unassignedCents === 0 ? colors.success.default : colors.error.default,
                 }]}>
                   {formatCurrency(unassignedCents, expenseCurrency)}
                   {convertedLabel(unassignedCents) && (
@@ -609,10 +612,10 @@ export function ExpenseFormScreen() {
               <Text style={[addStyles.fieldLabel, { textAlign: 'center', marginTop: 0, marginBottom: 4 }]}>
                 {description.toUpperCase() || t('expenses.form.receipt_fallback')}
               </Text>
-              <Text style={{ fontSize: 11.5, color: ledgerColors.text.tertiary, textAlign: 'center', marginBottom: 8 }}>
+              <Text style={{ fontSize: 11.5, color: colors.text.tertiary, textAlign: 'center', marginBottom: 8 }}>
                 {t('expenses.form.itemized_hint')}
               </Text>
-              <View style={{ borderBottomWidth: 1, borderStyle: 'dashed', borderColor: ledgerColors.borderMuted, marginBottom: 12 }} />
+              <View style={{ borderBottomWidth: 1, borderStyle: 'dashed', borderColor: colors.borderMuted, marginBottom: 12 }} />
               {split.lineItems.map((item, i) => (
                 <View key={item.id}>
                   {i > 0 && <View style={[addStyles.rowDivider, { marginBottom: 12 }]} />}
@@ -620,22 +623,22 @@ export function ExpenseFormScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <TextInput
                         testID={`item-description-input-${item.id}`}
-                        style={{ flex: 1, fontSize: 14, fontWeight: '500', color: ledgerColors.text.primary, paddingVertical: 2 }}
+                        style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.text.primary, paddingVertical: 2 }}
                         value={item.description}
                         onChangeText={v => split.updateLineItem(item.id, { description: v })}
                         placeholder={t('expenses.line_item.placeholder')}
-                        placeholderTextColor={ledgerColors.text.tertiary}
+                        placeholderTextColor={colors.text.tertiary}
                       />
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                        <Text style={{ fontSize: 14, color: ledgerColors.text.secondary }}>
+                        <Text style={{ fontSize: 14, color: colors.text.secondary }}>
                           {currencySymbol(expenseCurrency)}
                         </Text>
                         <TextInput
                           testID={`item-amount-input-${item.id}`}
-                          style={{ fontSize: 14, color: ledgerColors.text.primary, minWidth: 56, textAlign: 'right', paddingVertical: 2 }}
+                          style={{ fontSize: 14, color: colors.text.primary, minWidth: 56, textAlign: 'right', paddingVertical: 2 }}
                           keyboardType="decimal-pad"
                           placeholder="0.00"
-                          placeholderTextColor={ledgerColors.text.tertiary}
+                          placeholderTextColor={colors.text.tertiary}
                           value={itemRaw[item.id] ?? (item.amountCents > 0 ? fromMinorUnits(item.amountCents, expenseCurrency) : '')}
                           onChangeText={v => {
                             const cleaned = sanitizeAmountInput(v);
@@ -645,7 +648,7 @@ export function ExpenseFormScreen() {
                         />
                       </View>
                       <Pressable testID={`item-remove-button-${item.id}`} onPress={() => split.removeLineItem(item.id)} hitSlop={8}>
-                        <Feather name="x" size={16} color={ledgerColors.text.tertiary} />
+                        <Feather name="x" size={16} color={colors.text.tertiary} />
                       </Pressable>
                     </View>
                     {convertedLabel(item.amountCents) && (
@@ -665,7 +668,7 @@ export function ExpenseFormScreen() {
                           >
                             <View style={{
                               borderWidth: on ? 2 : 1.5,
-                              borderColor: on ? ledgerColors.primary.default : ledgerColors.text.tertiary,
+                              borderColor: on ? colors.primary.default : colors.text.tertiary,
                               borderRadius: 999,
                               padding: on ? 1 : 1.5,
                             }}>
@@ -680,13 +683,13 @@ export function ExpenseFormScreen() {
               ))}
               {split.lineItems.length > 0 && (
                 <>
-                  <View style={{ height: 1, backgroundColor: ledgerColors.border, marginVertical: 8 }} />
+                  <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ fontSize: 13, fontWeight: '500', color: ledgerColors.text.secondary }}>
+                    <Text style={{ fontSize: 13, fontWeight: '500', color: colors.text.secondary }}>
                       {t('expenses.form.unassigned_label')}
                     </Text>
                     <Text style={[addStyles.splitAmount, {
-                      color: unassignedItemsCents === 0 ? ledgerColors.success.default : ledgerColors.error.default,
+                      color: unassignedItemsCents === 0 ? colors.success.default : colors.error.default,
                     }]}>
                       {formatCurrency(unassignedItemsCents, expenseCurrency)}
                       {convertedLabel(unassignedItemsCents) && (
@@ -700,8 +703,8 @@ export function ExpenseFormScreen() {
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, marginTop: split.lineItems.length > 0 ? 8 : 0 }}
                 onPress={split.addLineItem}
               >
-                <Feather name="plus" size={14} color={ledgerColors.primary.default} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: ledgerColors.primary.default }}>{t('expenses.form.add_line_item')}</Text>
+                <Feather name="plus" size={14} color={colors.primary.default} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary.default }}>{t('expenses.form.add_line_item')}</Text>
               </Pressable>
             </View>
           )}
@@ -718,11 +721,11 @@ export function ExpenseFormScreen() {
             ]}
           >
             {saving ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.text.inverse} />
             ) : (
               <>
-                <Feather name="check" size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>{t('expenses.form.save_button')}</Text>
+                <Feather name="check" size={18} color={colors.text.inverse} />
+                <Text style={{ color: colors.text.inverse, fontWeight: '600', fontSize: 16 }}>{t('expenses.form.save_button')}</Text>
               </>
             )}
           </Pressable>
@@ -738,7 +741,7 @@ export function ExpenseFormScreen() {
         >
           <Pressable style={addStyles.currencySheet} onPress={() => {}}>
             <View style={addStyles.currencySheetHeader}>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: ledgerColors.text.secondary, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text.secondary, textTransform: 'uppercase', letterSpacing: 0.8 }}>
                 {t('expenses.form.currency_sheet_title')}
               </Text>
             </View>
@@ -748,7 +751,7 @@ export function ExpenseFormScreen() {
                 const isContextCcy = item.code === contextCurrency;
                 return (
                   <View key={item.code}>
-                    {index > 0 && <View style={{ height: 1, backgroundColor: ledgerColors.border }} />}
+                    {index > 0 && <View style={{ height: 1, backgroundColor: colors.border }} />}
                     <Pressable
                       onPress={() => {
                         const newCode = item.code;
@@ -770,20 +773,20 @@ export function ExpenseFormScreen() {
                       accessibilityState={{ selected }}
                       style={({ pressed }) => [
                         addStyles.currencyRow,
-                        { backgroundColor: pressed ? ledgerColors.surfaceAlt : selected ? ledgerColors.primary.subtle : 'transparent' },
+                        { backgroundColor: pressed ? colors.surfaceAlt : selected ? colors.primary.subtle : 'transparent' },
                       ]}
                     >
                       <View>
-                        <Text style={{ fontSize: 15, color: selected ? ledgerColors.primary.default : ledgerColors.text.primary }}>
+                        <Text style={{ fontSize: 15, color: selected ? colors.primary.default : colors.text.primary }}>
                           {currencyLabel(item.code)}
                         </Text>
                         {isContextCcy && (
-                          <Text style={{ fontSize: 11, color: ledgerColors.text.tertiary, marginTop: 1 }}>
+                          <Text style={{ fontSize: 11, color: colors.text.tertiary, marginTop: 1 }}>
                             {isGroupMode ? t('expenses.form.currency_sheet_group_currency') : t('expenses.form.currency_sheet_trip_currency')}
                           </Text>
                         )}
                       </View>
-                      {selected && <Feather name="check" size={16} color={ledgerColors.primary.default} />}
+                      {selected && <Feather name="check" size={16} color={colors.primary.default} />}
                     </Pressable>
                   </View>
                 );
@@ -815,54 +818,54 @@ export function ExpenseFormScreen() {
     </>
   );
 }
-const addStyles = StyleSheet.create({
+const makeAddStyles = (colors: ColorPalette) => StyleSheet.create({
   titleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
   },
-  screenTitle: { fontFamily: ledgerFonts.display, fontSize: 19, color: ledgerColors.text.primary },
+  screenTitle: { fontFamily: ledgerFonts.display, fontSize: 19, color: colors.text.primary },
   card: {
-    backgroundColor: ledgerColors.surface,
+    backgroundColor: colors.surface,
     borderRadius: ledgerRadius.card,
     padding: 16,
     ...ledgerShadow.card,
   },
-  currency: { fontFamily: ledgerFonts.displaySemibold, fontSize: 26, color: ledgerColors.text.secondary },
+  currency: { fontFamily: ledgerFonts.displaySemibold, fontSize: 26, color: colors.text.secondary },
   amountInput: {
     fontFamily: ledgerFonts.display,
-    fontSize: 44, color: ledgerColors.text.primary,
+    fontSize: 44, color: colors.text.primary,
     minWidth: 140, textAlign: 'center',
   },
   titleInput: {
-    fontSize: 15, color: ledgerColors.text.primary, textAlign: 'center',
-    borderTopWidth: 1, borderColor: ledgerColors.border,
+    fontSize: 15, color: colors.text.primary, textAlign: 'center',
+    borderTopWidth: 1, borderColor: colors.border,
     paddingTop: 12, marginTop: 8,
   },
   fieldLabel: {
-    fontSize: 12, fontWeight: '600', color: ledgerColors.text.secondary,
+    fontSize: 12, fontWeight: '600', color: colors.text.secondary,
     textTransform: 'uppercase', letterSpacing: 0.8,
     marginTop: 20, marginBottom: 8,
   },
-  rateText: { fontSize: 12, color: ledgerColors.text.secondary },
+  rateText: { fontSize: 12, color: colors.text.secondary },
   splitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  rowDivider: { height: 1, backgroundColor: ledgerColors.border },
-  splitName: { fontSize: 14.5, fontWeight: '500', color: ledgerColors.text.primary, flex: 1 },
-  splitAmount: { fontFamily: ledgerFonts.displaySemibold, fontSize: 14, color: ledgerColors.text.primary, fontVariant: ['tabular-nums'] },
-  convertedAmount: { fontFamily: ledgerFonts.body, fontSize: 11, fontWeight: '400', color: ledgerColors.text.tertiary, fontVariant: ['tabular-nums'] },
+  rowDivider: { height: 1, backgroundColor: colors.border },
+  splitName: { fontSize: 14.5, fontWeight: '500', color: colors.text.primary, flex: 1 },
+  splitAmount: { fontFamily: ledgerFonts.displaySemibold, fontSize: 14, color: colors.text.primary, fontVariant: ['tabular-nums'] },
+  convertedAmount: { fontFamily: ledgerFonts.body, fontSize: 11, fontWeight: '400', color: colors.text.tertiary, fontVariant: ['tabular-nums'] },
   check: {
-    width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: ledgerColors.borderMuted,
+    width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: colors.borderMuted,
     alignItems: 'center', justifyContent: 'center',
   },
-  checkOn: { backgroundColor: ledgerColors.primary.default, borderColor: ledgerColors.primary.default },
+  checkOn: { backgroundColor: colors.primary.default, borderColor: colors.primary.default },
   exactBox: {
     flexDirection: 'row', alignItems: 'center', gap: 2,
-    backgroundColor: ledgerColors.background, borderRadius: ledgerRadius.sm, paddingHorizontal: 10, height: 38,
+    backgroundColor: colors.background, borderRadius: ledgerRadius.sm, paddingHorizontal: 10, height: 38,
   },
-  exactInput: { fontSize: 15, fontWeight: '500', color: ledgerColors.text.primary, minWidth: 62, textAlign: 'right' },
+  exactInput: { fontSize: 15, fontWeight: '500', color: colors.text.primary, minWidth: 62, textAlign: 'right' },
   saveBtn: {
     flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
     paddingVertical: 15, borderRadius: ledgerRadius.md,
-    backgroundColor: ledgerColors.primary.default,
+    backgroundColor: colors.primary.default,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -871,7 +874,7 @@ const addStyles = StyleSheet.create({
     padding: 24,
   },
   currencySheet: {
-    backgroundColor: ledgerColors.surface,
+    backgroundColor: colors.surface,
     borderRadius: ledgerRadius.card,
     overflow: 'hidden',
     maxHeight: '70%',
@@ -879,7 +882,7 @@ const addStyles = StyleSheet.create({
   },
   currencySheetHeader: {
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: ledgerColors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   currencyRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

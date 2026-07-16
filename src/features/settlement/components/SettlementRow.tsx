@@ -160,7 +160,7 @@ export function SettlementRow({
                     opacity: pressed ? 0.7 : 1,
                   })}
                 >
-                  <Text variant="caption" color="#ffffff">{t('settlement.row.pay_button')}</Text>
+                  <Text variant="caption" color={colors.text.inverse}>{t('settlement.row.pay_button')}</Text>
                 </Pressable>
               )}
               {onRecordPayment && (

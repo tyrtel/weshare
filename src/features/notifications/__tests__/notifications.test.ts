@@ -69,6 +69,29 @@ describe('useRegisterPushToken', () => {
 
     expect(notificationService.registerCalls).toHaveLength(0);
   });
+
+  it('unregisters the device token on sign-out when permissions are granted', async () => {
+    jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ status: 'granted' } as never);
+
+    renderHook(() => useRegisterPushToken(), { wrapper: makeWrapper(container) });
+    await act(async () => {});
+
+    await act(async () => { await container.resolve(AUTH).signOut(); });
+
+    expect(notificationService.unregisterCalls).toHaveLength(1);
+    expect(notificationService.unregisterCalls[0]).toBe(MOCK_TOKEN);
+  });
+
+  it('does not unregister on sign-out when permissions are denied', async () => {
+    jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ status: 'denied' } as never);
+
+    renderHook(() => useRegisterPushToken(), { wrapper: makeWrapper(container) });
+    await act(async () => {});
+
+    await act(async () => { await container.resolve(AUTH).signOut(); });
+
+    expect(notificationService.unregisterCalls).toHaveLength(0);
+  });
 });
 
 // ── useCreateGroupExpense — notification integration ─────────────────────────

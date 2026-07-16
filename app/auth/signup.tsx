@@ -17,7 +17,7 @@ import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
-import { ledgerColors as C } from '../../src/theme/colors';
+import { useColors } from '../../src/theme/colors';
 import { validateAndNormalizeEmail } from '../../src/core/utils/emailValidation';
 
 export default function SignUpScreen() {
@@ -25,6 +25,7 @@ export default function SignUpScreen() {
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const C      = useColors();
 
   const [name, setName]               = useState('');
   const [email, setEmail]             = useState('');
@@ -85,7 +86,7 @@ export default function SignUpScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.root,
-          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+          { backgroundColor: C.background, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -98,7 +99,7 @@ export default function SignUpScreen() {
         </Pressable>
 
         <View style={styles.header}>
-          <Text style={styles.title}>{t('auth.sign_up.title')}</Text>
+          <Text style={[styles.title, { color: C.text.primary }]}>{t('auth.sign_up.title')}</Text>
           <Text variant="body" color={C.text.secondary}>
             {t('auth.sign_up.subtitle')}
           </Text>
@@ -106,7 +107,7 @@ export default function SignUpScreen() {
 
         <View style={styles.form}>
           {error ? (
-            <View style={styles.errorBanner}>
+            <View style={[styles.errorBanner, { backgroundColor: C.error.bg }]}>
               <Text variant="caption" color={C.error.default}>{error}</Text>
             </View>
           ) : null}
@@ -122,7 +123,7 @@ export default function SignUpScreen() {
               returnKeyType="next"
               onSubmitEditing={() => emailRef.current?.focus()}
               editable={!busy}
-              style={styles.input}
+              style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text.primary }]}
               accessibilityLabel={t('auth.sign_up.name_accessibility')}
             />
           </View>
@@ -141,7 +142,7 @@ export default function SignUpScreen() {
               returnKeyType="next"
               onSubmitEditing={() => passwordRef.current?.focus()}
               editable={!busy}
-              style={styles.input}
+              style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text.primary }]}
               accessibilityLabel={t('auth.email_accessibility')}
             />
           </View>
@@ -159,7 +160,7 @@ export default function SignUpScreen() {
                 returnKeyType="next"
                 onSubmitEditing={() => confirmRef.current?.focus()}
                 editable={!busy}
-                style={[styles.input, { paddingRight: 48 }]}
+                style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text.primary, paddingRight: 48 }]}
                 accessibilityLabel={t('auth.password_accessibility')}
               />
               <Pressable
@@ -186,7 +187,7 @@ export default function SignUpScreen() {
                 returnKeyType="go"
                 onSubmitEditing={handleCreate}
                 editable={!busy}
-                style={[styles.input, { paddingRight: 48 }]}
+                style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text.primary, paddingRight: 48 }]}
                 accessibilityLabel={t('auth.sign_up.confirm_password_accessibility')}
               />
               <Pressable
@@ -205,6 +206,7 @@ export default function SignUpScreen() {
             disabled={busy}
             style={({ pressed }) => [
               styles.primaryButton,
+              { backgroundColor: C.primary.default },
               busy && styles.disabledButton,
               pressed && styles.pressed,
             ]}
@@ -236,7 +238,6 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
   root: {
     flexGrow: 1,
-    backgroundColor: C.background,
     paddingHorizontal: 24,
     gap: 24,
   },
@@ -250,7 +251,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: C.text.primary,
   },
   form: {
     gap: 16,
@@ -263,22 +263,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   errorBanner: {
-    backgroundColor: C.error.bg,
     borderRadius: 8,
     padding: 12,
   },
   input: {
-    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: C.text.primary,
   },
   primaryButton: {
-    backgroundColor: C.primary.default,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

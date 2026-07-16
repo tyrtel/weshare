@@ -499,7 +499,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       }));
     },
 
-    settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date): void {
+    settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date | null): void {
       set((state) => ({
         groupExpenses: {
           ...state.groupExpenses,

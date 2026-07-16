@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, ScrollView, ActivityIndicator, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { SlideInDown } from 'react-native-reanimated';
@@ -15,7 +15,8 @@ import { ExpenseReceiptSection } from '../../../components/ui/ExpenseReceiptSect
 import { useExpenseDetail } from '../hooks/useExpenseDetail';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { MEMBER_REPO, TRIP_STORE } from '../../../core/di/tokens';
-import { ledgerColors, personColorFor } from '../../../theme/colors';
+import { useColors, personColorFor } from '../../../theme/colors';
+import type { ColorPalette } from '../../../theme/colors';
 import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
 import { confirm } from '../../../core/utils/confirm';
 import { formatCurrency, formatRate } from '../../../core/utils/formatCurrency';
@@ -52,6 +53,8 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   const router     = useRouter();
   const memberRepo = useService(MEMBER_REPO);
   const storeApi   = useService(TRIP_STORE);
+  const colors     = useColors();
+  const detailStyles = useMemo(() => makeDetailStyles(colors), [colors]);
 
   const { expense, loading, error } = useExpenseDetail(id);
   const tripClosed = useTripSessionStore(
@@ -81,7 +84,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
     return (
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={ledgerColors.primary.default} size="large" />
+          <ActivityIndicator color={colors.primary.default} size="large" />
         </View>
       </ScreenWrapper>
     );
@@ -91,7 +94,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
     return (
       <ScreenWrapper>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <Text variant="body" color={ledgerColors.error.default} style={{ textAlign: 'center' }}>
+          <Text variant="body" color={colors.error.default} style={{ textAlign: 'center' }}>
             {error?.kind === 'NotFoundError' ? t('expenses.detail.error_not_found') : t('expenses.detail.error_load')}
           </Text>
         </View>
@@ -107,10 +110,10 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   return (
     <ScreenWrapper>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView edges={['top']} style={{ backgroundColor: ledgerColors.background }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
         <View style={detailStyles.titleRow}>
           <Pressable onPress={() => router.back()} hitSlop={10}>
-            <Feather name="chevron-left" size={26} color={ledgerColors.text.primary} />
+            <Feather name="chevron-left" size={26} color={colors.text.primary} />
           </Pressable>
           <Text style={detailStyles.title} numberOfLines={1}>{expense.description}</Text>
           {tripClosed ? (
@@ -122,7 +125,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
               accessibilityLabel={t('expenses.detail.edit_label')}
               hitSlop={10}
             >
-              <Feather name="edit-2" size={18} color={ledgerColors.text.secondary} />
+              <Feather name="edit-2" size={18} color={colors.text.secondary} />
             </Pressable>
           )}
         </View>
@@ -208,8 +211,8 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <Feather name="trash-2" size={15} color={ledgerColors.error.default} />
-            <Text variant="label" color={ledgerColors.error.default}>{t('expenses.detail.delete_button')}</Text>
+            <Feather name="trash-2" size={15} color={colors.error.default} />
+            <Text variant="label" color={colors.error.default}>{t('expenses.detail.delete_button')}</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -217,37 +220,37 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   );
 }
 
-const detailStyles = StyleSheet.create({
+const makeDetailStyles = (colors: ColorPalette) => StyleSheet.create({
   titleRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
   },
   title: {
     flex: 1, textAlign: 'center', marginHorizontal: 12,
-    fontFamily: ledgerFonts.display, fontSize: 17, color: ledgerColors.text.primary,
+    fontFamily: ledgerFonts.display, fontSize: 17, color: colors.text.primary,
   },
   amount: {
-    fontFamily: ledgerFonts.display, fontSize: 34, color: ledgerColors.text.primary,
+    fontFamily: ledgerFonts.display, fontSize: 34, color: colors.text.primary,
     fontVariant: ['tabular-nums'],
   },
   conversionCaption: {
-    fontSize: 12.5, color: ledgerColors.text.secondary, marginBottom: 4, textAlign: 'center',
+    fontSize: 12.5, color: colors.text.secondary, marginBottom: 4, textAlign: 'center',
   },
   dateCaption: {
-    fontSize: 12.5, color: ledgerColors.text.tertiary,
+    fontSize: 12.5, color: colors.text.tertiary,
   },
   fieldLabel: {
-    fontSize: 12, fontWeight: '600', color: ledgerColors.text.secondary,
+    fontSize: 12, fontWeight: '600', color: colors.text.secondary,
     textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8,
   },
   card: {
-    backgroundColor: ledgerColors.surface,
+    backgroundColor: colors.surface,
     borderRadius: ledgerRadius.card,
     padding: 16,
     ...ledgerShadow.card,
   },
   splitAmount: {
-    fontFamily: ledgerFonts.displaySemibold, fontSize: 14, color: ledgerColors.text.primary,
+    fontFamily: ledgerFonts.displaySemibold, fontSize: 14, color: colors.text.primary,
     fontVariant: ['tabular-nums'],
   },
 });

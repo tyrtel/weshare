@@ -1,5 +1,3 @@
-// Requires: npx expo install expo-notifications
-// Also add "android.permissions": ["NOTIFICATIONS"] in app.config.ts if needed.
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -23,5 +21,21 @@ export function useRegisterPushToken(): void {
       await notificationService.registerDeviceToken(user.id, token, platform);
     }
     register().catch(() => {});
+  }, [auth, notificationService]);
+
+  useEffect(() => {
+    const unsub = auth.onAuthStateChange(user => {
+      if (user) return;
+
+      async function unregister(): Promise<void> {
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== 'granted') return;
+
+        const { data: token } = await Notifications.getExpoPushTokenAsync();
+        await notificationService.unregisterDeviceToken(token);
+      }
+      unregister().catch(() => {});
+    });
+    return unsub;
   }, [auth, notificationService]);
 }

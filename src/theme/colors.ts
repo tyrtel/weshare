@@ -1,103 +1,15 @@
-// Full light + dark palette.
+// Ledger palette (light + dark twin).
 //
 // Design system rule: ALL colored surfaces use a very dark desaturated background
 // with a bright/pastel text color of the same hue. Never use a light background for
-// user-generated colored content (person cards, item pills).
+// user-generated colored content (person cards, item pills) — this applies in both
+// light and dark app themes.
 //
-// Primary accent: #1D9E75 (teal family).
-// Dark is the primary scheme; light mode is supported but secondary.
+// Primary accent: teal-green family (#0E6B4F light / #1FAE7D dark).
 
-import { useColorScheme as _useColorScheme } from 'react-native'; // kept for getColors() signature compat
+import { useResolvedTheme } from '../store/themeStore';
 
-// ── Dark palette ──────────────────────────────────────────────────────────────
-
-export const darkColors = {
-  background: '#1a1a2e',
-  surface: '#16213e',
-  surfaceAlt: '#0f1627',
-  border: '#2a2a4a',
-  borderMuted: '#1e1e38',
-
-  text: {
-    primary: '#e8e8f5',
-    secondary: '#8888aa',
-    tertiary: '#7a7a99',
-    inverse: '#1a1a2e',
-  },
-
-  primary: {
-    default: '#1D9E75',
-    light: '#24c28e',
-    dim: '#0d7a5a',
-    subtle: '#0d2520',
-  },
-
-  error: {
-    default: '#f87171',
-    bg: '#2d1414',
-  },
-
-  warning: {
-    default: '#fbbf24',
-    bg: '#2d2000',
-  },
-
-  success: {
-    default: '#6ee7b7',
-    bg: '#0f2d1a',
-  },
-
-  simulation: {
-    bg: '#2d2200',
-    text: '#fbbf24',
-  },
-} as const;
-
-// ── Light palette ─────────────────────────────────────────────────────────────
-
-export const lightColors = {
-  background: '#f8f9fc',
-  surface: '#ffffff',
-  surfaceAlt: '#f0f2f8',
-  border: '#e2e4ed',
-  borderMuted: '#eceef6',
-
-  text: {
-    primary: '#1a1a2e',
-    secondary: '#6b7280',
-    tertiary: '#7b8299',
-    inverse: '#f8f9fc',
-  },
-
-  primary: {
-    default: '#1D9E75',
-    light: '#24c28e',
-    dim: '#0d7a5a',
-    subtle: '#e6f5f0',
-  },
-
-  error: {
-    default: '#ef4444',
-    bg: '#fef2f2',
-  },
-
-  warning: {
-    default: '#f59e0b',
-    bg: '#fffbeb',
-  },
-
-  success: {
-    default: '#10b981',
-    bg: '#f0fdf4',
-  },
-
-  simulation: {
-    bg: '#fff8e1',
-    text: '#b45309',
-  },
-} as const;
-
-// ── Ledger palette ────────────────────────────────────────────────────────────
+// ── Ledger palette — light (default) ───────────────────────────────────────────
 
 export const ledgerColors = {
   background: '#F2F5F1',
@@ -135,9 +47,68 @@ export const ledgerColors = {
     bg: '#DDF2E9',
   },
 
+  info: {
+    default: '#2563EB',
+    bg: '#E6EEFB',
+  },
+
   simulation: {
     bg: '#fff8e1',
     text: '#b45309',
+  },
+
+  butter: '#F2C94C',
+} as const;
+
+// ── Ledger palette — dark twin ──────────────────────────────────────────────────
+// Tonal dark twin of ledgerColors: dark desaturated charcoal-green (not the old
+// navy/purple design), same teal-green accent family, brightened just enough for
+// legibility on dark surfaces.
+
+export const ledgerDarkColors = {
+  background: '#0F1613',
+  surface: '#171F1B',
+  surfaceAlt: '#1C2621',
+  border: '#2A3630',
+  borderMuted: '#212B26',
+
+  text: {
+    primary: '#EAF0EC',
+    secondary: '#9BAFA5',
+    tertiary: '#6E8479',
+    inverse: '#FFFFFF',
+  },
+
+  primary: {
+    default: '#1FAE7D',
+    light: '#3FCB9A',
+    dim: '#12946A',
+    subtle: '#12251E',
+  },
+
+  error: {
+    default: '#F0785A',
+    bg: '#3A1D14',
+  },
+
+  warning: {
+    default: '#F2C94C',
+    bg: '#332B0E',
+  },
+
+  success: {
+    default: '#3FCB9A',
+    bg: '#12251E',
+  },
+
+  info: {
+    default: '#60A5FA',
+    bg: '#132A47',
+  },
+
+  simulation: {
+    bg: '#332B0E',
+    text: '#F2C94C',
   },
 
   butter: '#F2C94C',
@@ -147,6 +118,7 @@ export const ledgerColors = {
 // ColorBrewer Dark2 qualitative palette (colorbrewer2.org).
 // Text values are the canonical Dark2 hex codes; bg values are very-dark
 // same-hue surfaces matching the design rule "dark surface, bright text".
+// Fixed across both themes by design — see rule above.
 
 // Mid-tone solid colours — white text, readable on ledger's mist/paper backgrounds.
 export const personColors = [
@@ -176,17 +148,17 @@ export function personColorFor(
   return personColors[(idx === -1 ? 0 : idx) % personColors.length];
 }
 
-export type ColorPalette = typeof darkColors | typeof lightColors | typeof ledgerColors;
+export type ColorPalette = typeof ledgerColors | typeof ledgerDarkColors;
 
-// ── Pure selector (kept for backward-compat; ignores scheme — always ledger) ─
+// ── Pure selector ────────────────────────────────────────────────────────────
 
-export function getColors(_scheme: string | null | undefined): ColorPalette {
-  return ledgerColors;
+export function getColors(scheme: 'light' | 'dark'): ColorPalette {
+  return scheme === 'dark' ? ledgerDarkColors : ledgerColors;
 }
 
-// ── Hook — always returns the single ledger (PoCUI light) palette ─────────────
+// ── Hook — resolves the user's theme preference (light/dark/system) ──────────
 
 export function useColors(): ColorPalette {
-  _useColorScheme(); // keeps the hook call count stable across renders
-  return ledgerColors;
+  const resolved = useResolvedTheme();
+  return getColors(resolved);
 }

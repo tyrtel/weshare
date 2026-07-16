@@ -41,8 +41,11 @@ function setup(overrides: Partial<ReturnType<typeof useGroupDetail>> = {}) {
     closedTrips: [],
     tripExpenses: {},
     groupExpenses: [],
+    activeExpenses: [],
+    closedExpenses: [],
     settlements: [],
     memberBalances: MEMBERS.map(m => ({ userId: m.userId, balanceCents: 0 })),
+    completedPayments: [],
     loading: false,
     ...overrides,
   });
@@ -60,7 +63,7 @@ function render(container: ServiceContainer = createTestContainer()) {
 describe('GroupDetailScreen', () => {
   it('renders the group name, currency-aware amounts, and the member list', () => {
     setup({
-      groupExpenses: [expenseFactory({
+      activeExpenses: [expenseFactory({
         id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries',
         totalAmountCents: 3000, currency: 'EUR', paidByUserId: 'u1',
       })],
@@ -99,7 +102,7 @@ describe('GroupDetailScreen', () => {
 
   it('tapping an expense row navigates to its detail screen', () => {
     setup({
-      groupExpenses: [expenseFactory({
+      activeExpenses: [expenseFactory({
         id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries',
         totalAmountCents: 3000, currency: 'EUR', paidByUserId: 'u1',
       })],
@@ -125,6 +128,26 @@ describe('GroupDetailScreen', () => {
 
     expect(screen.getByText('Old Trip')).toBeTruthy();
     expect(screen.getByText('Hide past items')).toBeTruthy();
+  });
+
+  // Closing an expense (not deleting it) hides it behind the same kind of
+  // toggle as closed trips — it's still fully part of the group ledger above.
+  it('hides closed expenses until "View closed expenses" is pressed, then shows them', () => {
+    const closedExpense = expenseFactory({
+      id: 'e9', tripId: undefined, groupId: 'g1', description: 'Old Dinner',
+      totalAmountCents: 1200, currency: 'EUR', paidByUserId: 'u1',
+      settledAt: new Date('2025-06-02T00:00:00Z'),
+    });
+    setup({ closedExpenses: [closedExpense] });
+    render();
+
+    expect(screen.queryByText('Old Dinner')).toBeNull();
+    expect(screen.getByText('View closed expenses')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('View closed expenses'));
+
+    expect(screen.getByText('Old Dinner')).toBeTruthy();
+    expect(screen.getByText('Hide closed expenses')).toBeTruthy();
   });
 
   // ── Chunk C (TODO_userMerge.md): unlinked-guest indicator + send invite ──────
@@ -188,6 +211,70 @@ describe('GroupDetailScreen', () => {
       const share = container.resolve(SHARE) as MockShareService;
       expect(share.groupCalls).toHaveLength(1);
       await waitFor(() => expect(screen.queryByText('Send an invite')).toBeNull());
+    });
+  });
+
+  describe('settle-up hint', () => {
+    it('shows a hint about settling everything at once alongside the Settle up button', () => {
+      setup({
+        memberBalances: [{ userId: 'u1', balanceCents: 1000 }, { userId: 'u2', balanceCents: -1000 }],
+        settlements: [{ fromUserId: 'u2', toUserId: 'u1', amountCents: 1000, currency: 'EUR' }],
+      });
+      render();
+
+      expect(screen.getByText('Settle up')).toBeTruthy();
+      expect(screen.getByText('Pay individually, or settle everything at once')).toBeTruthy();
+    });
+
+    it('hides the hint when there is nothing to settle', () => {
+      setup({ memberBalances: MEMBERS.map(m => ({ userId: m.userId, balanceCents: 0 })), settlements: [] });
+      render();
+
+      expect(screen.queryByText('Pay individually, or settle everything at once')).toBeNull();
+    });
+  });
+
+  describe('recent payments', () => {
+    it('shows up to 3 payments, most recent first', () => {
+      setup({
+        completedPayments: [
+          { payerUserId: 'u1', payeeUserId: 'u2', amountCents: 1000, currency: 'EUR', id: 'p1', date: new Date('2026-01-01') },
+          { payerUserId: 'u2', payeeUserId: 'u1', amountCents: 2000, currency: 'EUR', id: 'p2', date: new Date('2026-03-01') },
+          { payerUserId: 'u1', payeeUserId: 'u2', amountCents: 3000, currency: 'EUR', id: 'p3', date: new Date('2026-02-01') },
+          { payerUserId: 'u2', payeeUserId: 'u1', amountCents: 4000, currency: 'EUR', id: 'p4', date: new Date('2025-12-01') },
+        ],
+      });
+      render();
+
+      expect(screen.getByText('Recent Payments')).toBeTruthy();
+      // p4 (Dec) is the 4th most recent — should be excluded, only top 3 shown.
+      expect(screen.queryByText('€40.00')).toBeNull();
+      expect(screen.getByText('€20.00')).toBeTruthy();
+      expect(screen.getByText('€30.00')).toBeTruthy();
+      expect(screen.getByText('€10.00')).toBeTruthy();
+    });
+
+    it('hides the section entirely when there are no completed payments', () => {
+      setup({ completedPayments: [] });
+      render();
+
+      expect(screen.queryByText('Recent Payments')).toBeNull();
+    });
+
+    it('navigates to the pairwise audit screen when a payment is pressed', () => {
+      setup({
+        completedPayments: [
+          { payerUserId: 'u2', payeeUserId: 'u1', amountCents: 1000, currency: 'EUR', id: 'p1', date: new Date('2026-01-01') },
+        ],
+      });
+      render();
+
+      fireEvent.press(screen.getByText('Bob paid Alice'));
+
+      expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({
+        pathname: '/group/settle/audit/g1',
+        params: expect.objectContaining({ groupId: 'g1', fromUserId: 'u2', toUserId: 'u1', fromName: 'Bob', toName: 'Alice' }),
+      }));
     });
   });
 });

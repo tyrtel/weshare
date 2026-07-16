@@ -1,11 +1,12 @@
-import { getColors, ledgerColors, personColors } from '../colors';
+import { getColors, ledgerColors, ledgerDarkColors, personColors } from '../colors';
 
 describe('getColors()', () => {
-  it('always returns ledgerColors regardless of scheme', () => {
-    expect(getColors('dark')).toBe(ledgerColors);
+  it('resolves light scheme to ledgerColors', () => {
     expect(getColors('light')).toBe(ledgerColors);
-    expect(getColors(null)).toBe(ledgerColors);
-    expect(getColors(undefined)).toBe(ledgerColors);
+  });
+
+  it('resolves dark scheme to ledgerDarkColors', () => {
+    expect(getColors('dark')).toBe(ledgerDarkColors);
   });
 
   it('ledger background is mist #F2F5F1', () => {
@@ -22,6 +23,20 @@ describe('getColors()', () => {
 
   it('ledger palette has distinct surface and background', () => {
     expect(ledgerColors.surface).not.toBe(ledgerColors.background);
+  });
+
+  it('ledgerDarkColors palette has distinct surface and background', () => {
+    expect(ledgerDarkColors.surface).not.toBe(ledgerDarkColors.background);
+  });
+
+  it('ledgerDarkColors is a tonal twin, not the same palette as ledgerColors', () => {
+    expect(ledgerDarkColors.background).not.toBe(ledgerColors.background);
+    expect(ledgerDarkColors.text.primary).not.toBe(ledgerColors.text.primary);
+  });
+
+  it('both palettes define the same semantic keys', () => {
+    expect(Object.keys(ledgerDarkColors).sort()).toEqual(Object.keys(ledgerColors).sort());
+    expect(Object.keys(ledgerDarkColors.text).sort()).toEqual(Object.keys(ledgerColors.text).sort());
   });
 });
 

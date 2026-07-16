@@ -1,11 +1,16 @@
 /**
  * Lisbon Weekend scenario — 2 people, 2 expenses.
  *
- * Jay McCleery pays hotel €200 (2-way, 10000¢ each).
- * Arnaud pays dinner €60 (2-way, 3000¢ each).
+ * Arnaud pays hotel €200 (2-way, 10000¢ each).
+ * Jay McCleery pays dinner €60 (2-way, 3000¢ each).
  *
  * Expected settlement output:
- *   Arnaud → Jay   7000¢ (€70.00)
+ *   Jay → Arnaud   7000¢ (€70.00)
+ *
+ * Deliberately the one trip where Jay owes money rather than being owed —
+ * the other two sample trips (restaurantScenario, settlingScenario) both
+ * have Jay net-positive, so simulation mode needs at least one red/negative
+ * balance to look at on the Home and Balance screens, not just green ones.
  *
  * This trip is added alongside restaurantScenario in simulation mode so
  * TripListScreen shows two trips and the empty-state is never hit.
@@ -45,21 +50,21 @@ export const twoPersonScenario: StorageFixtures = {
     {
       id: 'exp_hotel', tripId: TRIP_ID,
       description: 'Hotel', totalAmountCents: 20000, currency: 'EUR',
-      paidByUserId: 'user_jay@sim.local', createdAt: NOW, splits: [], metadata: {},
+      paidByUserId: 'guest_arnaud', createdAt: NOW, splits: [], metadata: {},
     },
     {
       id: 'exp_dinner', tripId: TRIP_ID,
       description: 'Dinner', totalAmountCents: 6000, currency: 'EUR',
-      paidByUserId: 'guest_arnaud', createdAt: NOW, splits: [], metadata: {},
+      paidByUserId: 'user_jay@sim.local', createdAt: NOW, splits: [], metadata: {},
     },
   ],
 
   splits: [
-    // Hotel — Jay pays, 2-way equal
+    // Hotel — Arnaud pays, 2-way equal
     { id: 'sh1', expenseId: 'exp_hotel', userId: 'user_jay@sim.local', amountOwedCents: 10000, amountPaidCents: 0 },
     { id: 'sh2', expenseId: 'exp_hotel', userId: 'guest_arnaud',       amountOwedCents: 10000, amountPaidCents: 0 },
 
-    // Dinner — Arnaud pays, 2-way equal
+    // Dinner — Jay pays, 2-way equal
     { id: 'sd1', expenseId: 'exp_dinner', userId: 'user_jay@sim.local', amountOwedCents: 3000, amountPaidCents: 0 },
     { id: 'sd2', expenseId: 'exp_dinner', userId: 'guest_arnaud',       amountOwedCents: 3000, amountPaidCents: 0 },
   ],

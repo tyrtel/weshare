@@ -16,7 +16,7 @@ import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
-import { ledgerColors as C } from '../../src/theme/colors';
+import { useColors } from '../../src/theme/colors';
 
 const CODE_LENGTH = 6;
 
@@ -25,6 +25,7 @@ export default function ResetPasswordScreen() {
   const auth   = useService(AUTH);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const C      = useColors();
 
   const { email = '' } = useLocalSearchParams<{ email: string }>();
 
@@ -122,7 +123,7 @@ export default function ResetPasswordScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.root,
-          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
+          { backgroundColor: C.background, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -135,7 +136,7 @@ export default function ResetPasswordScreen() {
         </Pressable>
 
         <View style={styles.header}>
-          <Text variant="heading" style={styles.title}>{t('auth.reset_password.title')}</Text>
+          <Text variant="heading" style={[styles.title, { color: C.text.primary }]}>{t('auth.reset_password.title')}</Text>
           <Text variant="body" color={C.text.secondary} style={styles.subtitle}>
             {t('auth.reset_password.subtitle')}{'\n'}
             <Text variant="body" color={C.text.primary}>{email}</Text>
@@ -154,7 +155,10 @@ export default function ResetPasswordScreen() {
               maxLength={CODE_LENGTH}
               editable={!busy}
               selectTextOnFocus
-              style={[styles.digitBox, digit ? styles.digitBoxFilled : null]}
+              style={[
+                styles.digitBox,
+                { backgroundColor: C.surface, borderColor: digit ? C.primary.default : C.border, color: C.text.primary },
+              ]}
               accessibilityLabel={t('auth.verify.digit_label', { number: i + 1 })}
             />
           ))}
@@ -171,7 +175,7 @@ export default function ResetPasswordScreen() {
             returnKeyType="next"
             onSubmitEditing={() => confirmRef.current?.focus()}
             editable={!busy}
-            style={styles.input}
+            style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text.primary }]}
             accessibilityLabel={t('auth.reset_password.new_password_label')}
           />
           <TextInput
@@ -184,13 +188,13 @@ export default function ResetPasswordScreen() {
             returnKeyType="go"
             onSubmitEditing={handleSubmit}
             editable={!busy}
-            style={styles.input}
+            style={[styles.input, { backgroundColor: C.surface, borderColor: C.border, color: C.text.primary }]}
             accessibilityLabel={t('auth.reset_password.confirm_label')}
           />
         </View>
 
         {error ? (
-          <View style={styles.errorBanner}>
+          <View style={[styles.errorBanner, { backgroundColor: C.error.bg }]}>
             <Text variant="caption" color={C.error.default}>{error}</Text>
           </View>
         ) : null}
@@ -200,6 +204,7 @@ export default function ResetPasswordScreen() {
           disabled={busy || !codeComplete}
           style={({ pressed }) => [
             styles.primaryButton,
+            { backgroundColor: C.primary.default },
             (!codeComplete || busy) && styles.disabledButton,
             pressed && styles.pressed,
           ]}
@@ -230,7 +235,6 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   root: {
     flexGrow: 1,
-    backgroundColor: C.background,
     paddingHorizontal: 24,
     gap: 24,
   },
@@ -244,7 +248,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: C.text.primary,
   },
   subtitle: {
     lineHeight: 22,
@@ -257,38 +260,27 @@ const styles = StyleSheet.create({
   digitBox: {
     flex: 1,
     aspectRatio: 1,
-    backgroundColor: C.surface,
     borderWidth: 1.5,
-    borderColor: C.border,
     borderRadius: 12,
     textAlign: 'center',
     fontSize: 24,
     fontWeight: '700',
-    color: C.text.primary,
-  },
-  digitBoxFilled: {
-    borderColor: C.primary.default,
   },
   passwordSection: {
     gap: 12,
   },
   input: {
-    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: C.text.primary,
   },
   errorBanner: {
-    backgroundColor: C.error.bg,
     borderRadius: 8,
     padding: 12,
   },
   primaryButton: {
-    backgroundColor: C.primary.default,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

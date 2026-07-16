@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { ledgerColors } from '../../theme/colors';
+import { useColors } from '../../theme/colors';
 import { ledgerRadius, ledgerFonts } from '../../theme/tokens';
 import { formatCurrency } from '../../core/utils/formatCurrency';
 
@@ -10,6 +10,7 @@ interface BalancePillProps {
 }
 
 export function BalancePill({ cents, currency = 'EUR' }: BalancePillProps) {
+  const colors = useColors();
   const isOwed = cents >= 0;
   const sign = isOwed ? '+' : '−';
   const amount = formatCurrency(Math.abs(cents), currency);
@@ -17,11 +18,11 @@ export function BalancePill({ cents, currency = 'EUR' }: BalancePillProps) {
   return (
     <View style={[
       styles.pill,
-      { backgroundColor: isOwed ? ledgerColors.success.bg : ledgerColors.error.bg },
+      { backgroundColor: isOwed ? colors.success.bg : colors.error.bg },
     ]}>
       <Text style={[
         styles.text,
-        { color: isOwed ? ledgerColors.success.default : ledgerColors.error.default },
+        { color: isOwed ? colors.success.default : colors.error.default },
       ]}>
         {sign}{amount}
       </Text>
@@ -34,7 +35,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: ledgerRadius.pill,
-    alignSelf: 'flex-start',
   },
   text: {
     fontFamily: ledgerFonts.displaySemibold,

@@ -74,9 +74,9 @@ export function TripFAB({ onAddExpense, isExtended }: TripFABProps) {
               opacity: pressed ? 0.8 : 1,
             })}
           >
-            <Ionicons name="add" size={24} color="#ffffff" />
+            <Ionicons name="add" size={24} color={colors.text.inverse} />
             <Animated.View style={[animatedLabelStyle, { marginLeft: tokens.spacing.xs }]}>
-              <Text variant="label" color="#ffffff">{t('trips.detail.add_expense')}</Text>
+              <Text variant="label" color={colors.text.inverse}>{t('trips.detail.add_expense')}</Text>
             </Animated.View>
           </Pressable>
         </Animated.View>

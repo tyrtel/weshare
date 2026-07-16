@@ -73,8 +73,8 @@ export interface TripSessionActions {
   loadGroupDetail(groupId: string): Promise<void>;
   /** Persist a new group expense optimistically and append to the cache. */
   addGroupExpense(expense: Expense): Promise<void>;
-  /** Mark a group expense as settled in the cache (after repo call). */
-  settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date): void;
+  /** Mark a group expense closed (settledAt set) or reopen it (settledAt null) in the cache — after repo call. */
+  settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date | null): void;
   /** Append a saved group expense to the cache (no repo call — expense already persisted by hook). */
   appendGroupExpense(expense: Expense): void;
   /** Replace a group expense in its group's cache bucket by id (no repo call). */

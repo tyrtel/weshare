@@ -118,12 +118,20 @@
   "home": {
     "title": "Home",
     "fab_label": "New",
-    "hero_sub": "Overall, you're",
-    "hero_ahead": "ahead",
-    "hero_behind": "behind",
-    "unsettled_badge": "Unsettled",
+    "hero_label": "Overall",
     "trip_people_count_one": "{{count}} person",
-    "trip_people_count_other": "{{count}} people"
+    "trip_people_count_other": "{{count}} people",
+    "profile_menu": {
+      "open_label": "Open menu",
+      "close_label": "Close menu",
+      "theme_label": "Appearance",
+      "theme_light": "Light",
+      "theme_dark": "Dark",
+      "theme_system": "System",
+      "log_out": "Log out",
+      "log_out_confirm_title": "Log out?",
+      "log_out_confirm_body": "You'll need to sign in again to see your trips and groups."
+    }
   },
   "groups": {
     "list": {
@@ -194,6 +202,7 @@
       "delete_message": "This will not delete the trips or expenses inside it.",
       "delete_confirm": "Delete",
       "settle_up": "Settle up",
+      "settle_up_hint": "Pay individually, or settle everything at once",
       "unlinked_label": "Hasn't joined yet — tap to send an invite",
       "balances_label": "BALANCES",
       "trips_section": "Trips",
@@ -201,7 +210,11 @@
       "add_action": "Add",
       "members_section": "Members",
       "invite_label": "Invite",
-      "open_actions_accessibility": "Open actions"
+      "open_actions_accessibility": "Open actions",
+      "payments_section": "Recent Payments",
+      "payment_row": "{{from}} paid {{to}}",
+      "view_closed_expenses": "View closed expenses",
+      "hide_closed_expenses": "Hide closed expenses"
     },
     "send_invite": {
       "title": "Send an invite",
@@ -464,7 +477,15 @@
       "delete_label": "Delete expense",
       "edit_label": "Edit expense",
       "delete_alert_title": "Delete this expense?",
-      "delete_alert_confirm": "Delete"
+      "delete_alert_confirm": "Delete",
+      "closed_badge": "Closed",
+      "close_button": "Close expense",
+      "close_label": "Close expense",
+      "close_alert_title": "Close this expense?",
+      "close_alert_message": "This will move it out of your active list. It won't affect the group's balances, and you can reopen it any time.",
+      "close_alert_confirm": "Close expense",
+      "reopen_button": "Reopen expense",
+      "reopen_label": "Reopen expense"
     }
   },
 
@@ -547,7 +568,7 @@
     "row": {
       "pay_button": "Pay",
       "pay_label": "Pay {{name}}",
-      "record_payment": "Record",
+      "record_payment": "Payment",
       "record_payment_label": "Record a payment from {{from}} to {{to}}",
       "payment_in_progress": "Payment in progress",
       "history_label": "View payment history for {{from}} and {{to}}"
@@ -592,7 +613,9 @@
     },
     "list": {
       "trip_count_one": "{{count}} trip",
-      "trip_count_other": "{{count}} trips"
+      "trip_count_other": "{{count}} trips",
+      "group_count_one": "{{count}} group",
+      "group_count_other": "{{count}} groups"
     },
     "row": {
       "owed": "owed {{amount}}",
@@ -600,7 +623,29 @@
       "settled": "settled",
       "member_count_one": "{{count}} member",
       "member_count_other": "{{count}} members",
-      "view_trip_label": "View trip {{name}}"
+      "view_trip_label": "View trip {{name}}",
+      "view_group_label": "View group {{name}}"
+    }
+  },
+
+  "reports": {
+    "generate_button": "Generate PDF",
+    "generate_label": "Generate PDF report for {{name}}",
+    "screen": {
+      "title": "Reports",
+      "remaining_one": "{{count}} report remaining today",
+      "remaining_other": "{{count}} reports remaining today",
+      "limit_note": "Generate up to 5 PDF reports per day"
+    },
+    "trips": {
+      "section_title": "Trip Reports",
+      "empty": "No trips yet."
+    },
+    "groups": {
+      "section_title": "Group Reports",
+      "empty": "No groups yet.",
+      "prev_month_label": "Previous month",
+      "next_month_label": "Next month"
     }
   },
 

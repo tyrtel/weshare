@@ -6,50 +6,70 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { Text } from '../../../components/ui/Text';
 import { Badge } from '../../../components/ui/Badge';
-import { useTripSessionStore, useService } from '../../../core/di/ServiceContext';
-import { AUTH } from '../../../core/di/tokens';
+import { useTripSessionStore } from '../../../core/di/ServiceContext';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import { formatCents } from '../../../hooks/computations/splitTotals';
-import type { Trip } from '../../../core/models/Trip';
-import type { Expense } from '../../../core/models/Expense';
+import { useTrips } from '../../trips/hooks/useTrips';
+import { useGroups } from '../../groups/hooks/useGroups';
+import type { TripFinancialSummary } from '../../../core/logic/settlement';
+import type { GroupFinancialSummary } from '../../groups/hooks/useGroups';
 import { useTranslation } from 'react-i18next';
 
-interface TripBalance {
-  trip: Trip;
+interface BalanceRowItem {
+  kind: 'trip' | 'group';
+  id: string;
+  name: string;
+  memberCount: number;
   netCents: number;
   currency: string;
 }
 
-function computeNetBalance(currentUserId: string, expenses: Expense[]): number {
-  const paidCents = expenses
-    .filter(e => e.paidByUserId === currentUserId)
-    .reduce((sum, e) => sum + e.totalAmountCents, 0);
-  const owedCents = expenses
-    .flatMap(e => e.splits)
-    .filter(s => s.userId === currentUserId)
-    .reduce((sum, s) => sum + s.amountOwedCents, 0);
-  return paidCents - owedCents;
+function netCentsFromDirection(
+  summary: { direction: string; amountCents: number } | null | undefined,
+): number {
+  if (!summary) return 0;
+  if (summary.direction === 'owed') return summary.amountCents;
+  if (summary.direction === 'owe') return -summary.amountCents;
+  return 0;
 }
 
-function useBalanceSummary(): TripBalance[] {
-  const trips = useTripSessionStore(s => s.trips);
-  const allExpenses = useTripSessionStore(s => s.expenses);
-  const auth = useService(AUTH);
-  const currentUserId = auth.currentUser()?.id ?? null;
+// Standalone trips (no group) get their own line; a trip that belongs to a
+// group is folded into that group's single aggregate line instead — showing
+// both would double-count the same debt (the group's own balance already
+// spans every one of its trips, see computeGroupBalances). Groups always
+// get a line even at a zero balance, same as trips already did.
+function useBalanceRows(): BalanceRowItem[] {
+  const { trips, summaries } = useTrips();
+  const { groups, groupSummaries } = useGroups();
 
-  if (!currentUserId) return [];
+  const standaloneTrips = trips.filter(t => !t.groupId);
 
-  return trips
-    .filter(trip => trip.status !== 'closed')
-    .map(trip => ({
-      trip,
-      netCents: computeNetBalance(currentUserId, allExpenses[trip.id] ?? []),
-      currency: trip.currency,
-    }));
+  const tripRows: BalanceRowItem[] = standaloneTrips.map(trip => ({
+    kind:        'trip',
+    id:          trip.id,
+    name:        trip.name,
+    memberCount: trip.members.length,
+    netCents:    netCentsFromDirection(summaries[trip.id] as TripFinancialSummary | null),
+    currency:    trip.currency,
+  }));
+
+  const groupRows: BalanceRowItem[] = groups.map(group => {
+    const summary = groupSummaries[group.id] as GroupFinancialSummary | undefined;
+    return {
+      kind:        'group',
+      id:          group.id,
+      name:        group.name,
+      memberCount: group.members.length,
+      netCents:    netCentsFromDirection(summary),
+      currency:    summary?.currency ?? group.currency,
+    };
+  });
+
+  return [...tripRows, ...groupRows];
 }
 
-function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
+function BalanceRow({ item, index }: { item: BalanceRowItem; index: number }) {
   const { t } = useTranslation();
   const colors  = useColors();
   const router  = useRouter();
@@ -79,9 +99,9 @@ function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
   return (
     <Animated.View entering={entering} exiting={exiting}>
       <Pressable
-        onPress={() => router.push(`/trip/${item.trip.id}`)}
+        onPress={() => router.push(item.kind === 'trip' ? `/trip/${item.id}` : `/group/${item.id}`)}
         accessibilityRole="button"
-        accessibilityLabel={t('balance.row.view_trip_label', { name: item.trip.name })}
+        accessibilityLabel={t(item.kind === 'trip' ? 'balance.row.view_trip_label' : 'balance.row.view_group_label', { name: item.name })}
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
@@ -96,10 +116,10 @@ function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
       >
         <View style={{ flex: 1 }}>
           <Text variant="label" color={colors.text.primary} numberOfLines={1}>
-            {item.trip.name}
+            {item.name}
           </Text>
           <Text variant="caption" color={colors.text.tertiary} style={{ marginTop: 2 }}>
-            {t('balance.row.member_count', { count: item.trip.members.length })}
+            {t('balance.row.member_count', { count: item.memberCount })}
           </Text>
         </View>
         <View style={{ alignItems: 'flex-end', gap: tokens.spacing.xs, marginRight: tokens.spacing.xs }}>
@@ -114,11 +134,11 @@ function BalanceRow({ item, index }: { item: TripBalance; index: number }) {
   );
 }
 
-function TotalsFooter({ rows }: { rows: TripBalance[] }) {
+function TotalsFooter({ rows }: { rows: BalanceRowItem[] }) {
   const { t } = useTranslation();
   const colors = useColors();
 
-  // Sum net balance per currency across all visible trips.
+  // Sum net balance per currency across all visible trips and groups.
   const byCurrency = new Map<string, number>();
   for (const { netCents, currency } of rows) {
     byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + netCents);
@@ -200,9 +220,16 @@ function EmptyState() {
 
 export function BalanceSummaryScreen() {
   const { t } = useTranslation();
-  const rows       = useBalanceSummary();
+  const rows       = useBalanceRows();
   const isHydrated = useTripSessionStore(s => s.isHydrated);
   const colors     = useColors();
+
+  const tripCount  = rows.filter(r => r.kind === 'trip').length;
+  const groupCount = rows.filter(r => r.kind === 'group').length;
+  const countLabel = [
+    tripCount  > 0 ? t('balance.list.trip_count',  { count: tripCount })  : null,
+    groupCount > 0 ? t('balance.list.group_count', { count: groupCount }) : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <ScreenWrapper>
@@ -223,7 +250,7 @@ export function BalanceSummaryScreen() {
       ) : (
       <FlatList
         data={rows}
-        keyExtractor={item => item.trip.id}
+        keyExtractor={item => `${item.kind}-${item.id}`}
         renderItem={({ item, index }) => <BalanceRow item={item} index={index} />}
         contentContainerStyle={{
           paddingHorizontal: tokens.spacing.md,
@@ -240,7 +267,7 @@ export function BalanceSummaryScreen() {
               color={colors.text.secondary}
               style={{ marginBottom: tokens.spacing.sm }}
             >
-              {t('balance.list.trip_count', { count: rows.length })}
+              {countLabel}
             </Text>
           ) : null
         }

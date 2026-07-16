@@ -9,5 +9,7 @@ export interface IExpenseRepository {
   saveExpense(expense: Expense): Promise<Result<Expense, AppError>>;
   updateExpense(expense: Expense): Promise<Result<Expense, AppError>>;
   deleteExpense(id: string): Promise<Result<void, AppError>>;
-  settleExpense(id: string, settledAt: Date): Promise<Result<Expense, AppError>>;
+  /** Sets or clears settledAt — `null` reopens a closed expense. Purely
+   * organizational, like closing a trip: it never touches splits/the ledger. */
+  settleExpense(id: string, settledAt: Date | null): Promise<Result<Expense, AppError>>;
 }

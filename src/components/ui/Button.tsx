@@ -46,7 +46,7 @@ export function Button({
   }[variant];
 
   const textColor = {
-    primary: '#ffffff',
+    primary: colors.text.inverse,
     ghost:   colors.primary.default,
     danger:  colors.error.default,
   }[variant];
