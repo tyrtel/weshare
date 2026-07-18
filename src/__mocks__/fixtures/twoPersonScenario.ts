@@ -13,7 +13,7 @@
  * balance to look at on the Home and Balance screens, not just green ones.
  *
  * This trip is added alongside restaurantScenario in simulation mode so
- * TripListScreen shows two trips and the empty-state is never hit.
+ * the Home screen shows two trips and the empty-state is never hit.
  */
 
 import type { StorageFixtures } from './types';

@@ -99,7 +99,7 @@ export function TripDetailScreen() {
     <ScreenWrapper>
       <Stack.Screen options={{ headerShown: false }} />
       <DetailHeaderBar
-        title={`${trip.emoji ?? '✈️'}  ${trip.name}`}
+        title={`✈️  ${trip.name}`}
         onBack={() => router.back()}
         actionIcon="edit-2"
         actionIconSize={18}
@@ -115,7 +115,6 @@ export function TripDetailScreen() {
             payerName={trip.members.find(m => m.userId === item.paidByUserId)?.displayName ?? t('common.unknown_user')}
             amountCents={item.totalAmountCents}
             currency={trip.currency}
-            metaSuffix={item.splitMode ?? 'equal'}
             onPress={() => handleExpensePress(item)}
           />
         )}
@@ -171,7 +170,11 @@ export function TripDetailScreen() {
             </View>
 
             {/* Participants row */}
-            <ParticipantsRow members={trip.members} onInvitePress={handleInvite} inviteLabel={t('trips.detail.invite_label')} />
+            <ParticipantsRow
+              members={trip.members}
+              onInvitePress={trip.status === 'closed' ? undefined : handleInvite}
+              inviteLabel={t('trips.detail.invite_label')}
+            />
 
             {/* Expenses header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>

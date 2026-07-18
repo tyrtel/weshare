@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { ScrollView, KeyboardAvoidingView, Platform, Pressable, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
@@ -10,16 +10,23 @@ import { Button } from '../../../components/ui/Button';
 import { CurrencyPicker } from '../../../components/ui/CurrencyPicker';
 import { LabeledTextInput } from '../../../components/ui/LabeledTextInput';
 import { useEditTrip } from '../hooks/useEditTrip';
+import { useDeleteTrip } from '../hooks/useDeleteTrip';
 import { useTripDetail } from '../hooks/useTripDetail';
+import { useService } from '../../../core/di/ServiceContext';
+import { AUTH } from '../../../core/di/tokens';
+import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 
 export function EditTripScreen() {
   const { t } = useTranslation();
   const { id }  = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
+  const auth    = useService(AUTH);
+  const colors  = useColors();
 
   const { trip, loading: tripLoading } = useTripDetail(id);
   const { editTrip, loading: saving, error } = useEditTrip();
+  const { deleteTrip, loading: deleting, error: deleteError } = useDeleteTrip();
 
   const [name,        setName]        = useState('');
   const [currency,    setCurrency]    = useState('EUR');
@@ -40,7 +47,28 @@ export function EditTripScreen() {
     }
   };
 
+  const handleDelete = () => {
+    if (!trip) return;
+    Alert.alert(
+      t('trips.edit.delete_title'),
+      t('trips.edit.delete_message'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text:  t('trips.edit.delete_confirm'),
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await deleteTrip(trip.id);
+            if (ok) router.replace('/(tabs)' as Parameters<typeof router.replace>[0]);
+          },
+        },
+      ],
+    );
+  };
+
   if (tripLoading || !trip) return <ScreenWrapper />;
+
+  const isOwner = auth.currentUser()?.id === trip.ownerId;
 
   return (
     <ScreenWrapper>
@@ -88,6 +116,20 @@ export function EditTripScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
       </ClosedTripGuard>
+
+      {isOwner && (
+        <>
+          <ErrorBanner error={deleteError} fallback={t('trips.edit.delete_error_fallback')} style={{ marginHorizontal: tokens.spacing.md }} />
+          <Pressable
+            onPress={handleDelete}
+            disabled={deleting}
+            accessibilityRole="button"
+            style={({ pressed }) => ({ alignItems: 'center', paddingVertical: tokens.spacing.md, opacity: pressed ? 0.6 : 1 })}
+          >
+            <Text variant="label" color={colors.error.default}>{t('trips.edit.delete_confirm')}</Text>
+          </Pressable>
+        </>
+      )}
     </ScreenWrapper>
   );
 }

@@ -114,6 +114,63 @@ describe('HomeScreen', () => {
     expect(screen.getByText('+€179.00')).toBeTruthy();
   });
 
+  // Regression: useTrips().error was computed but never read by this screen —
+  // a failed load (e.g. the cold-start Supabase timeout) failed silently, with
+  // pull-to-refresh as the only, invisible recovery path.
+  it('shows an error banner and a retry button when trips fail to load', () => {
+    mockUseTrips.mockReturnValue({
+      trips: [],
+      summaries: {},
+      loading: false,
+      error: { kind: 'NetworkError', message: 'Loading trips timed out — pull down to retry' },
+      refetch: jest.fn(),
+    });
+    mockUseGroups.mockReturnValue({ groups: [], groupTripCounts: {}, groupSummaries: {}, loading: false, refetch: jest.fn() });
+
+    render();
+
+    expect(screen.getByText('Loading trips timed out — pull down to retry')).toBeTruthy();
+    expect(screen.getByText('Try again')).toBeTruthy();
+  });
+
+  it('retrying calls refetch on trips', () => {
+    const refetch = jest.fn();
+    mockUseTrips.mockReturnValue({
+      trips: [],
+      summaries: {},
+      loading: false,
+      error: { kind: 'NetworkError', message: 'Loading trips timed out — pull down to retry' },
+      refetch,
+    });
+    mockUseGroups.mockReturnValue({ groups: [], groupTripCounts: {}, groupSummaries: {}, loading: false, refetch: jest.fn() });
+
+    render();
+    fireEvent.press(screen.getByText('Try again'));
+
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no error banner when trips load successfully', () => {
+    setup();
+    render();
+
+    expect(screen.queryByText('Try again')).toBeNull();
+  });
+
+  // Regression: this is the actual home tab users land on — the standalone
+  // TripListScreen component (which had its own "Past trips" link) is not
+  // mounted anywhere in navigation, so a link here is the only way to reach
+  // /trip/archive at all.
+  it('shows a "Past Trips" link that navigates to the closed-trips archive', () => {
+    setup();
+    render();
+
+    fireEvent.press(screen.getByTestId('past-trips-link'));
+
+    const router = useRouter();
+    expect(router.push).toHaveBeenCalledWith('/trip/archive');
+  });
+
   describe('profile menu', () => {
     it('opens a menu (not the FAB speed-dial) when the profile icon is pressed', () => {
       setup();

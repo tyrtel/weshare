@@ -15,8 +15,9 @@ interface ParticipantMember {
 
 interface ParticipantsRowProps {
   members: ParticipantMember[];
-  onInvitePress: () => void;
-  inviteLabel: string;
+  /** Omit to hide the invite circle entirely — e.g. a closed trip can't take new members. */
+  onInvitePress?: () => void;
+  inviteLabel?: string;
   /** When provided, unclaimed (isGuest) members render a small indicator and become tappable — owner-only, so pass this conditionally. */
   onMemberPress?: (member: ParticipantMember) => void;
   unlinkedLabel?: string;
@@ -55,14 +56,16 @@ export function ParticipantsRow({ members, onInvitePress, inviteLabel, onMemberP
           </View>
         );
       })}
-      <Pressable onPress={onInvitePress} style={{ alignItems: 'center', gap: 4 }}>
-        <View style={[styles.inviteCircle, { borderColor: colors.primary.default, backgroundColor: colors.primary.subtle }]}>
-          <Feather name="user-plus" size={18} color={colors.primary.default} />
-        </View>
-        <Text style={{ fontSize: 12, fontWeight: '500', color: colors.primary.default }}>
-          {inviteLabel}
-        </Text>
-      </Pressable>
+      {onInvitePress && (
+        <Pressable onPress={onInvitePress} style={{ alignItems: 'center', gap: 4 }}>
+          <View style={[styles.inviteCircle, { borderColor: colors.primary.default, backgroundColor: colors.primary.subtle }]}>
+            <Feather name="user-plus" size={18} color={colors.primary.default} />
+          </View>
+          <Text style={{ fontSize: 12, fontWeight: '500', color: colors.primary.default }}>
+            {inviteLabel}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }

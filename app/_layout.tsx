@@ -127,7 +127,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           await withTimeout(storeApi.getState().loadTrips(initialUser.id), 20_000);
         } catch {
           Sentry.captureMessage('startup_trips_timeout', 'warning');
-          // Both timed out — proceed; TripListScreen will show the error state.
+          // Both timed out — proceed anyway; useTrips.refetch (pull-to-refresh) is the recovery path.
         }
       }
 

@@ -53,6 +53,8 @@ export interface TripSessionActions {
   appendTrip(trip: Trip): void;
   /** Replace a trip in the cache by id (no repo call). */
   replaceTrip(trip: Trip): void;
+  /** Remove a trip and its cached expenses/members/split requests (no repo call). */
+  removeTrip(tripId: string): void;
   /** Append a newly-created expense to the trip's cache bucket (no repo call). */
   appendExpense(expense: Expense): void;
   /** Replace an expense in its trip's cache bucket by id (no repo call). */
@@ -73,6 +75,8 @@ export interface TripSessionActions {
   loadGroupDetail(groupId: string): Promise<void>;
   /** Persist a new group expense optimistically and append to the cache. */
   addGroupExpense(expense: Expense): Promise<void>;
+  /** Delete a group expense from storage and remove it from the cache. */
+  removeGroupExpense(expenseId: string, groupId: string): Promise<void>;
   /** Mark a group expense closed (settledAt set) or reopen it (settledAt null) in the cache — after repo call. */
   settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date | null): void;
   /** Append a saved group expense to the cache (no repo call — expense already persisted by hook). */

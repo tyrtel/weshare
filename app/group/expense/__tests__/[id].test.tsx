@@ -111,13 +111,13 @@ describe('GroupExpenseDetailScreen', () => {
   });
 
   describe('close / reopen', () => {
-    it('shows a close button, not a delete button', async () => {
+    it('shows both a close button and a delete button', async () => {
       const container = createTestContainer();
       await seed(container);
       render(container);
 
       expect(screen.getByText('Close expense')).toBeTruthy();
-      expect(screen.queryByText('Delete expense')).toBeNull();
+      expect(screen.getByText('Delete expense')).toBeTruthy();
     });
 
     it('closes the expense and navigates back on confirm, without removing it', async () => {
@@ -174,6 +174,44 @@ describe('GroupExpenseDetailScreen', () => {
         expect(remaining?.find(e => e.id === 'e1')?.settledAt).toBeNull();
       });
       expect(mockBack).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delete', () => {
+    it('deletes the expense and navigates back on confirm', async () => {
+      const container = createTestContainer();
+      await seed(container);
+      const expenseRepo = container.resolve(EXPENSE_REPO);
+      await expenseRepo.saveExpense(expenseFactory({ id: 'e1', groupId: 'g1', tripId: undefined, settledAt: null }));
+
+      // confirm()'s button order is [confirmButton, cancelButton] — press index 0.
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+        buttons?.[0]?.onPress?.();
+      });
+
+      render(container);
+      fireEvent.press(screen.getByText('Delete expense'));
+
+      await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+
+      const remaining = container.resolve(TRIP_STORE).getState().groupExpenses['g1'];
+      expect(remaining?.find(e => e.id === 'e1')).toBeUndefined();
+    });
+
+    it('does not delete when the confirmation is cancelled', async () => {
+      const container = createTestContainer();
+      await seed(container);
+
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+        buttons?.[1]?.onPress?.();
+      });
+
+      render(container);
+      fireEvent.press(screen.getByText('Delete expense'));
+
+      expect(mockBack).not.toHaveBeenCalled();
+      const remaining = container.resolve(TRIP_STORE).getState().groupExpenses['g1'];
+      expect(remaining?.find(e => e.id === 'e1')).toBeTruthy();
     });
   });
 });

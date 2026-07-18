@@ -203,6 +203,8 @@
       "delete_confirm": "Supprimer",
       "settle_up": "Régler",
       "settle_up_hint": "Payez individuellement, ou réglez tout en une fois",
+      "view_settlement": "Voir le règlement",
+      "view_settlement_hint": "Tout le monde est réglé — voir les soldes et l'historique des paiements",
       "unlinked_label": "N'a pas encore rejoint — appuyez pour envoyer une invitation",
       "balances_label": "SOLDES",
       "trips_section": "Voyages",
@@ -247,6 +249,8 @@
       "transfers_section": "Virements suggérés",
       "even": "Équilibré",
       "all_settled": "Tout le monde est réglé.",
+      "recent_activity_section": "Activité récente",
+      "payment_history_section": "Historique des paiements",
       "settle_all_button": "Tout régler",
       "settle_all_error": "Une erreur s'est produite. Certains paiements n'ont peut-être pas été enregistrés.",
       "confirm_title": "Tout régler ?",
@@ -281,14 +285,10 @@
   },
   "trips": {
     "list": {
-      "title": "Voyages",
       "section_title": "Voyages",
-      "empty_title": "Aucun voyage",
-      "empty_body": "Appuyez sur Nouveau voyage pour démarrer un voyage partagé.",
       "error_load": "Impossible de charger vos voyages.",
       "past_trips_link": "Voyages passés",
-      "fab_label": "Nouveau voyage",
-      "fab_label_compact": "Créer un voyage"
+      "fab_label": "Nouveau voyage"
     },
     "detail": {
       "empty_expenses": "Aucune dépense pour l'instant. Appuyez sur + pour en ajouter une.",
@@ -333,7 +333,11 @@
       "save_button": "Enregistrer",
       "saving": "Enregistrement…",
       "error_fallback": "Impossible de mettre à jour le voyage.",
-      "closed_guard": "Ce voyage est clôturé et ne peut plus être modifié."
+      "closed_guard": "Ce voyage est clôturé et ne peut plus être modifié.",
+      "delete_title": "Supprimer le voyage ?",
+      "delete_message": "Cela supprimera définitivement le voyage et toutes ses dépenses. Cette action est irréversible.",
+      "delete_confirm": "Supprimer",
+      "delete_error_fallback": "Impossible de supprimer le voyage."
     },
     "archive": {
       "title": "Voyages passés",
@@ -626,6 +630,12 @@
       "view_trip_label": "Voir le voyage {{name}}",
       "view_group_label": "Voir le groupe {{name}}"
     }
+  },
+
+  "balance_view": {
+    "bars_label": "Vue barres",
+    "list_label": "Vue liste",
+    "bubbles_label": "Vue bulles"
   },
 
   "reports": {

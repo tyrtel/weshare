@@ -21,7 +21,7 @@ import GroupDetailScreen from '../[id]';
 import { useGroupDetail } from '../../../src/features/groups/hooks/useGroupDetail';
 import { renderScreen } from '../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../src/core/di/testContainer';
-import { groupFactory, groupMemberFactory, expenseFactory, tripFactory } from '../../../src/__testUtils__/factories';
+import { groupFactory, groupMemberFactory, expenseFactory, tripFactory, memberFactory, splitFactory } from '../../../src/__testUtils__/factories';
 import { AUTH, SHARE, GROUP_REPO } from '../../../src/core/di/tokens';
 import type { ServiceContainer } from '../../../src/core/di/ServiceContainer';
 import type { MockShareService } from '../../../src/__mocks__/MockShareService';
@@ -231,6 +231,67 @@ describe('GroupDetailScreen', () => {
       render();
 
       expect(screen.queryByText('Pay individually, or settle everything at once')).toBeNull();
+    });
+
+    // Regression: the settle-up button used to disappear entirely once a group had
+    // no outstanding debts, leaving no way to reach /group/settle/[id] (balances +
+    // payment history) at all.
+    it('still shows a way to reach the settlement screen when there is nothing to settle', () => {
+      setup({ memberBalances: MEMBERS.map(m => ({ userId: m.userId, balanceCents: 0 })), settlements: [] });
+      render();
+
+      expect(screen.getByText('View settlement')).toBeTruthy();
+      expect(screen.getByText('Everyone is settled up — see balances and payment history')).toBeTruthy();
+      fireEvent.press(screen.getByText('View settlement'));
+      expect(mockPush).toHaveBeenCalledWith('/group/settle/g1');
+    });
+  });
+
+  // Regression: trip rows in a group used to show only the trip name — no
+  // indication of what the current user personally owes or is owed on it,
+  // unlike the same trip's card on the home screen.
+  describe('trip rows — per-trip standing', () => {
+    it("shows a balance pill reflecting the current user's standing on that trip", async () => {
+      const OWNER_EMAIL = 'owner@example.com';
+      const OWNER_ID = `user_${OWNER_EMAIL}`;
+      const container = createTestContainer();
+      await container.resolve(AUTH).signIn(OWNER_EMAIL, 'password');
+
+      const trip = tripFactory({
+        id: 't1', name: 'Ski Trip', groupId: 'g1', currency: 'EUR',
+        members: [
+          memberFactory({ userId: OWNER_ID, displayName: 'Owner' }),
+          memberFactory({ userId: 'u2', displayName: 'Bob' }),
+        ],
+      });
+
+      setup({
+        activeTrips: [trip],
+        tripExpenses: {
+          t1: [expenseFactory({
+            id: 'e1', tripId: 't1', groupId: undefined, totalAmountCents: 4000, currency: 'EUR', paidByUserId: 'u2',
+            splits: [
+              splitFactory({ id: 's1', expenseId: 'e1', userId: OWNER_ID, amountOwedCents: 2000 }),
+              splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 2000 }),
+            ],
+          })],
+        },
+      });
+
+      render(container);
+
+      expect(screen.getByText(/Ski Trip/)).toBeTruthy();
+      expect(screen.getByText('−€20.00')).toBeTruthy();
+    });
+
+    it('shows no pill for a trip with no expenses yet', () => {
+      const trip = tripFactory({ id: 't1', name: 'New Trip', groupId: 'g1', currency: 'EUR', members: [] });
+      setup({ activeTrips: [trip], tripExpenses: { t1: [] } });
+
+      render();
+
+      expect(screen.getByText(/New Trip/)).toBeTruthy();
+      expect(screen.queryByText(/€/)).toBeNull();
     });
   });
 

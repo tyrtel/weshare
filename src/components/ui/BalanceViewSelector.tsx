@@ -1,19 +1,26 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
 import { LedgerBars } from './LedgerBars';
-import { Segmented } from './Segmented';
 import type { BalanceViewMode } from '../../core/hooks/useBalanceView';
 import { useColors, personColorFor } from '../../theme/colors';
 import type { ColorPalette } from '../../theme/colors';
 import { ledgerRadius, ledgerFonts } from '../../theme/tokens';
 import { formatCurrency } from '../../core/utils/formatCurrency';
 
-const VIEW_OPTIONS = [
-  { key: 'bars', label: 'Bars' },
-  { key: 'list', label: 'List' },
-  { key: 'bubbles', label: 'Bubbles' },
-];
+const VIEW_ICONS: Record<BalanceViewMode, keyof typeof Ionicons.glyphMap> = {
+  bars: 'stats-chart-outline',
+  list: 'list-outline',
+  bubbles: 'ellipse-outline',
+};
+const VIEW_MODES: BalanceViewMode[] = ['bars', 'list', 'bubbles'];
+
+// Bubble diameter range — smallest balance in the set gets BUBBLE_MIN,
+// the largest magnitude gets BUBBLE_MAX, so bubble size visually tracks standing.
+const BUBBLE_MIN = 40;
+const BUBBLE_MAX = 68;
 
 interface Member {
   userId: string;
@@ -30,18 +37,36 @@ interface Props {
 }
 
 export function BalanceViewSelector({ balances, members, viewMode, onChangeView, currency = 'EUR' }: Props) {
+  const { t } = useTranslation();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const memberMap = new Map(members.map(m => [m.userId, m]));
   const sorted = Object.entries(balances).sort((a, b) => b[1] - a[1]);
+  const maxAbsBalance = Math.max(1, ...sorted.map(([, cents]) => Math.abs(cents)));
 
   return (
     <View style={styles.root}>
-      <Segmented
-        options={VIEW_OPTIONS}
-        value={viewMode}
-        onChange={(k) => onChangeView(k as BalanceViewMode)}
-      />
+      <View style={styles.toggleRow}>
+        {VIEW_MODES.map((mode) => {
+          const active = mode === viewMode;
+          return (
+            <Pressable
+              key={mode}
+              onPress={() => onChangeView(mode)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t(`balance_view.${mode}_label`)}
+              style={[styles.toggleBtn, active && { backgroundColor: colors.primary.subtle }]}
+            >
+              <Ionicons
+                name={VIEW_ICONS[mode]}
+                size={16}
+                color={active ? colors.primary.default : colors.text.tertiary}
+              />
+            </Pressable>
+          );
+        })}
+      </View>
 
       <View style={styles.content}>
         {viewMode === 'bars' && (
@@ -92,10 +117,13 @@ export function BalanceViewSelector({ balances, members, viewMode, onChangeView,
               const initials = member.displayName.trim().charAt(0).toUpperCase();
               const firstName = member.displayName.split(' ')[0];
               const pc = personColorFor(userId, members);
+              const avatarSize = cents === 0
+                ? BUBBLE_MIN
+                : BUBBLE_MIN + (Math.abs(cents) / maxAbsBalance) * (BUBBLE_MAX - BUBBLE_MIN);
               return (
-                <View key={userId} style={styles.bubble}>
+                <View key={userId} style={[styles.bubble, { width: Math.max(64, avatarSize + 16) }]}>
                   <View style={[styles.ring, { borderColor: ringColor }]}>
-                    <Avatar initials={initials} bg={pc.bg} size="md" url={member.avatarUrl} />
+                    <Avatar initials={initials} bg={pc.bg} size={avatarSize} url={member.avatarUrl} />
                   </View>
                   <Text style={[styles.bubbleAmount, { color: amountColor }]}>
                     {sign}{formatCurrency(Math.abs(cents), currency)}
@@ -114,6 +142,16 @@ export function BalanceViewSelector({ balances, members, viewMode, onChangeView,
 const makeStyles = (colors: ColorPalette) => StyleSheet.create({
   root: { gap: 12 },
   content: {},
+
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  toggleBtn: {
+    padding: 6,
+    borderRadius: ledgerRadius.sm,
+  },
 
   list: { gap: 0 },
   divider: { height: 1, backgroundColor: colors.border, marginLeft: 44 },

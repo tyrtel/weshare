@@ -82,6 +82,14 @@ export default function GroupExpenseDetailScreen() {
     }
   };
 
+  const handleDelete = () => {
+    void confirm(t('expenses.detail.delete_alert_title'), t('common.cannot_be_undone'), t('expenses.detail.delete_alert_confirm')).then(async confirmed => {
+      if (!confirmed) return;
+      await storeApi.getState().removeGroupExpense(expense.id, groupId);
+      router.back();
+    });
+  };
+
   return (
     <ScreenWrapper>
       <Stack.Screen options={{ title: expense.description }} />
@@ -199,6 +207,25 @@ export default function GroupExpenseDetailScreen() {
             <Text variant="label" color={colors.text.secondary}>{t('expenses.detail.close_button')}</Text>
           </Pressable>
         )}
+
+        {/* Delete — permanently removes the expense from the group ledger, unlike close/reopen above. */}
+        <Pressable
+          onPress={handleDelete}
+          accessibilityRole="button"
+          accessibilityLabel={t('expenses.detail.delete_label')}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            marginTop: 8,
+            paddingVertical: 10,
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Feather name="trash-2" size={15} color={colors.error.default} />
+          <Text variant="label" color={colors.error.default}>{t('expenses.detail.delete_button')}</Text>
+        </Pressable>
       </ScrollView>
 
       {recurringSheetOpen && (

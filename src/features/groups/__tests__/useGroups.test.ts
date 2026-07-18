@@ -1,10 +1,10 @@
 import React from 'react';
-import { renderHook } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import { useGroups } from '../hooks/useGroups';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { AUTH, TRIP_STORE } from '../../../core/di/tokens';
-import { groupFactory, groupMemberFactory, tripFactory } from '../../../__testUtils__/factories';
+import { AUTH, TRIP_STORE, EXPENSE_REPO } from '../../../core/di/tokens';
+import { groupFactory, groupMemberFactory, tripFactory, expenseFactory, splitFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 
 function makeWrapper(container: ServiceContainer) {
@@ -69,5 +69,37 @@ describe('useGroups', () => {
 
     const { result } = renderHook(() => useGroups(), { wrapper: makeWrapper(container) });
     expect(result.current.groupTripCounts['g1'] ?? 0).toBe(0);
+  });
+
+  // Regression: groupSummaries used to only reflect a group's trip-derived
+  // expenses on first render — its own standalone (non-trip) expenses only
+  // showed up after visiting the group's detail screen once (which is what
+  // actually calls loadGroupDetail), so the home screen's balance pill under-
+  // counted until then.
+  it('reflects a group\'s own standalone expenses without requiring a prior visit to its detail screen', async () => {
+    const auth = container.resolve(AUTH);
+    await auth.signIn('jay@example.com', 'password');
+    const userId = auth.currentUser()!.id;
+
+    const group = groupFactory({
+      id: 'g1', currency: 'EUR',
+      members: [groupMemberFactory({ userId, groupId: 'g1' }), groupMemberFactory({ userId: 'u2', groupId: 'g1' })],
+    });
+    container.resolve(TRIP_STORE).getState().appendGroup(group);
+
+    const expense = expenseFactory({
+      id: 'e1', tripId: undefined, groupId: 'g1', totalAmountCents: 4000, currency: 'EUR', paidByUserId: 'u2',
+      splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId, amountOwedCents: 2000 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 2000 }),
+      ],
+    });
+    await container.resolve(EXPENSE_REPO).saveExpense(expense);
+
+    const { result } = renderHook(() => useGroups(), { wrapper: makeWrapper(container) });
+
+    await waitFor(() => {
+      expect(result.current.groupSummaries['g1']).toEqual({ direction: 'owe', amountCents: 2000, currency: 'EUR' });
+    });
   });
 });

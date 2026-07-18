@@ -5,7 +5,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withDelay, inte
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Text } from '../../src/components/ui/Text';
-import { ParticipantsRow, DetailHeaderBar, DetailExpenseRow } from '../../src/components/ui';
+import { ParticipantsRow, DetailHeaderBar, DetailExpenseRow, BalancePill } from '../../src/components/ui';
 import { ClosedTripCard } from '../../src/features/trips/components/ClosedTripCard';
 import { GroupExpenseCard } from '../../src/features/groups/components/GroupExpenseCard';
 import { SendInviteSheet } from '../../src/features/groups/components/SendInviteSheet';
@@ -19,6 +19,7 @@ import { useColors } from '../../src/theme/colors';
 import { tokens, ledgerRadius, ledgerShadow, ledgerFonts } from '../../src/theme/tokens';
 import { toBalancesRecord, toBalanceBarMembers } from '../../src/core/utils/balanceView';
 import { formatCurrency } from '../../src/core/utils/formatCurrency';
+import { deriveTripFinancialSummary } from '../../src/core/logic/settlement';
 import type { Trip } from '../../src/core/models/Trip';
 import type { Expense } from '../../src/core/models/Expense';
 import type { GroupMember } from '../../src/core/models/GroupMember';
@@ -111,7 +112,17 @@ export default function GroupDetailScreen() {
 
   if (!group) return null;
 
-  const isOwner = auth.currentUser()?.id === group.ownerId;
+  const currentUserId = auth.currentUser()?.id;
+  const isOwner = currentUserId === group.ownerId;
+
+  // Per-trip standing from the current user's perspective — mirrors what the
+  // home screen's trip cards show, so a trip row here reads the same way.
+  const tripSummaries: Record<string, ReturnType<typeof deriveTripFinancialSummary>> = {};
+  for (const trip of activeTrips) {
+    tripSummaries[trip.id] = currentUserId
+      ? deriveTripFinancialSummary(trip.members, tripExpenses[trip.id] ?? [], currentUserId)
+      : null;
+  }
 
   const handleTripPress  = (trip: Trip)    => router.push(`/trip/${trip.id}` as Parameters<typeof router.push>[0]);
   const handleNewTrip    = () => { setFabOpen(false); router.push(`/trip/create?groupId=${group.id}` as Parameters<typeof router.push>[0]); };
@@ -140,9 +151,9 @@ export default function GroupDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <DetailHeaderBar
-        title={`${group.emoji ?? '👥'}  ${group.name}`}
+        title={`👥  ${group.name}`}
         onBack={() => router.back()}
-        actionIcon="settings"
+        actionIcon="edit-2"
         actionIconSize={20}
         onAction={() => router.push(`/group/edit?id=${group.id}` as Parameters<typeof router.push>[0])}
       />
@@ -168,20 +179,18 @@ export default function GroupDetailScreen() {
             </Text>
           )}
           <View style={lgStyles.hairline} />
-          {settlements.length > 0 && (
-            <>
-              <Pressable
-                onPress={() => router.push(`/group/settle/${group.id}` as Parameters<typeof router.push>[0])}
-                style={({ pressed }) => [lgStyles.primaryBtn, { opacity: pressed ? 0.85 : 1 }]}
-              >
-                <Feather name="check-circle" size={16} color={colors.text.inverse} />
-                <Text style={{ color: colors.text.inverse, fontWeight: '600', fontSize: 15 }}>{t('groups.detail.settle_up')}</Text>
-              </Pressable>
-              <Text style={{ color: colors.text.tertiary, fontSize: 11.5, textAlign: 'center', marginTop: 8 }}>
-                {t('groups.detail.settle_up_hint')}
-              </Text>
-            </>
-          )}
+          <Pressable
+            onPress={() => router.push(`/group/settle/${group.id}` as Parameters<typeof router.push>[0])}
+            style={({ pressed }) => [lgStyles.primaryBtn, { opacity: pressed ? 0.85 : 1 }]}
+          >
+            <Feather name="check-circle" size={16} color={colors.text.inverse} />
+            <Text style={{ color: colors.text.inverse, fontWeight: '600', fontSize: 15 }}>
+              {t(settlements.length > 0 ? 'groups.detail.settle_up' : 'groups.detail.view_settlement')}
+            </Text>
+          </Pressable>
+          <Text style={{ color: colors.text.tertiary, fontSize: 11.5, textAlign: 'center', marginTop: 8 }}>
+            {t(settlements.length > 0 ? 'groups.detail.settle_up_hint' : 'groups.detail.view_settlement_hint')}
+          </Text>
         </View>
 
         {/* Recent payments */}
@@ -241,18 +250,26 @@ export default function GroupDetailScreen() {
                 <Text style={lgStyles.sectionAction}>{t('groups.detail.fab_new_trip')}</Text>
               </Pressable>
             </View>
-            {activeTrips.map(trip => (
-              <Pressable
-                key={trip.id}
-                onPress={() => handleTripPress(trip)}
-                style={({ pressed }) => [lgStyles.card, { opacity: pressed ? 0.85 : 1, marginBottom: 12 }]}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={lgStyles.expTitle}>{trip.emoji ?? '✈️'}{'  '}{trip.name}</Text>
-                  <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
-                </View>
-              </Pressable>
-            ))}
+            {activeTrips.map(trip => {
+              const summary = tripSummaries[trip.id];
+              const pillCents = summary?.direction === 'owed' ? summary.amountCents
+                : summary?.direction === 'owe' ? -summary.amountCents : 0;
+              return (
+                <Pressable
+                  key={trip.id}
+                  onPress={() => handleTripPress(trip)}
+                  style={({ pressed }) => [lgStyles.card, { opacity: pressed ? 0.85 : 1, marginBottom: 12 }]}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={lgStyles.expTitle} numberOfLines={1}>✈️{'  '}{trip.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {summary && <BalancePill cents={pillCents} currency={trip.currency} />}
+                      <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
           </>
         )}
 
@@ -262,12 +279,23 @@ export default function GroupDetailScreen() {
           <>
             <Pressable
               onPress={() => setShowPast(p => !p)}
-              hitSlop={8}
-              style={{ marginTop: activeTrips.length > 0 ? 12 : 24 }}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: activeTrips.length > 0 ? 12 : 24,
+                padding: tokens.spacing.md,
+                borderRadius: tokens.radius.card,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                opacity: pressed ? 0.7 : 1,
+              })}
             >
-              <Text style={lgStyles.sectionAction}>
+              <Ionicons name="archive-outline" size={18} color={colors.primary.default} />
+              <Text style={[lgStyles.sectionAction, { flex: 1, marginLeft: tokens.spacing.sm }]}>
                 {t(showPast ? 'groups.detail.hide_past' : 'groups.detail.view_past')}
               </Text>
+              <Ionicons name={showPast ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text.tertiary} />
             </Pressable>
             {showPast && (
               <>

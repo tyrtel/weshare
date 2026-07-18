@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { mockExpoRouterModule, mockVectorIconsModule } from '../../../__testUtils__/standardMocks';
 
@@ -8,14 +9,16 @@ jest.mock('../hooks/useTripDetail', () => ({ useTripDetail: jest.fn() }));
 
 import { EditTripScreen } from '../screens/EditTripScreen';
 import { useTripDetail } from '../hooks/useTripDetail';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { renderScreen } from '../../../__testUtils__/renderScreen';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { TRIP_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { TRIP_REPO, TRIP_STORE, AUTH } from '../../../core/di/tokens';
 import { tripFactory } from '../../../__testUtils__/factories';
 
 const mockUseTripDetail = useTripDetail as jest.Mock;
 const mockParams        = useLocalSearchParams as jest.Mock;
+
+const OWNER_EMAIL = 'owner@example.com';
 
 beforeEach(() => {
   mockParams.mockReturnValue({ id: 't1' });
@@ -62,5 +65,79 @@ describe('EditTripScreen', () => {
 
     expect(screen.queryByLabelText('Trip name')).toBeNull();
     expect(screen.getByText('This trip is closed and can no longer be edited.')).toBeTruthy();
+  });
+
+  describe('delete trip', () => {
+    async function seedOwner(container: ReturnType<typeof createTestContainer>) {
+      await container.resolve(AUTH).signIn(OWNER_EMAIL, 'password');
+      return `user_${OWNER_EMAIL}`;
+    }
+
+    it('does not show a delete option to a non-owner', () => {
+      mockUseTripDetail.mockReturnValue({
+        trip: tripFactory({ id: 't1', name: 'Chez Paul', currency: 'EUR', status: 'active', ownerId: 'someone-else' }),
+        loading: false,
+      });
+
+      renderScreen(<EditTripScreen />, createTestContainer());
+
+      expect(screen.queryByText('Delete')).toBeNull();
+    });
+
+    it('shows a delete option to the trip owner, even when the trip is closed', async () => {
+      const container = createTestContainer();
+      const ownerId = await seedOwner(container);
+      mockUseTripDetail.mockReturnValue({
+        trip: tripFactory({ id: 't1', name: 'Chez Paul', currency: 'EUR', status: 'closed', ownerId }),
+        loading: false,
+      });
+
+      renderScreen(<EditTripScreen />, container);
+
+      expect(screen.getByText('Delete')).toBeTruthy();
+    });
+
+    it('deletes the trip and navigates to the home tab on confirm', async () => {
+      const container = createTestContainer();
+      const ownerId = await seedOwner(container);
+      const trip = tripFactory({ id: 't1', name: 'Chez Paul', currency: 'EUR', status: 'active', ownerId });
+      await container.resolve(TRIP_REPO).saveTrip(trip);
+      container.resolve(TRIP_STORE).getState().appendTrip(trip);
+      mockUseTripDetail.mockReturnValue({ trip, loading: false });
+
+      // handleDelete's Alert.alert buttons are [cancel, delete] — press index 1.
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+        buttons?.[1]?.onPress?.();
+      });
+
+      renderScreen(<EditTripScreen />, container);
+      fireEvent.press(screen.getByText('Delete'));
+
+      await waitFor(async () => {
+        const stored = await container.resolve(TRIP_REPO).getTrip('t1');
+        expect(stored.ok).toBe(false);
+      });
+      const router = useRouter();
+      expect(router.replace).toHaveBeenCalledWith('/(tabs)');
+    });
+
+    it('does not delete the trip when the confirmation is cancelled', async () => {
+      const container = createTestContainer();
+      const ownerId = await seedOwner(container);
+      const trip = tripFactory({ id: 't1', name: 'Chez Paul', currency: 'EUR', status: 'active', ownerId });
+      await container.resolve(TRIP_REPO).saveTrip(trip);
+      container.resolve(TRIP_STORE).getState().appendTrip(trip);
+      mockUseTripDetail.mockReturnValue({ trip, loading: false });
+
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+        buttons?.[0]?.onPress?.();
+      });
+
+      renderScreen(<EditTripScreen />, container);
+      fireEvent.press(screen.getByText('Delete'));
+
+      const stored = await container.resolve(TRIP_REPO).getTrip('t1');
+      expect(stored.ok).toBe(true);
+    });
   });
 });

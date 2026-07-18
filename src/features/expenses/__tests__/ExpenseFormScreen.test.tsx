@@ -469,7 +469,35 @@ describe('ExpenseFormScreen — edit mode currency reconstruction', () => {
   });
 });
 
-// ── Paid by — collision disambiguation ───────────────────────────────────
+// ── Receipt scan — regression: ReceiptCapture was built but never mounted ──
+
+describe('ExpenseFormScreen — Receipt scan', () => {
+  it('renders the scan-receipt button in add mode', () => {
+    setupTripMode();
+    renderForm();
+    expect(screen.getByLabelText('Scan receipt')).toBeTruthy();
+  });
+
+  it('renders the scan-receipt button in edit mode', () => {
+    setupEditMode();
+    renderForm();
+    expect(screen.getByLabelText('Scan receipt')).toBeTruthy();
+  });
+
+  it('renders the scan-receipt button in group mode', () => {
+    const container = createTestContainer();
+    const store = container.resolve(TRIP_STORE);
+    store.getState().appendGroup(groupFactory({
+      id: 'grp1', currency: 'EUR',
+      members: [groupMemberFactory({ userId: 'gu1', groupId: 'grp1', displayName: 'Dee' })],
+    }));
+    mockUseLocalSearchParams.mockReturnValue({ groupId: 'grp1' });
+    mockUseTripDetail.mockReturnValue({ trip: null, loading: false, error: null, refetch: jest.fn() });
+    mockUseExpenseDetail.mockReturnValue({ expense: null, loading: false, error: null, refetch: jest.fn() });
+    renderForm(container);
+    expect(screen.getByLabelText('Scan receipt')).toBeTruthy();
+  });
+});
 
 describe('ExpenseFormScreen — Paid by collision labels', () => {
   it('shows a disambiguating first-name label only for members sharing a first initial', () => {

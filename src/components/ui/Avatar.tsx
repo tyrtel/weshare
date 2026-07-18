@@ -10,12 +10,14 @@ const fontSizeMap:  Record<AvatarSize, number> = { xs: 11, sm: 14, md: 17, lg: 2
 interface AvatarProps {
   initials: string;
   bg: string;
-  size?: AvatarSize;
+  /** A preset, or an exact pixel diameter — e.g. for bubbles sized by relative balance. */
+  size?: AvatarSize | number;
   url?: string;
 }
 
 export function Avatar({ initials, bg, size = 'md', url }: AvatarProps) {
-  const dimension = dimensionMap[size];
+  const dimension = typeof size === 'number' ? size : dimensionMap[size];
+  const fontSize  = typeof size === 'number' ? Math.round(size * 0.47) : fontSizeMap[size];
   const [imgError, setImgError] = useState(false);
 
   // Reset error state when the URL changes so a new URL gets a fresh attempt.
@@ -45,9 +47,9 @@ export function Avatar({ initials, bg, size = 'md', url }: AvatarProps) {
         <Text
           style={{
             color: '#ffffff',
-            fontSize: fontSizeMap[size],
+            fontSize,
             fontWeight: '600',
-            lineHeight: fontSizeMap[size] + 2,
+            lineHeight: fontSize + 2,
             includeFontPadding: false,
           }}
         >

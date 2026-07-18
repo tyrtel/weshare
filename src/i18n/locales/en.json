@@ -203,6 +203,8 @@
       "delete_confirm": "Delete",
       "settle_up": "Settle up",
       "settle_up_hint": "Pay individually, or settle everything at once",
+      "view_settlement": "View settlement",
+      "view_settlement_hint": "Everyone is settled up — see balances and payment history",
       "unlinked_label": "Hasn't joined yet — tap to send an invite",
       "balances_label": "BALANCES",
       "trips_section": "Trips",
@@ -247,6 +249,8 @@
       "transfers_section": "Suggested transfers",
       "even": "Even",
       "all_settled": "Everyone is settled up.",
+      "recent_activity_section": "Recent activity",
+      "payment_history_section": "Payment history",
       "settle_all_button": "Settle everything",
       "settle_all_error": "Something went wrong. Some payments may not have been recorded.",
       "confirm_title": "Settle everything?",
@@ -281,14 +285,10 @@
   },
   "trips": {
     "list": {
-      "title": "Trips",
       "section_title": "Trips",
-      "empty_title": "No trips yet",
-      "empty_body": "Tap New trip to start a shared trip with friends.",
       "error_load": "Couldn't load your trips.",
       "past_trips_link": "Past Trips",
-      "fab_label": "New trip",
-      "fab_label_compact": "Create trip"
+      "fab_label": "New trip"
     },
     "detail": {
       "empty_expenses": "No expenses yet. Tap + to add the first one.",
@@ -333,7 +333,11 @@
       "save_button": "Save changes",
       "saving": "Saving…",
       "error_fallback": "Could not update trip.",
-      "closed_guard": "This trip is closed and can no longer be edited."
+      "closed_guard": "This trip is closed and can no longer be edited.",
+      "delete_title": "Delete trip?",
+      "delete_message": "This will permanently delete the trip and all of its expenses. This can't be undone.",
+      "delete_confirm": "Delete",
+      "delete_error_fallback": "Could not delete trip."
     },
     "archive": {
       "title": "Past Trips",
@@ -626,6 +630,12 @@
       "view_trip_label": "View trip {{name}}",
       "view_group_label": "View group {{name}}"
     }
+  },
+
+  "balance_view": {
+    "bars_label": "Bar view",
+    "list_label": "List view",
+    "bubbles_label": "Bubble view"
   },
 
   "reports": {

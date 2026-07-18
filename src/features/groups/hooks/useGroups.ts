@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { AUTH, TRIP_STORE } from '../../../core/di/tokens';
 import { computeGroupBalances } from '../utils/computeGroupBalances';
@@ -21,6 +21,17 @@ export function useGroups() {
   const loading       = useTripSessionStore(s => !s.isHydrated);
 
   const user = auth.currentUser();
+
+  // groupSummaries below needs each group's own standalone expenses
+  // (groupExpenses[group.id]), but nothing else loads those in bulk — only
+  // visiting that specific group's detail screen does (loadGroupDetail).
+  // Without this, a group's balance pill only reflects its trips' expenses
+  // until the user has opened it at least once this session.
+  useEffect(() => {
+    const missing = groups.filter(g => groupExpenses[g.id] === undefined);
+    if (missing.length === 0) return;
+    void Promise.all(missing.map(g => storeApi.getState().loadGroupDetail(g.id)));
+  }, [groups, groupExpenses, storeApi]);
 
   const groupTripCounts = useMemo(() => {
     const counts: Record<string, number> = {};

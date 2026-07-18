@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, ScrollView, Pressable, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,6 +20,12 @@ import { tokens } from '../../../src/theme/tokens';
 import { formatCurrency } from '../../../src/core/utils/formatCurrency';
 import type { Settlement } from '../../../src/core/models/Settlement';
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+type ActivityItem =
+  | { kind: 'expense'; id: string; date: Date; label: string; amountCents: number; currency: string }
+  | { kind: 'trip'; id: string; date: Date; label: string };
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -33,9 +39,30 @@ export default function GroupSettlementScreen() {
   const { id }         = useLocalSearchParams<{ id: string }>();
   const paymentService = useService(PAYMENT);
 
-  const { group, settlements, memberBalances, recordPayment, recording } = useGroupDetail(id);
+  const {
+    group, settlements, memberBalances, recordPayment, recording,
+    activeTrips, activeExpenses, completedPayments,
+  } = useGroupDetail(id);
   const { settleAll, loading, error }          = useSettleAllGroupDebts(id, settlements);
   const [recordTarget, setRecordTarget] = useState<Settlement | null>(null);
+
+  const recentActivity = useMemo<ActivityItem[]>(() => {
+    const cutoff = Date.now() - THIRTY_DAYS_MS;
+    const expenseItems: ActivityItem[] = activeExpenses
+      .filter(e => e.createdAt.getTime() >= cutoff)
+      .map(e => ({ kind: 'expense', id: e.id, date: e.createdAt, label: e.description, amountCents: e.totalAmountCents, currency: e.currency }));
+    const tripItems: ActivityItem[] = activeTrips
+      .filter(tr => tr.createdAt.getTime() >= cutoff)
+      .map(tr => ({ kind: 'trip', id: tr.id, date: tr.createdAt, label: tr.name }));
+    return [...expenseItems, ...tripItems]
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 5);
+  }, [activeExpenses, activeTrips]);
+
+  const paymentHistory = useMemo(
+    () => [...completedPayments].sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0)),
+    [completedPayments],
+  );
 
   const handleWeroPay = async (phone: string, amountCents: number, currency: string, toName: string) => {
     const url = paymentService.buildPaymentLink('wero', amountCents, currency, phone);
@@ -235,12 +262,102 @@ export default function GroupSettlementScreen() {
             </Pressable>
           </>
         ) : (
-          <View style={{ alignItems: 'center', paddingVertical: tokens.spacing.xl }}>
-            <Ionicons name="checkmark-circle-outline" size={40} color={colors.success.default} />
-            <Text variant="body" color={colors.text.secondary} style={{ marginTop: tokens.spacing.sm, textAlign: 'center' }}>
-              {t('groups.settle.all_settled')}
-            </Text>
-          </View>
+          <>
+            <View style={{ alignItems: 'center', paddingVertical: tokens.spacing.xl }}>
+              <Ionicons name="checkmark-circle-outline" size={40} color={colors.success.default} />
+              <Text variant="body" color={colors.text.secondary} style={{ marginTop: tokens.spacing.sm, textAlign: 'center' }}>
+                {t('groups.settle.all_settled')}
+              </Text>
+            </View>
+
+            {recentActivity.length > 0 && (
+              <>
+                <Text
+                  variant="label"
+                  color={colors.text.secondary}
+                  style={{ textTransform: 'uppercase', letterSpacing: 0.8, fontSize: 11, marginBottom: tokens.spacing.sm }}
+                >
+                  {t('groups.settle.recent_activity_section')}
+                </Text>
+                <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, marginBottom: tokens.spacing.lg, overflow: 'hidden' }}>
+                  {recentActivity.map((item, i) => (
+                    <View key={`${item.kind}-${item.id}`}>
+                      {i > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
+                      <Pressable
+                        onPress={() => router.push(
+                          (item.kind === 'expense'
+                            ? `/group/expense/${item.id}?groupId=${group.id}`
+                            : `/trip/${item.id}`) as Parameters<typeof router.push>[0],
+                        )}
+                        style={({ pressed }) => ({
+                          flexDirection: 'row', alignItems: 'center',
+                          padding: tokens.spacing.md, opacity: pressed ? 0.7 : 1,
+                        })}
+                      >
+                        <Ionicons
+                          name={item.kind === 'expense' ? 'receipt-outline' : 'airplane-outline'}
+                          size={18}
+                          color={colors.text.tertiary}
+                        />
+                        <View style={{ flex: 1, marginLeft: tokens.spacing.sm }}>
+                          <Text variant="body">{item.label}</Text>
+                          <Text variant="caption" color={colors.text.tertiary} style={{ marginTop: 2 }}>
+                            {item.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </Text>
+                        </View>
+                        {item.kind === 'expense' && (
+                          <Text variant="label">{formatCurrency(item.amountCents, item.currency)}</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {paymentHistory.length > 0 && (
+              <>
+                <Text
+                  variant="label"
+                  color={colors.text.secondary}
+                  style={{ textTransform: 'uppercase', letterSpacing: 0.8, fontSize: 11, marginBottom: tokens.spacing.sm }}
+                >
+                  {t('groups.settle.payment_history_section')}
+                </Text>
+                <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, overflow: 'hidden' }}>
+                  {paymentHistory.map((payment, i) => {
+                    const fromName = memberMap.get(payment.payerUserId)?.member.displayName ?? t('common.unknown_user');
+                    const toName   = memberMap.get(payment.payeeUserId)?.member.displayName ?? t('common.unknown_user');
+                    return (
+                      <View key={payment.id ?? i}>
+                        {i > 0 && <View style={{ height: 1, backgroundColor: colors.borderMuted }} />}
+                        <Pressable
+                          onPress={() => router.push({
+                            pathname: `/group/settle/audit/${group.id}` as never,
+                            params: { groupId: group.id, fromUserId: payment.payerUserId, toUserId: payment.payeeUserId, fromName, toName },
+                          })}
+                          style={({ pressed }) => ({
+                            flexDirection: 'row', alignItems: 'center',
+                            padding: tokens.spacing.md, opacity: pressed ? 0.7 : 1,
+                          })}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text variant="body">{t('groups.detail.payment_row', { from: fromName, to: toName })}</Text>
+                            {payment.date && (
+                              <Text variant="caption" color={colors.text.tertiary} style={{ marginTop: 2 }}>
+                                {payment.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </Text>
+                            )}
+                          </View>
+                          <Text variant="label">{formatCurrency(payment.amountCents, payment.currency)}</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+          </>
         )}
       </ScrollView>
 

@@ -17,6 +17,7 @@ import { useCurrencyRate } from '../hooks/useCurrencyRate';
 import { useCreateGroupExpense } from '../../groups/hooks/useCreateGroupExpense';
 import { MakeRecurringSheet } from '../../groups/components/MakeRecurringSheet';
 import { useTripDetail } from '../../trips/hooks/useTripDetail';
+import { ReceiptCapture } from '../components/ReceiptCapture';
 import { useTripSessionStore, useService } from '../../../core/di/ServiceContext';
 import { AUTH } from '../../../core/di/tokens';
 import { CURRENCIES, currencyLabel, currencySymbol, getMinorUnitMultiplier } from '../../../core/constants/currencies';
@@ -395,6 +396,8 @@ export function ExpenseFormScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <ReceiptCapture onParsed={handleParsed} disabled={saving} style={{ marginBottom: 12 }} />
+
           {/* Amount + title card */}
           <View style={addStyles.card}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>

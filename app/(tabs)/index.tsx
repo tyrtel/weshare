@@ -6,6 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../../src/components/ui/Text';
+import { ErrorBanner } from '../../src/components/ui/ErrorBanner';
 import { BalancePill } from '../../src/components/ui/BalancePill';
 import { ActivityDot } from '../../src/components/ui/ActivityDot';
 import { ProfileMenuSheet } from '../../src/components/ui/ProfileMenuSheet';
@@ -25,7 +26,7 @@ export default function HomeScreen() {
   const auth   = useService(AUTH);
   const colors = useColors();
 
-  const { trips, summaries, loading: tripsLoading, refetch: refetchTrips } = useTrips();
+  const { trips, summaries, loading: tripsLoading, error: tripsError, refetch: refetchTrips } = useTrips();
   const { groups, groupTripCounts, groupSummaries, loading: groupsLoading, refetch: refetchGroups } = useGroups();
 
   const standaloneTrips = trips.filter(tr => !tr.groupId);
@@ -132,6 +133,30 @@ export default function HomeScreen() {
             />
           }
         >
+          {tripsError && (
+            <View style={{ marginBottom: 16 }}>
+              <ErrorBanner error={tripsError} fallback={t('trips.list.error_load')} />
+              <Pressable
+                onPress={() => void refetchTrips()}
+                accessibilityRole="button"
+                style={({ pressed }) => ({
+                  alignSelf: 'flex-start',
+                  marginTop: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: colors.primary.default,
+                  opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary.default }}>
+                  {t('common.try_again')}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
           {/* Active trips */}
           {standaloneTrips.length > 0 && (
             <>
@@ -153,7 +178,7 @@ export default function HomeScreen() {
                   >
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-                        <Text style={{ fontSize: 26 }}>{(trip as any).emoji ?? '✈️'}</Text>
+                        <Text style={{ fontSize: 26 }}>✈️</Text>
                         <View>
                           <Text style={[styles.cardTitle, { color: colors.text.primary }]} numberOfLines={1}>{trip.name}</Text>
                           <Text style={[styles.cardMeta, { color: colors.text.secondary }]}>{t('home.trip_people_count', { count: trip.members.length })}</Text>
@@ -166,6 +191,29 @@ export default function HomeScreen() {
               })}
             </>
           )}
+
+          <Pressable
+            testID="past-trips-link"
+            onPress={() => router.push('/trip/archive' as Parameters<typeof router.push>[0])}
+            accessibilityRole="button"
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 20,
+              padding: 16,
+              borderRadius: ledgerRadius.card,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Feather name="archive" size={18} color={colors.text.secondary} />
+            <Text style={{ flex: 1, marginLeft: 10, fontSize: 14, fontWeight: '600', color: colors.text.secondary }}>
+              {t('trips.list.past_trips_link')}
+            </Text>
+            <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+          </Pressable>
 
           {/* Groups */}
           <View style={styles.sectionRow}>
@@ -192,7 +240,7 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flex: 1 }}>
                     <View style={[styles.emojiTile, { backgroundColor: colors.background }]}>
-                      <Text style={{ fontSize: 20 }}>{(group as any).emoji ?? '👥'}</Text>
+                      <Text style={{ fontSize: 20 }}>👥</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.cardTitle, { color: colors.text.primary }]} numberOfLines={1}>{group.name}</Text>

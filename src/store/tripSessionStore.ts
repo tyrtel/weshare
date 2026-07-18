@@ -369,6 +369,21 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       }));
     },
 
+    removeTrip(tripId: string): void {
+      set((state) => ({
+        trips: state.trips.filter(t => t.id !== tripId),
+        expenses: Object.fromEntries(
+          Object.entries(state.expenses).filter(([id]) => id !== tripId),
+        ),
+        members: Object.fromEntries(
+          Object.entries(state.members).filter(([id]) => id !== tripId),
+        ),
+        splitRequests: Object.fromEntries(
+          Object.entries(state.splitRequests).filter(([id]) => id !== tripId),
+        ),
+      }));
+    },
+
     appendExpense(expense: Expense): void {
       if (!expense.tripId) return; // group expenses are not in the trip expenses slice
       set((state) => ({
@@ -495,6 +510,21 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
           ),
         },
         pendingExpenseIds: state.pendingExpenseIds.filter(id => id !== expense.id),
+        hydrationError: null,
+      }));
+    },
+
+    async removeGroupExpense(expenseId: string, groupId: string): Promise<void> {
+      const result = await repos.expenses.deleteExpense(expenseId);
+      if (isErr(result)) {
+        set({ hydrationError: result.error });
+        return;
+      }
+      set((state) => ({
+        groupExpenses: {
+          ...state.groupExpenses,
+          [groupId]: (state.groupExpenses[groupId] ?? []).filter((e) => e.id !== expenseId),
+        },
         hydrationError: null,
       }));
     },

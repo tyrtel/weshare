@@ -51,6 +51,29 @@ const EXPENSE = {
 };
 
 // ---------------------------------------------------------------------------
+// Expense row — no bogus split-mode label
+// ---------------------------------------------------------------------------
+
+// Regression: Expense has no splitMode field — item.splitMode always resolved
+// to undefined, so `item.splitMode ?? 'equal'` was showing the literal text
+// "equal" next to every expense regardless of how it was actually split.
+describe('TripDetailScreen — expense row meta text', () => {
+  it('shows only who paid, with no split-mode suffix', () => {
+    mockUseLocalSearchParams.mockReturnValue({ id: 't1' });
+    mockUseTripDetail.mockReturnValue({
+      trip: { ...BASE_TRIP, status: 'active' },
+      expenses: [EXPENSE],
+      loading: false, error: null, refetch: jest.fn(),
+    });
+
+    renderScreen(<TripDetailScreen />, createTestContainer());
+
+    expect(screen.getByText('Unknown paid')).toBeTruthy();
+    expect(screen.queryByText(/equal/i)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Settle button — status-aware rendering
 // ---------------------------------------------------------------------------
 
