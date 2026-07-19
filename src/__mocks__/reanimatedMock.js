@@ -28,7 +28,10 @@ const Animated = {
 };
 
 // Hooks
-const useSharedValue = (init) => ({ value: init });
+// Real Reanimated returns a stable handle across renders (only `.value` mutates in
+// place) — mirror that with useRef, or effects that depend on a shared value will
+// see a new object identity every render and re-fire forever.
+const useSharedValue = (init) => React.useRef({ value: init }).current;
 const useAnimatedStyle = (fn) => { try { return fn(); } catch { return {}; } };
 const useAnimatedProps = (fn) => { try { return fn(); } catch { return {}; } };
 const useAnimatedRef = () => ({ current: null });

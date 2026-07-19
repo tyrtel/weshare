@@ -99,26 +99,26 @@ on subscribe, auto-renewing.
       remainingFreeUses: (feature: UsageFeature) => number;
     }
 
-### "Rolling window" decision — needs your call
+### "Rolling window" decision — finalized
 
-You described the subscription as "30 passes with each purchase." I'd recommend **not** literally
-tracking 30 discrete day-passes — it's a lot of bookkeeping (30 rows, or a counter, per renewal)
-for something a single timestamp already expresses. Instead: each renewal event computes
+Decided: **not** literally tracking 30 discrete day-passes — that's a lot of bookkeeping (30 rows,
+or a counter, per renewal) for something a single timestamp already expresses. Instead, each
+renewal event computes
 
     newExpiry = max(now, currentExpiry) + 30 days
 
-and writes one `SubscriptionWindow` row (or updates one `expiresAt` column). This gives you
-everything you described — the user rides out unused days after cancelling (because `expiresAt`
-just sits in the future until it naturally passes), and renewals stack seamlessly (paying again
-before expiry extends from the *current* expiry, not from "now," so no days are lost) — with a
-tenth of the code and no separate ledger to keep consistent. It's also exactly what RevenueCat's
-`EntitlementInfo.expirationDate` already tracks for you, so in practice you may not need your own
-`SubscriptionWindow` table at all — just cache RevenueCat's `expirationDate` in Supabase via the
+and writes one `SubscriptionWindow` row (or updates one `expiresAt` column). This gives the
+intended behavior — the user rides out unused days after cancelling (because `expiresAt` just sits
+in the future until it naturally passes), and renewals stack seamlessly (paying again before
+expiry extends from the *current* expiry, not from "now," so no days are lost) — with a tenth of
+the code and no separate ledger to keep consistent. It's also exactly what RevenueCat's
+`EntitlementInfo.expirationDate` already tracks, so in practice a separate `SubscriptionWindow`
+table may not even be needed — just cache RevenueCat's `expirationDate` in Supabase via the
 webhook (see below) so it can be checked server-side.
 
-I've written the rest of this plan assuming the simpler single-expiry model. Say the word if you
-actually want discrete, individually-identifiable day-passes (e.g. because you want a future
-"gift a day" feature) and I'll design that instead — it's a bigger, different data model.
+Discrete, individually-identifiable day-passes (e.g. for a future "gift a day" feature) are out of
+scope for this plan — a bigger, different data model, and not needed for launch. Revisit only if
+that feature gets prioritized.
 
 ### Extended existing model
 
@@ -248,30 +248,97 @@ active subscription → active trip pass (scoped to the given `tripId`) → free
 
 ## Chunk Plan
 
-### Chunk A — Entitlement data foundation
-- [ ] `Entitlement.ts` models, `IEntitlementService` interface, `ENTITLEMENT` DI token
-- [ ] `MockEntitlementService` — fully controllable (see Testing Strategy), wired into
+### Chunk A — Entitlement data foundation — DONE
+- [x] `Entitlement.ts` models, `IEntitlementService` interface, `ENTITLEMENT` DI token
+- [x] `MockEntitlementService` — fully controllable (see Testing Strategy), wired into
       `createTestContainer` and `createSimulationContainer`
-- [ ] Migration: `user_feature_usage`, `trip_passes`, `subscription_windows`,
-      `users.full_access_override`
-- [ ] `increment_usage_if_allowed` Postgres RPC
+- [x] Migration `040_monetization_entitlements.sql`: `user_feature_usage`, `trip_passes`,
+      `subscription_windows`, `users.full_access_override` (+ trigger locking the override
+      column against client writes)
+- [x] `increment_usage_if_allowed` Postgres RPC
+- [x] Pure precedence/cap/rolling-window logic extracted to `core/logic/entitlement.ts`,
+      25 boundary tests, 1308/1308 suite green
 
 **No real money moves in this chunk.** Everything is mockable/testable before touching a store.
+Not yet wired: `productionContainer.ts` has no `ENTITLEMENT` registration — that lands in
+Chunk B alongside `RevenueCatEntitlementService`. Migration has not been applied to a live
+Supabase project or verified against a running Postgres (the local Supabase CLI's Go binary
+isn't installed in this environment) — run `supabase db reset --local` or push to a dev project
+before relying on it.
 
 ### Chunk B — RevenueCat integration
 **Depends on:** Chunk A.
 - [ ] RevenueCat account + products configured in both Play Console and App Store Connect
-      (`trip_pass_single`, `premium_monthly`)
-- [ ] `RevenueCatEntitlementService` (production impl) — wraps `purchases-react-native` SDK
-- [ ] `revenuecat-webhook` Edge Function — writes `trip_passes`/`subscription_windows` rows,
-      idempotent on `store_transaction_id`
-- [ ] `qaUnlock` env var + `eas.json` profile wiring
+      (`trip_pass_single`, `premium_monthly`) — **manual, external-account work, see below**
+- [x] `RevenueCatEntitlementService` (production impl) — wraps `react-native-purchases` SDK
+      (`src/infrastructure/services/RevenueCatEntitlementService.ts`), registered under
+      `ENTITLEMENT` in `productionContainer.ts`
+- [x] `revenuecat-webhook` Edge Function — writes `trip_passes`/`subscription_windows` rows,
+      idempotent on `store_transaction_id` (`supabase/functions/revenuecat-webhook/index.ts`)
+- [x] `qaUnlock` env var + `eas.json` profile wiring (`development`, `debug-device`, `preview`;
+      not `production`)
+
+**Design notes:**
+- Entitlement status (`hasFullAccess`/`remainingFreeUses`/`getStatus`) is read from Supabase
+  (`trip_passes`, `subscription_windows`, `user_feature_usage`, `users.full_access_override`),
+  never from RevenueCat's local `CustomerInfo` cache — the SDK's only job is driving the
+  purchase flow. This matches "Server-Side Enforcement": Supabase is authoritative.
+- A Trip Pass has no product-level custom metadata, so the trip it's for is carried through
+  RevenueCat as a subscriber attribute (`pending_trip_pass_trip_id`, set immediately before
+  `purchaseStoreProduct`) and read back off the webhook event's `subscriber_attributes`.
+- `subscription_windows.expires_at` is written straight from RevenueCat's own
+  `expiration_at_ms` on each grant event, rather than recomputing the rolling-window formula
+  server-side — the store's billing cycle is already the authoritative clock for a real
+  auto-renewing subscription. `computeSubscriptionRenewalExpiry` (Chunk A) is exercised by
+  `MockEntitlementService`/simulation mode, which has no real store to ask.
+- `purchaseTripPass`/`purchaseSubscription` poll Supabase for up to ~8s after a successful
+  store purchase (the webhook write is async) before returning `ok`; a timeout returns a
+  `NetworkError` telling the caller to refresh shortly — Chunk C's `PaywallSheet` should
+  surface this as a "processing" state, not a hard failure.
+- RevenueCat's `app_user_id` is kept in sync with the Supabase session via
+  `supabase.auth.onAuthStateChange` inside the service itself (`Purchases.logIn`/`logOut`),
+  so no screen needs to call an explicit "identify" step.
+
+**What you need to do manually** (none of this is scriptable from here):
+1. Create a RevenueCat account/project, add iOS + Android apps to it.
+2. In Play Console and App Store Connect, create the two products from the Product Catalog
+   table above (`trip_pass_single` as a non-subscription/one-time product, `premium_monthly`
+   as an auto-renewing subscription) and attach them to RevenueCat.
+3. In RevenueCat, create entitlements `trip_pass` and `premium` and attach the matching product
+   to each.
+4. Copy the iOS and Android **public** SDK keys into EAS secrets:
+   `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
+5. RevenueCat Dashboard → Project → Integrations → Webhooks: add an endpoint pointing at
+   `https://<your-project-ref>.supabase.co/functions/v1/revenuecat-webhook`, set an
+   "Authorization header value" (any string you choose), and save that same string as the
+   Supabase secret `REVENUECAT_WEBHOOK_AUTH_HEADER`
+   (`supabase secrets set REVENUECAT_WEBHOOK_AUTH_HEADER=...`). Unlike Stripe/Tink, RevenueCat
+   does not sign webhooks — this shared-secret header is the only verification.
+6. Deploy the new function: `supabase functions deploy revenuecat-webhook`.
+
+**Not yet verified** (can't be, from this environment): the `react-native-purchases` SDK calls
+in `RevenueCatEntitlementService.ts` (`configure`, `logIn`/`logOut`, `getProducts`,
+`purchaseStoreProduct`, `restorePurchases`, `setAttributes`) are written against the
+long-stable, documented API surface, but this is a native module — nothing here runs without
+a real device/simulator build and a real (sandbox) store account, which is exactly what
+Chunk C's sandbox testing is for. Re-check the exact call signatures against the installed
+`react-native-purchases@10.4.3` docs before relying on them.
 
 ### Chunk C — Trip Pass purchase flow
 **Depends on:** Chunk B.
-- [ ] `PaywallSheet` component, Trip Pass path
+- [x] `PaywallSheet` component, Trip Pass path (`src/shared/components/PaywallSheet.tsx`) —
+      Trip Pass + Premium Monthly cards, purchase/restore/cancel flows, "already unlocked"
+      state. 9/9 tests in `PaywallSheet.test.tsx`; full suite green (117/117 suites,
+      1317/1317 tests). Not yet mounted from any screen — that trigger wiring lands with
+      Chunks E/F/G (gate OCR/reports/recurring/groups), which open it on cap-exceeded.
 - [ ] Purchase → webhook → Supabase round trip verified end-to-end in sandbox
 - [ ] 30-day expiry enforced server-side, verified against a backdated `purchased_at` (see Testing)
+
+**Fixed along the way:** `PaywallSheet.test.tsx` had never actually passed — the shared reanimated
+Jest mock's `useSharedValue` returned a new object every render, so `PaywallSheet`'s effect
+(which listed the shared value in its dependency array) re-fired every render in an infinite
+loop until the Jest worker OOM'd. Fixed by making the mock return a stable `useRef`-backed handle
+(matching real Reanimated) and dropping the unnecessary dependency in the component.
 
 ### Chunk D — Subscription purchase flow
 **Depends on:** Chunk B. **Parallel with:** Chunk C.
