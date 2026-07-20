@@ -16,6 +16,7 @@ import { HeaderConfirmButton } from '../../src/components/ui/HeaderConfirmButton
 import { LabeledTextInput } from '../../src/components/ui/LabeledTextInput';
 import { Divider } from '../../src/components/ui/Divider';
 import { useCreateGroup } from '../../src/features/groups/hooks/useCreateGroup';
+import { PaywallSheet } from '../../src/shared/components/PaywallSheet';
 import { useService } from '../../src/core/di/ServiceContext';
 import { GROUP_REPO, TRIP_STORE } from '../../src/core/di/tokens';
 import { generateId } from '../../src/core/utils/generateId';
@@ -62,7 +63,7 @@ export default function CreateGroupScreen() {
   const colors     = useColors();
   const groupRepo  = useService(GROUP_REPO);
   const store      = useService(TRIP_STORE);
-  const { createGroup, loading, error } = useCreateGroup();
+  const { createGroup, loading, error, limitReached, clearLimitReached } = useCreateGroup();
 
   // ── Form state ──────────────────────────────────────────────────────────────
 
@@ -420,6 +421,7 @@ export default function CreateGroupScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
+      <PaywallSheet visible={limitReached} onClose={clearLimitReached} onPurchased={clearLimitReached} />
     </ScreenWrapper>
   );
 }

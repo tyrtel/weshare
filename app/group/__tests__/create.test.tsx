@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { renderScreen } from '../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../src/core/di/testContainer';
 import { AUTH, GROUP_REPO, TRIP_STORE } from '../../../src/core/di/tokens';
+import { MockEntitlementService } from '../../../src/__mocks__/MockEntitlementService';
 
 function render(container = createTestContainer()) {
   return renderScreen(<CreateGroupScreen />, container);
@@ -55,5 +56,19 @@ describe('CreateGroupScreen', () => {
 
     const router = useRouter();
     expect(router.replace).toHaveBeenCalledWith(`/group/${saved.id}`);
+  });
+
+  it('shows the paywall instead of creating a second group once the free-tier count cap is hit', async () => {
+    const entitlement = new MockEntitlementService();
+    entitlement.setActiveGroupCount(1);
+    const container = createTestContainer({ entitlementService: entitlement });
+    await container.resolve(AUTH).signIn('jay@example.com', 'password');
+    render(container);
+
+    fireEvent.changeText(screen.getByLabelText('Group name input'), 'Second Group');
+    fireEvent(screen.getByLabelText('Group name input'), 'submitEditing');
+
+    await waitFor(() => expect(screen.getByTestId('paywall-premium-card')).toBeTruthy());
+    expect(container.resolve(TRIP_STORE).getState().groups).toHaveLength(0);
   });
 });

@@ -8,6 +8,7 @@ import { Divider } from '../../../components/ui/Divider';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import { useCreateRecurringExpense } from '../hooks/useCreateRecurringExpense';
+import { PaywallSheet } from '../../../shared/components/PaywallSheet';
 import type { Expense } from '../../../core/models/Expense';
 import type { RecurrencePeriod } from '../../../core/models/RecurringExpense';
 
@@ -51,7 +52,7 @@ export function MakeRecurringSheet({
   const [period,    setPeriod]    = useState<RecurrencePeriod>('monthly');
   const [startDate, setStartDate] = useState<Date>(today);
 
-  const { createRecurringExpense, loading, error } = useCreateRecurringExpense(groupId);
+  const { createRecurringExpense, loading, error, limitReached, clearLimitReached } = useCreateRecurringExpense(groupId);
 
   const handleConfirm = useCallback(async () => {
     const result = await createRecurringExpense({
@@ -86,6 +87,7 @@ export function MakeRecurringSheet({
   const dateLabel = startDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
+    <>
     <Modal
       visible={visible}
       transparent
@@ -189,6 +191,8 @@ export function MakeRecurringSheet({
         </Pressable>
       </Animated.View>
     </Modal>
+    <PaywallSheet visible={limitReached} onClose={clearLimitReached} onPurchased={clearLimitReached} />
+    </>
   );
 }
 

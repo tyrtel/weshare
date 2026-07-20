@@ -4,6 +4,7 @@ import { useCreateGroup } from '../hooks/useCreateGroup';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { AUTH, GROUP_REPO } from '../../../core/di/tokens';
+import { MockEntitlementService } from '../../../__mocks__/MockEntitlementService';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 
 function makeWrapper(container: ServiceContainer) {
@@ -137,5 +138,57 @@ describe('useCreateGroup', () => {
   it('error is null initially', () => {
     const { result } = renderHook(() => useCreateGroup(), { wrapper: makeWrapper(container) });
     expect(result.current.error).toBeNull();
+  });
+
+  describe('monetization count-cap (Chunk G)', () => {
+    it('sets limitReached and creates nothing once the user already owns an active group', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setActiveGroupCount(1);
+      const withEntitlement = createTestContainer({ entitlementService: entitlement });
+      const auth = withEntitlement.resolve(AUTH);
+      await auth.signIn('jay@example.com', 'password');
+
+      const { result } = renderHook(() => useCreateGroup(), { wrapper: makeWrapper(withEntitlement) });
+
+      let group: import('../../../core/models/Group').Group | null = null;
+      await act(async () => { group = await result.current.createGroup('Second Group', 'EUR'); });
+
+      expect(group).toBeNull();
+      expect(result.current.limitReached).toBe(true);
+      expect(result.current.error).toBeNull();
+    });
+
+    it('an active subscription bypasses an exhausted count cap', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setActiveGroupCount(1);
+      entitlement.grantSubscription(new Date('2099-01-01T00:00:00Z'));
+      const withEntitlement = createTestContainer({ entitlementService: entitlement });
+      const auth = withEntitlement.resolve(AUTH);
+      await auth.signIn('jay@example.com', 'password');
+
+      const { result } = renderHook(() => useCreateGroup(), { wrapper: makeWrapper(withEntitlement) });
+
+      let group: import('../../../core/models/Group').Group | null = null;
+      await act(async () => { group = await result.current.createGroup('Second Group', 'EUR'); });
+
+      expect(group).not.toBeNull();
+      expect(result.current.limitReached).toBe(false);
+    });
+
+    it('clearLimitReached resets limitReached', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setActiveGroupCount(1);
+      const withEntitlement = createTestContainer({ entitlementService: entitlement });
+      const auth = withEntitlement.resolve(AUTH);
+      await auth.signIn('jay@example.com', 'password');
+
+      const { result } = renderHook(() => useCreateGroup(), { wrapper: makeWrapper(withEntitlement) });
+
+      await act(async () => { await result.current.createGroup('Second Group', 'EUR'); });
+      expect(result.current.limitReached).toBe(true);
+
+      act(() => { result.current.clearLimitReached(); });
+      expect(result.current.limitReached).toBe(false);
+    });
   });
 });

@@ -426,10 +426,39 @@ above). See "Layer 3 — Real store sandbox" below.
       `limitReachedTripId` for trip reports, unscoped for group reports (groups have no trip-pass
       concept). 9 new tests across `useGenerateReport.test.ts` and `ReportsScreen.test.tsx`.
 
-### Chunk G — Gate recurring expenses + groups
+### Chunk G — Gate recurring expenses + groups — DONE
 **Depends on:** Chunk A.
-- [ ] Count-cap check (1 free each) before "create" actions; existing over-cap items unaffected
-- [ ] Paywall on rejection
+- [x] Count-cap check (1 free each) before "create" actions; existing over-cap items unaffected —
+      new `can_create_group()` (per-user, counts groups owned) and
+      `can_create_recurring_expense(p_group_id)` (per-group, counts non-paused rules) RPCs,
+      mirroring `increment_usage_if_allowed`'s override → subscription → cap precedence. Distinct
+      shape deliberately: these are a count of *currently active* rows, not a cumulative usage
+      counter — pausing a recurring rule or (hypothetically) closing a group frees the slot back
+      up automatically, no separate "release" step needed. Added `canCreate` to
+      `IEntitlementService` (+ both impls) for this. Verified against a local sandbox: creating
+      the 1st group/rule succeeds, the 2nd is blocked, and both an active subscription and the
+      override flag independently bypass the cap.
+- [x] Paywall on rejection — `useCreateGroup`/`useCreateRecurringExpense` expose
+      `limitReached`/`clearLimitReached`; `app/group/create.tsx` and `MakeRecurringSheet` show
+      `PaywallSheet` on rejection (no `tripId` — neither is trip-scoped). The recurring-expense
+      check runs *before* the first-occurrence expense is created, so a rejection never leaves an
+      orphaned expense with no template behind it. 10 new tests across `useCreateGroup.test.ts`,
+      `useRecurringExpenses.test.ts`, the new `MakeRecurringSheet.test.tsx`, and
+      `app/group/__tests__/create.test.tsx`.
+
+**Pre-existing gaps found and fixed along the way (unrelated to monetization, but blocking this
+chunk's own server-side enforcement):**
+- `recurring_expenses`/`recurring_expense_splits` had **no migration at all** — every piece of
+  client code (`SupabaseRecurringExpenseRepository`, `rowSchemas.ts`, `useCreateRecurringExpense`)
+  has depended on this schema since the feature shipped, but it had no real database backing in
+  any environment that applies these migrations. Added `042_recurring_expenses.sql` matching the
+  exact columns the existing repository code already expects, with RLS scoped to `is_group_member`
+  (reusing the helper from `026_fix_group_rls.sql`) — any group member can manage a group's
+  recurring rules, matching the existing shared-expense trust model.
+- `RevenueCatEntitlementService.consumeUsage` never actually short-circuited on `qaUnlock` before
+  calling `increment_usage_if_allowed` — a QA-unlocked build's real signed-in account could still
+  be blocked by the RPC if that specific account had exhausted its own free tier. Fixed to match
+  `canCreate`'s (and the rest of the service's) qaUnlock-first pattern.
 
 ### Chunk H — Store listing + release readiness
 **Depends on:** all above.

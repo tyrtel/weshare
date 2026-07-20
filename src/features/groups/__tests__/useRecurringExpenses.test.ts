@@ -4,6 +4,7 @@ import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { RECURRING_EXPENSE_REPO, TRIP_STORE } from '../../../core/di/tokens';
 import { InMemoryRecurringExpenseRepository } from '../../../__mocks__/InMemoryRecurringExpenseRepository';
+import { MockEntitlementService } from '../../../__mocks__/MockEntitlementService';
 import { useRecurringExpenses } from '../hooks/useRecurringExpenses';
 import { useCreateRecurringExpense } from '../hooks/useCreateRecurringExpense';
 import { useEditRecurringExpense } from '../hooks/useEditRecurringExpense';
@@ -21,9 +22,9 @@ function makeWrapper(container: ServiceContainer) {
   };
 }
 
-function makeContainer(reRepo?: InMemoryRecurringExpenseRepository) {
+function makeContainer(reRepo?: InMemoryRecurringExpenseRepository, entitlementService?: MockEntitlementService) {
   const repo = reRepo ?? new InMemoryRecurringExpenseRepository();
-  const container = createTestContainer({ recurringExpenseRepo: repo });
+  const container = createTestContainer({ recurringExpenseRepo: repo, entitlementService });
   const group = groupFactory({ id: GROUP_ID, members: [groupMemberFactory(), groupMemberFactory({ userId: 'u2', displayName: 'Sam' })] });
   container.resolve(TRIP_STORE).getState().appendGroup(group);
   return container;
@@ -191,6 +192,67 @@ describe('useCreateRecurringExpense', () => {
     // No new expense created
     const storeExpenses = container.resolve(TRIP_STORE).getState().groupExpenses[GROUP_ID] ?? [];
     expect(storeExpenses).toHaveLength(0);
+  });
+
+  describe('monetization count-cap (Chunk G)', () => {
+    it('sets limitReached and creates nothing once the group already has an active rule', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setActiveRecurringExpenseCount(GROUP_ID, 1);
+      const container = makeContainer(undefined, entitlement);
+      const { result } = renderHook(() => useCreateRecurringExpense(GROUP_ID), { wrapper: makeWrapper(container) });
+
+      let re: RecurringExpense | null = null;
+      await act(async () => { re = await result.current.createRecurringExpense(validInput); });
+
+      expect(re).toBeNull();
+      expect(result.current.limitReached).toBe(true);
+      expect(result.current.error).toBeNull();
+      // No orphaned first expense left behind from a rejected create.
+      const storeExpenses = container.resolve(TRIP_STORE).getState().groupExpenses[GROUP_ID] ?? [];
+      expect(storeExpenses).toHaveLength(0);
+      const storeItems = container.resolve(TRIP_STORE).getState().recurringExpenses[GROUP_ID] ?? [];
+      expect(storeItems).toHaveLength(0);
+    });
+
+    it('an active subscription bypasses an exhausted count cap', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setActiveRecurringExpenseCount(GROUP_ID, 1);
+      entitlement.grantSubscription(new Date('2099-01-01T00:00:00Z'));
+      const container = makeContainer(undefined, entitlement);
+      const { result } = renderHook(() => useCreateRecurringExpense(GROUP_ID), { wrapper: makeWrapper(container) });
+
+      let re: RecurringExpense | null = null;
+      await act(async () => { re = await result.current.createRecurringExpense(validInput); });
+
+      expect(re).not.toBeNull();
+      expect(result.current.limitReached).toBe(false);
+    });
+
+    it('the count cap is per-group — a different group is unaffected', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setActiveRecurringExpenseCount('some-other-group', 1);
+      const container = makeContainer(undefined, entitlement);
+      const { result } = renderHook(() => useCreateRecurringExpense(GROUP_ID), { wrapper: makeWrapper(container) });
+
+      let re: RecurringExpense | null = null;
+      await act(async () => { re = await result.current.createRecurringExpense(validInput); });
+
+      expect(re).not.toBeNull();
+      expect(result.current.limitReached).toBe(false);
+    });
+
+    it('clearLimitReached resets limitReached', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setActiveRecurringExpenseCount(GROUP_ID, 1);
+      const container = makeContainer(undefined, entitlement);
+      const { result } = renderHook(() => useCreateRecurringExpense(GROUP_ID), { wrapper: makeWrapper(container) });
+
+      await act(async () => { await result.current.createRecurringExpense(validInput); });
+      expect(result.current.limitReached).toBe(true);
+
+      act(() => { result.current.clearLimitReached(); });
+      expect(result.current.limitReached).toBe(false);
+    });
   });
 });
 

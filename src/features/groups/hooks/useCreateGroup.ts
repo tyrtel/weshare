@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
-import { GROUP_REPO, AUTH, TRIP_STORE } from '../../../core/di/tokens';
+import { GROUP_REPO, AUTH, TRIP_STORE, ENTITLEMENT } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
 import { generateId } from '../../../core/utils/generateId';
 import type { Group } from '../../../core/models/Group';
@@ -14,16 +14,24 @@ function generateInviteToken(): string {
 }
 
 export function useCreateGroup() {
-  const groupRepo = useService(GROUP_REPO);
-  const auth      = useService(AUTH);
-  const storeApi  = useService(TRIP_STORE);
+  const groupRepo   = useService(GROUP_REPO);
+  const auth        = useService(AUTH);
+  const storeApi    = useService(TRIP_STORE);
+  const entitlement = useService(ENTITLEMENT);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<AppError | null>(null);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState<AppError | null>(null);
+  // Set instead of `error` when can_create_group rejected the create for
+  // having hit the free-tier count cap (TODO_monetization.md Chunk G) — the
+  // caller shows a paywall for this case, not the generic error banner.
+  const [limitReached, setLimitReached]   = useState(false);
+
+  const clearLimitReached = useCallback(() => setLimitReached(false), []);
 
   const createGroup = useCallback(
     async (name: string, currency: string): Promise<Group | null> => {
       setError(null);
+      setLimitReached(false);
       setLoading(true);
       try {
         const user = auth.currentUser();
@@ -35,6 +43,13 @@ export function useCreateGroup() {
           setError({ kind: 'ValidationError', field: 'name', message: 'Group name is required.' });
           return null;
         }
+
+        const canCreate = await entitlement.canCreate('group');
+        if (!canCreate.ok || !canCreate.value) {
+          setLimitReached(true);
+          return null;
+        }
+
         const groupId = generateId();
         const owner = {
           userId:      user.id,
@@ -64,8 +79,8 @@ export function useCreateGroup() {
         setLoading(false);
       }
     },
-    [groupRepo, auth, storeApi],
+    [groupRepo, auth, storeApi, entitlement],
   );
 
-  return { createGroup, loading, error };
+  return { createGroup, loading, error, limitReached, clearLimitReached };
 }

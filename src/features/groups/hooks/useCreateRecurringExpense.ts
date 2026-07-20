@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
-import { EXPENSE_REPO, SPLIT_REPO, RECURRING_EXPENSE_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { EXPENSE_REPO, SPLIT_REPO, RECURRING_EXPENSE_REPO, TRIP_STORE, ENTITLEMENT } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
 import { generateId } from '../../../core/utils/generateId';
 import type { RecurringExpense, RecurrencePeriod } from '../../../core/models/RecurringExpense';
@@ -72,19 +72,37 @@ export function useCreateRecurringExpense(groupId: string) {
   const splitRepo   = useService(SPLIT_REPO);
   const reRepo      = useService(RECURRING_EXPENSE_REPO);
   const storeApi    = useService(TRIP_STORE);
+  const entitlement = useService(ENTITLEMENT);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<AppError | null>(null);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<AppError | null>(null);
+  // Set instead of `error` when can_create_recurring_expense rejected the
+  // create for having hit the free-tier count cap for this group
+  // (TODO_monetization.md Chunk G) — the caller shows a paywall for this
+  // case, not the generic error banner.
+  const [limitReached, setLimitReached] = useState(false);
+
+  const clearLimitReached = useCallback(() => setLimitReached(false), []);
 
   const createRecurringExpense = useCallback(
     async (input: CreateRecurringExpenseInput): Promise<RecurringExpense | null> => {
       setError(null);
+      setLimitReached(false);
 
       const validationError = validate(input);
       if (validationError) { setError(validationError); return null; }
 
       setLoading(true);
       try {
+        // Checked before the first expense (below) is created, not after —
+        // an over-cap rejection here must not leave an orphaned one-off
+        // expense with no recurring template behind it.
+        const canCreate = await entitlement.canCreate('recurring_expense', groupId);
+        if (!canCreate.ok || !canCreate.value) {
+          setLimitReached(true);
+          return null;
+        }
+
         if (!input.skipFirstExpense) {
         const expenseId = generateId();
         const expResult = await expenseRepo.saveExpense({
@@ -158,8 +176,8 @@ export function useCreateRecurringExpense(groupId: string) {
         setLoading(false);
       }
     },
-    [expenseRepo, splitRepo, reRepo, storeApi, groupId],
+    [expenseRepo, splitRepo, reRepo, storeApi, groupId, entitlement],
   );
 
-  return { createRecurringExpense, loading, error };
+  return { createRecurringExpense, loading, error, limitReached, clearLimitReached };
 }
