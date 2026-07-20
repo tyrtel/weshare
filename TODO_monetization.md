@@ -331,14 +331,50 @@ Chunk C's sandbox testing is for. Re-check the exact call signatures against the
       state. 9/9 tests in `PaywallSheet.test.tsx`; full suite green (117/117 suites,
       1317/1317 tests). Not yet mounted from any screen — that trigger wiring lands with
       Chunks E/F/G (gate OCR/reports/recurring/groups), which open it on cap-exceeded.
-- [ ] Purchase → webhook → Supabase round trip verified end-to-end in sandbox
-- [ ] 30-day expiry enforced server-side, verified against a backdated `purchased_at` (see Testing)
+- [x] Purchase → webhook → Supabase round trip verified end-to-end in sandbox — done
+      against a **local** Supabase stack (`supabase start` + `supabase functions serve
+      revenuecat-webhook --env-file ... --no-verify-jwt`, `ALLOW_UNSIGNED_WEBHOOKS=true`),
+      not the linked hosted project. Posted a synthetic `NON_RENEWING_PURCHASE` RevenueCat
+      event at the deployed function; confirmed a `trip_passes` row lands with the right
+      `user_id`/`trip_id`/`store_transaction_id` and `expires_at = purchased_at + 30 days`
+      exactly. Re-posted the identical event (same `transaction_id`) and confirmed no
+      duplicate row — the `ON CONFLICT (store_transaction_id) DO NOTHING` upsert is
+      correctly idempotent.
+- [x] 30-day expiry enforced server-side, verified against a backdated `purchased_at` — posted
+      a second event with `purchased_at_ms` 40 days in the past (a different trip). Called
+      `increment_usage_if_allowed` as the authenticated test user: the still-valid trip's pass
+      returns `{allowed:true, remaining:null}` (unlimited); the expired trip's pass does **not**
+      grant access — it silently falls through to the free-tier branch instead
+      (`{allowed:true, remaining:4}`, i.e. `used_count` incremented 0→1). Confirmed the free-tier
+      cap itself blocks at exactly the 5th use, not the 4th or 6th
+      (`{allowed:false, remaining:0}` on the 6th call) — this is real server-side enforcement,
+      not a client-side check that happens to also exist.
 
-**Fixed along the way:** `PaywallSheet.test.tsx` had never actually passed — the shared reanimated
-Jest mock's `useSharedValue` returned a new object every render, so `PaywallSheet`'s effect
-(which listed the shared value in its dependency array) re-fired every render in an infinite
-loop until the Jest worker OOM'd. Fixed by making the mock return a stable `useRef`-backed handle
-(matching real Reanimated) and dropping the unnecessary dependency in the component.
+**Bug found and fixed along the way (`PaywallSheet.test.tsx` had never actually passed):** the
+shared reanimated Jest mock's `useSharedValue` returned a new object every render, so
+`PaywallSheet`'s effect (which listed the shared value in its dependency array) re-fired every
+render in an infinite loop until the Jest worker OOM'd — that's what looked like a WSL crash.
+Fixed by making the mock return a stable `useRef`-backed handle (matching real Reanimated) and
+dropping the unnecessary dependency in the component. Full suite now green (117/117 suites,
+1317/1317 tests).
+
+**Second bug found via this sandbox test, fixed in `041_monetization_grants.sql`:** the
+`revenuecat-webhook`'s upsert into `trip_passes`/`subscription_windows` needs explicit `SELECT`
++ `INSERT` grants for `service_role` — Postgres's `BYPASS RLS` attribute skips RLS *policies*,
+it does not substitute for a table-level `GRANT`, and PostgREST's `ignoreDuplicates` upsert path
+needs `SELECT` even when the response itself is `return=minimal` (confirmed directly against
+local PostgREST's own permission-denied hint). The same restricted grant (missing basic
+INSERT/SELECT/UPDATE/DELETE for `service_role`) was also present on foundational tables like
+`users`/`trips` in this local stack, which strongly suggests it's a gap in `supabase start`'s
+local bootstrap rather than the hosted project — the hosted Supabase platform grants these by
+default at project creation, outside of any migration file, so the existing `stripe-webhook`/
+`ob-webhook` presumably already work in production today. Added the explicit grants anyway as a
+defensive, purely-additive migration since they're idempotent and harmless either way.
+
+**Still not done (genuinely needs a real device):** an actual RevenueCat sandbox purchase through
+Play Console License Testing or an App Store sandbox account, confirming the real
+purchase → RevenueCat → webhook delivery path (not just the webhook → Supabase half tested
+above). See "Layer 3 — Real store sandbox" below.
 
 ### Chunk D — Subscription purchase flow
 **Depends on:** Chunk B. **Parallel with:** Chunk C.
