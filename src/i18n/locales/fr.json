@@ -128,6 +128,12 @@
       "theme_light": "Clair",
       "theme_dark": "Sombre",
       "theme_system": "Système",
+      "manage_subscription": "Gérer l'abonnement",
+      "restore_purchases": "Restaurer les achats",
+      "restoring": "Restauration…",
+      "restore_success_title": "Achats restaurés",
+      "restore_success_body": "Vos droits sont à jour.",
+      "restore_error_title": "Échec de la restauration",
       "log_out": "Se déconnecter",
       "log_out_confirm_title": "Se déconnecter ?",
       "log_out_confirm_body": "Vous devrez vous reconnecter pour voir vos voyages et groupes."
@@ -142,6 +148,7 @@
       "you_owe": "Tu dois {{amount}}",
       "you_are_owed": "On te doit {{amount}}",
       "all_settled": "Tout réglé",
+      "you_settled": "Tu es à jour",
       "member_count_one": "{{count}} membre",
       "member_count_other": "{{count}} membres",
       "trip_count_one": "{{count}} voyage",
@@ -216,7 +223,11 @@
       "payments_section": "Paiements récents",
       "payment_row": "{{from}} a payé {{to}}",
       "view_closed_expenses": "Voir les dépenses clôturées",
-      "hide_closed_expenses": "Masquer les dépenses clôturées"
+      "hide_closed_expenses": "Masquer les dépenses clôturées",
+      "archive_ready_accessibility": "Prête à archiver — appuyez pour clôturer",
+      "close_trip_alert_title": "Clôturer ce voyage ?",
+      "close_trip_alert_message": "Il sera retiré de votre liste active. Cela n'affecte pas les soldes du groupe, et vous pouvez le rouvrir à tout moment.",
+      "close_trip_alert_confirm": "Clôturer le voyage"
     },
     "send_invite": {
       "title": "Envoyer une invitation",
@@ -250,6 +261,7 @@
       "even": "Équilibré",
       "all_settled": "Tout le monde est réglé.",
       "recent_activity_section": "Activité récente",
+      "closed_badge": "Clôturé",
       "payment_history_section": "Historique des paiements",
       "settle_all_button": "Tout régler",
       "settle_all_error": "Une erreur s'est produite. Certains paiements n'ont peut-être pas été enregistrés.",
@@ -330,6 +342,7 @@
     "edit": {
       "title": "Modifier le voyage",
       "heading": "Modifier le voyage",
+      "confirm_label": "Confirmer les modifications",
       "save_button": "Enregistrer",
       "saving": "Enregistrement…",
       "error_fallback": "Impossible de mettre à jour le voyage.",
@@ -448,7 +461,9 @@
     },
     "receipt": {
       "reading": "Lecture du reçu…",
-      "error": "Impossible de lire le reçu — veuillez saisir manuellement"
+      "error": "Impossible de lire le reçu — veuillez saisir manuellement",
+      "remaining_scans_one": "{{count}} scan gratuit restant",
+      "remaining_scans_other": "{{count}} scans gratuits restants"
     },
     "category": {
       "title": "Catégorie",
@@ -715,6 +730,30 @@
       "title": "Ou partager un lien",
       "copy_label": "Copier le lien d'invitation",
       "share_button": "Partager l'invitation"
+    }
+  },
+  "monetization": {
+    "paywall": {
+      "title": "Débloquez plus avec ouiShare",
+      "subtitle": "Profitez de scans, d'exports illimités, et plus encore.",
+      "trip_pass": {
+        "title": "Pass Voyage",
+        "price": "1,99 €",
+        "description": "Accès illimité pour ce voyage, pendant 30 jours.",
+        "button": "Acheter le Pass Voyage"
+      },
+      "premium": {
+        "title": "Premium Mensuel",
+        "price": "2,99 €/mois",
+        "description": "Accès illimité à tous les voyages et groupes.",
+        "button": "S'abonner"
+      },
+      "restore": "Restaurer les achats",
+      "already_unlocked": "Vous avez déjà un accès complet — aucun achat nécessaire.",
+      "cancel": "Plus tard",
+      "close_label": "Fermer la fenêtre d'achat",
+      "error_generic": "Une erreur s'est produite. Veuillez réessayer.",
+      "confirming": "Confirmation de votre achat…"
     }
   }
 }

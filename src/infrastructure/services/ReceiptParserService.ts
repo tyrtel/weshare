@@ -7,11 +7,12 @@ export class ReceiptParserService implements IReceiptParser {
   async parseReceipt(
     imageBase64: string,
     mimeType: 'image/jpeg' | 'image/png',
+    tripId?: string,
   ): Promise<ParsedReceipt> {
     logger.log('[ReceiptParser] invoking parse-receipt Edge Function', { mimeType, base64Length: imageBase64.length });
 
     const { data, error } = await supabase.functions.invoke<ParsedReceipt>('parse-receipt', {
-      body: { imageBase64, mimeType },
+      body: { imageBase64, mimeType, tripId },
     });
 
     if (error) {
@@ -25,6 +26,10 @@ export class ReceiptParserService implements IReceiptParser {
         try { body = JSON.parse(rawText); } catch { /* not JSON */ }
         logger.error('[ReceiptParser] Edge Function error:', { status, body: rawText });
 
+        // No RECEIPT_PARSE_FAILED prefix on this one deliberately — callers
+        // (useReceiptParser) match on the exact message to show a paywall
+        // instead of the generic error banner.
+        if (status === 402) throw new Error('OCR_LIMIT_REACHED');
         if (status === 401) throw new Error('RECEIPT_PARSE_FAILED: Not signed in');
         if (status === 429) throw new Error(`RECEIPT_PARSE_FAILED: ${body.error ?? 'Rate limit exceeded'}`);
         throw new Error(`RECEIPT_PARSE_FAILED: ${body.error ?? `HTTP ${status}`}`);

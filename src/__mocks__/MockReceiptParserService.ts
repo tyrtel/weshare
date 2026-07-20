@@ -18,9 +18,14 @@ export class MockReceiptParserService implements IReceiptParser {
   };
 
   shouldFail = false;
+  shouldHitLimit = false;
+  // Records the tripId passed to each call, for test assertions.
+  readonly tripIds: (string | undefined)[] = [];
 
-  async parseReceipt(imageBase64: string, _mimeType: 'image/jpeg' | 'image/png'): Promise<ParsedReceipt> {
+  async parseReceipt(imageBase64: string, _mimeType: 'image/jpeg' | 'image/png', tripId?: string): Promise<ParsedReceipt> {
     this.calls.push(imageBase64.slice(0, 16));
+    this.tripIds.push(tripId);
+    if (this.shouldHitLimit) throw new Error('OCR_LIMIT_REACHED');
     if (this.shouldFail) throw new Error('RECEIPT_PARSE_FAILED: Mock failure');
     return { ...this.mockResult, lineItems: [...this.mockResult.lineItems] };
   }

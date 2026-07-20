@@ -35,6 +35,7 @@ import type { ColorPalette } from '../../../theme/colors';
 import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
 import { Segmented } from '../../../components/ui/Segmented';
 import { Avatar } from '../../../components/ui/Avatar';
+import { HeaderConfirmButton } from '../../../components/ui/HeaderConfirmButton';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -387,7 +388,12 @@ export function ExpenseFormScreen() {
               <Feather name="x" size={24} color={colors.text.primary} />
             </Pressable>
             <Text style={addStyles.screenTitle}>{t('expenses.form.screen_title')}</Text>
-            <View style={{ width: 24 }} />
+            <HeaderConfirmButton
+              onPress={handleSubmit}
+              disabled={!isValid || saving}
+              loading={saving}
+              accessibilityLabel={t('expenses.form.confirm_label')}
+            />
           </View>
         </SafeAreaView>
 
@@ -396,7 +402,12 @@ export function ExpenseFormScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <ReceiptCapture onParsed={handleParsed} disabled={saving} style={{ marginBottom: 12 }} />
+          <ReceiptCapture
+            onParsed={handleParsed}
+            tripId={resolvedTripId || undefined}
+            disabled={saving}
+            style={{ marginBottom: 12 }}
+          />
 
           {/* Amount + title card */}
           <View style={addStyles.card}>

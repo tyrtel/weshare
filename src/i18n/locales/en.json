@@ -128,6 +128,12 @@
       "theme_light": "Light",
       "theme_dark": "Dark",
       "theme_system": "System",
+      "manage_subscription": "Manage subscription",
+      "restore_purchases": "Restore purchases",
+      "restoring": "Restoring…",
+      "restore_success_title": "Purchases restored",
+      "restore_success_body": "Your entitlements are up to date.",
+      "restore_error_title": "Restore failed",
       "log_out": "Log out",
       "log_out_confirm_title": "Log out?",
       "log_out_confirm_body": "You'll need to sign in again to see your trips and groups."
@@ -142,6 +148,7 @@
       "you_owe": "You owe {{amount}}",
       "you_are_owed": "You're owed {{amount}}",
       "all_settled": "All settled",
+      "you_settled": "You're settled",
       "member_count_one": "{{count}} member",
       "member_count_other": "{{count}} members",
       "trip_count_one": "{{count}} trip",
@@ -216,7 +223,11 @@
       "payments_section": "Recent Payments",
       "payment_row": "{{from}} paid {{to}}",
       "view_closed_expenses": "View closed expenses",
-      "hide_closed_expenses": "Hide closed expenses"
+      "hide_closed_expenses": "Hide closed expenses",
+      "archive_ready_accessibility": "Ready to archive — tap to close",
+      "close_trip_alert_title": "Close this trip?",
+      "close_trip_alert_message": "This will move it out of your active list. It won't affect the group's balances, and you can reopen it any time.",
+      "close_trip_alert_confirm": "Close trip"
     },
     "send_invite": {
       "title": "Send an invite",
@@ -250,6 +261,7 @@
       "even": "Even",
       "all_settled": "Everyone is settled up.",
       "recent_activity_section": "Recent activity",
+      "closed_badge": "Closed",
       "payment_history_section": "Payment history",
       "settle_all_button": "Settle everything",
       "settle_all_error": "Something went wrong. Some payments may not have been recorded.",
@@ -330,6 +342,7 @@
     "edit": {
       "title": "Edit Trip",
       "heading": "Edit Trip",
+      "confirm_label": "Confirm changes",
       "save_button": "Save changes",
       "saving": "Saving…",
       "error_fallback": "Could not update trip.",
@@ -448,7 +461,9 @@
     },
     "receipt": {
       "reading": "Reading receipt…",
-      "error": "Couldn't read receipt — please fill in manually"
+      "error": "Couldn't read receipt — please fill in manually",
+      "remaining_scans_one": "{{count}} free scan left",
+      "remaining_scans_other": "{{count}} free scans left"
     },
     "category": {
       "title": "Category",
@@ -715,6 +730,30 @@
       "title": "Or share a link",
       "copy_label": "Copy invite link",
       "share_button": "Share invite"
+    }
+  },
+  "monetization": {
+    "paywall": {
+      "title": "Unlock more with ouiShare",
+      "subtitle": "Get unlimited scans, exports, and more.",
+      "trip_pass": {
+        "title": "Trip Pass",
+        "price": "€1.99",
+        "description": "Unlimited access for this trip, for 30 days.",
+        "button": "Buy Trip Pass"
+      },
+      "premium": {
+        "title": "Premium Monthly",
+        "price": "€2.99/mo",
+        "description": "Unlimited access across all trips and groups.",
+        "button": "Subscribe"
+      },
+      "restore": "Restore purchases",
+      "already_unlocked": "You already have full access — no purchase needed.",
+      "cancel": "Not now",
+      "close_label": "Close paywall",
+      "error_generic": "Something went wrong. Please try again.",
+      "confirming": "Confirming your purchase…"
     }
   }
 }

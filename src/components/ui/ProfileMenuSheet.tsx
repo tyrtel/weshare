@@ -1,13 +1,17 @@
-import React from 'react';
-import { Modal, View, Pressable, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, View, Pressable, StyleSheet, Alert, Platform, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Text } from './Text';
 import { Segmented } from './Segmented';
 import { useColors } from '../../theme/colors';
 import { tokens } from '../../theme/tokens';
 import { useThemeStore } from '../../store/themeStore';
 import type { ThemePreference } from '../../store/themeStore';
+import { useService } from '../../core/di/ServiceContext';
+import { ENTITLEMENT } from '../../core/di/tokens';
+import { getErrorMessage } from '../../core/types/AppError';
 
 interface ProfileMenuSheetProps {
   visible: boolean;
@@ -17,14 +21,40 @@ interface ProfileMenuSheetProps {
   onLogOut: () => void;
 }
 
+// Play Store's subscription-management deep link filters to this app's own
+// subscriptions when given a package name; the App Store's equivalent has no
+// per-app variant — it always opens the signed-in Apple ID's full list.
+function subscriptionManagementUrl(): string {
+  if (Platform.OS === 'ios') return 'https://apps.apple.com/account/subscriptions';
+  const androidPackage = Constants.expoConfig?.android?.package;
+  return `https://play.google.com/store/account/subscriptions${androidPackage ? `?package=${androidPackage}` : ''}`;
+}
+
 // Bottom sheet, not an anchored dropdown — matches the app's existing
 // RecordPaymentSheet/SendInviteSheet pattern rather than introducing a new
 // popover-menu UI concept.
 export function ProfileMenuSheet({ visible, onClose, onNewTrip, onNewGroup, onLogOut }: ProfileMenuSheetProps) {
   const { t } = useTranslation();
   const colors = useColors();
+  const entitlement = useService(ENTITLEMENT);
   const preference = useThemeStore(s => s.preference);
   const setPreference = useThemeStore(s => s.setPreference);
+  const [restoring, setRestoring] = useState(false);
+
+  const handleManageSubscription = () => {
+    void Linking.openURL(subscriptionManagementUrl());
+  };
+
+  const handleRestorePurchases = async () => {
+    if (restoring) return;
+    setRestoring(true);
+    const result = await entitlement.restorePurchases();
+    setRestoring(false);
+    Alert.alert(
+      result.ok ? t('home.profile_menu.restore_success_title') : t('home.profile_menu.restore_error_title'),
+      result.ok ? t('home.profile_menu.restore_success_body') : getErrorMessage(result.error),
+    );
+  };
 
   const row = (
     icon: React.ComponentProps<typeof Feather>['name'],
@@ -85,6 +115,15 @@ export function ProfileMenuSheet({ visible, onClose, onNewTrip, onNewGroup, onLo
                 onChange={(key) => setPreference(key as ThemePreference)}
               />
             </View>
+
+            <View style={{ height: 1, backgroundColor: colors.border, marginVertical: tokens.spacing.xs }} />
+
+            {row('credit-card', t('home.profile_menu.manage_subscription'), handleManageSubscription)}
+            {row(
+              'refresh-cw',
+              restoring ? t('home.profile_menu.restoring') : t('home.profile_menu.restore_purchases'),
+              () => void handleRestorePurchases(),
+            )}
 
             <View style={{ height: 1, backgroundColor: colors.border, marginVertical: tokens.spacing.xs }} />
 

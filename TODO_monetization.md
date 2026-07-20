@@ -376,16 +376,39 @@ Play Console License Testing or an App Store sandbox account, confirming the rea
 purchase → RevenueCat → webhook delivery path (not just the webhook → Supabase half tested
 above). See "Layer 3 — Real store sandbox" below.
 
-### Chunk D — Subscription purchase flow
+### Chunk D — Subscription purchase flow — DONE
 **Depends on:** Chunk B. **Parallel with:** Chunk C.
-- [ ] `PaywallSheet` component, Premium Monthly path
-- [ ] Renewal, cancellation, and grace-period webhook events all handled and idempotent
-- [ ] "Manage subscription" deep link in Settings
+- [x] `PaywallSheet` component, Premium Monthly path — was already built alongside Chunk C's
+      Trip Pass path in the same component.
+- [x] Renewal, cancellation, and grace-period webhook events all handled and idempotent —
+      `revenuecat-webhook` already handled `INITIAL_PURCHASE`/`RENEWAL`/`UNCANCELLATION`/
+      `PRODUCT_CHANGE`; added `BILLING_ISSUE` to the same grant-event set so a failed renewal
+      charge extends `subscription_windows.expires_at` to the store's grace-period expiry
+      instead of dropping access immediately. Verified against a local sandbox: a `RENEWAL`
+      then a `BILLING_ISSUE` event correctly leaves the grace-period row as the active one
+      (`fetchActiveSubscription` orders by `expires_at DESC`). Cancellation/expiration still
+      need no code — access reverts naturally once `expires_at` passes, same as before.
+- [x] "Manage subscription" deep link in Settings — added to `ProfileMenuSheet` (opens
+      `apps.apple.com/account/subscriptions` on iOS, Play Store's subscriptions page scoped to
+      this app's package on Android), plus a "Restore purchases" row alongside it per the
+      design doc's UX section. 11/11 tests in `ProfileMenuSheet.test.tsx`.
 
-### Chunk E — Gate OCR
+### Chunk E — Gate OCR — DONE
 **Depends on:** Chunk A (works even before B/C/D land, using override/QA flags for testing).
-- [ ] `parse-receipt` extended with the entitlement + usage check
-- [ ] Client shows remaining-uses count and/or paywall on the `OCR_LIMIT_REACHED` response
+- [x] `parse-receipt` extended with the entitlement + usage check — calls
+      `increment_usage_if_allowed('ocr_scan', tripId)` via a user-scoped client (not
+      service-role — `auth.uid()` inside the RPC must resolve to the caller) before invoking
+      Claude Vision, returning `402 OCR_LIMIT_REACHED` once the free tier is exhausted and no
+      subscription/trip-pass/override applies. Verified end-to-end against a local sandbox:
+      5 calls succeed, the 6th is blocked with `OCR_LIMIT_REACHED`; granting a Trip Pass for
+      that trip immediately unblocks scanning again without incrementing `used_count` further.
+- [x] Client shows remaining-uses count and/or paywall on the `OCR_LIMIT_REACHED` response —
+      `ReceiptCapture` shows "N free scans left" (hidden once the user has full access via
+      subscription/override/QA-build/an active trip pass for the current trip) and opens
+      `PaywallSheet` instead of the generic error banner when the server returns
+      `OCR_LIMIT_REACHED`. `tripId` threads through from `ExpenseFormScreen` so a Trip Pass
+      purchase from that paywall unlocks OCR for the same trip. 6/6 tests in the new
+      `ReceiptCapture.test.tsx`, plus 3 new tests on `useReceiptParser`'s `limitReached` state.
 
 ### Chunk F — Gate Reports
 **Depends on:** Chunk A.

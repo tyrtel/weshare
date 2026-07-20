@@ -6,14 +6,20 @@
  *
  * Security:
  *   - Requires a valid Supabase JWT in the Authorization header.
- *   - Enforces a per-user rate limit (default: 20 calls per 60 minutes).
+ *   - Enforces a per-user rate limit (default: 20 calls per 60 minutes) — an
+ *     abuse guard, independent of the monetization gate below.
+ *   - Enforces the free-tier OCR scan cap (TODO_monetization.md Chunk E) via
+ *     increment_usage_if_allowed, bypassed by an active subscription, trip
+ *     pass, or full_access_override — returns 402 OCR_LIMIT_REACHED once
+ *     exhausted.
  *   - ANTHROPIC_API_KEY is a server-side Deno secret — never exposed to clients.
  *
  * When ANTHROPIC_API_KEY is not set, returns a mock response so the Edge
  * Function can be exercised in local development without real credentials.
  *
- * Body:     { imageBase64: string, mimeType: 'image/jpeg' | 'image/png' }
+ * Body:     { imageBase64: string, mimeType: 'image/jpeg' | 'image/png', tripId?: string }
  * Response: { merchant, date, currency, totalAmountCents, lineItems }
+ *           | { error: 'OCR_LIMIT_REACHED', remaining: number } (402)
  */
 
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
@@ -103,9 +109,10 @@ Deno.serve(async (req: Request) => {
 
   // ── Parse request body ──────────────────────────────────────────────────────
   try {
-    const { imageBase64, mimeType } = await req.json() as {
+    const { imageBase64, mimeType, tripId } = await req.json() as {
       imageBase64: string;
       mimeType: 'image/jpeg' | 'image/png';
+      tripId?: string;
     };
 
     if (!imageBase64 || typeof imageBase64 !== 'string') {
@@ -128,6 +135,33 @@ Deno.serve(async (req: Request) => {
         { error: 'mimeType must be image/jpeg or image/png' },
         { status: 400, headers: corsHeaders },
       );
+    }
+
+    // ── Monetization gate (TODO_monetization.md Chunk E) ────────────────────
+    // Called via userClient (not adminClient) so auth.uid() inside the
+    // SECURITY DEFINER RPC resolves to this caller — a service-role call
+    // would see auth.uid() as null and block everyone. Checked and
+    // incremented before the Claude Vision call, not after a successful
+    // parse: the RPC is a single atomic check-and-reserve step (mirrors
+    // check_report_rate_limit's shape), and gating here first also avoids
+    // spending the Claude Vision cost on a user who's already over the cap.
+    const { data: usageData, error: usageError } = await userClient.rpc('increment_usage_if_allowed', {
+      p_feature:  'ocr_scan',
+      p_trip_id:  tripId ?? null,
+    });
+
+    if (usageError) {
+      console.error('[parse-receipt] entitlement check failed:', usageError.message);
+      // Fail open, matching the rate-limit check's own precedent above.
+    } else {
+      const usageRow = (usageData as { allowed: boolean; remaining: number | null }[] | null)?.[0];
+      if (!usageRow?.allowed) {
+        console.warn('[parse-receipt] OCR usage limit reached for user:', user.id);
+        return Response.json(
+          { error: 'OCR_LIMIT_REACHED', remaining: usageRow?.remaining ?? 0 },
+          { status: 402, headers: corsHeaders },
+        );
+      }
     }
 
     // ── Mock mode (no Anthropic key configured) ─────────────────────────────

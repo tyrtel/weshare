@@ -136,6 +136,45 @@ describe('useReceiptParser', () => {
     act(() => { result.current.clearError(); });
     expect(result.current.error).toBeNull();
   });
+
+  it('OCR_LIMIT_REACHED sets limitReached instead of error', async () => {
+    const parserSvc = new MockReceiptParserService();
+    parserSvc.shouldHitLimit = true;
+    const container = createTestContainer({ receiptParser: parserSvc });
+    const { result } = renderHook(() => useReceiptParser(), { wrapper: makeWrapper(container) });
+
+    let parsed: ParsedReceipt | null = null;
+    await act(async () => {
+      parsed = await result.current.parseReceipt('img==', 'image/jpeg');
+    });
+
+    expect(parsed).toBeNull();
+    expect(result.current.limitReached).toBe(true);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('clearError also resets limitReached', async () => {
+    const parserSvc = new MockReceiptParserService();
+    parserSvc.shouldHitLimit = true;
+    const container = createTestContainer({ receiptParser: parserSvc });
+    const { result } = renderHook(() => useReceiptParser(), { wrapper: makeWrapper(container) });
+
+    await act(async () => { await result.current.parseReceipt('img==', 'image/jpeg'); });
+    expect(result.current.limitReached).toBe(true);
+
+    act(() => { result.current.clearError(); });
+    expect(result.current.limitReached).toBe(false);
+  });
+
+  it('forwards tripId to the underlying parser', async () => {
+    const parserSvc = new MockReceiptParserService();
+    const container = createTestContainer({ receiptParser: parserSvc });
+    const { result } = renderHook(() => useReceiptParser(), { wrapper: makeWrapper(container) });
+
+    await act(async () => { await result.current.parseReceipt('img==', 'image/jpeg', 'trip-7'); });
+
+    expect(parserSvc.tripIds).toEqual(['trip-7']);
+  });
 });
 
 // ── ReceiptCameraButton — permission denied ───────────────────────────────────
