@@ -17,6 +17,7 @@ import { renderScreen } from '../../../__testUtils__/renderScreen';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { AUTH, TRIP_REPO, GROUP_REPO, TRIP_STORE, REPORT_SERVICE } from '../../../core/di/tokens';
 import { MockReportService } from '../../../__mocks__/MockReportService';
+import { MockEntitlementService } from '../../../__mocks__/MockEntitlementService';
 import { tripFactory, groupFactory, groupMemberFactory, memberFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 
@@ -26,8 +27,12 @@ import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 // whatever was appended directly to the store — so trips/groups must be
 // seeded in the repo (not just via store.appendTrip/appendGroup), matching
 // BalanceSummaryScreen.test.tsx's established pattern.
-async function signedInContainerWith(trip?: ReturnType<typeof tripFactory>, group?: ReturnType<typeof groupFactory>): Promise<ServiceContainer> {
-  const container = createTestContainer();
+async function signedInContainerWith(
+  trip?: ReturnType<typeof tripFactory>,
+  group?: ReturnType<typeof groupFactory>,
+  entitlementService?: MockEntitlementService,
+): Promise<ServiceContainer> {
+  const container = createTestContainer(entitlementService ? { entitlementService } : undefined);
   const auth   = container.resolve(AUTH);
   const result = await auth.signIn('me@example.com', 'password');
   const userId = result.ok ? result.value.id : '';
@@ -116,5 +121,67 @@ describe('ReportsScreen', () => {
       expect(Sharing.shareAsync).toHaveBeenCalledTimes(1);
     });
     expect(screen.getByText('4 reports remaining today')).toBeTruthy();
+  });
+
+  describe('monetization gate (Chunk F)', () => {
+    it('shows the free-exports-left count on the free tier', async () => {
+      const container = await signedInContainerWith(
+        tripFactory({ id: 't1', name: 'Amsterdam', members: [memberFactory()] }),
+        undefined,
+        new MockEntitlementService(),
+      );
+      render(container);
+
+      await waitFor(() => expect(screen.getByText('5 free exports left')).toBeTruthy());
+    });
+
+    it('hides the free-exports-left count once subscribed', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.grantSubscription(new Date('2099-01-01T00:00:00Z'));
+      const container = await signedInContainerWith(
+        tripFactory({ id: 't1', name: 'Amsterdam', members: [memberFactory()] }),
+        undefined,
+        entitlement,
+      );
+      render(container);
+
+      await waitFor(() => expect(screen.getByText('Amsterdam')).toBeTruthy());
+      expect(screen.queryByText(/free exports? left/)).toBeNull();
+    });
+
+    it('opens the paywall instead of generating once the free-tier report cap is exhausted', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setUsageCount('report_export', 5);
+      const container = await signedInContainerWith(
+        tripFactory({ id: 't1', name: 'Amsterdam', members: [memberFactory()] }),
+        undefined,
+        entitlement,
+      );
+      render(container);
+      fireEvent.press(screen.getByLabelText('Generate PDF report for Amsterdam'));
+
+      await waitFor(() => expect(screen.getByTestId('paywall-premium-card')).toBeTruthy());
+      const Print = require('expo-print') as { printToFileAsync: jest.Mock };
+      expect(Print.printToFileAsync).not.toHaveBeenCalled();
+    });
+
+    it('an active Trip Pass for the trip bypasses an exhausted report cap', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setUsageCount('report_export', 5);
+      entitlement.grantTripPass('t1', new Date('2099-01-01T00:00:00Z'));
+      const container = await signedInContainerWith(
+        tripFactory({ id: 't1', name: 'Amsterdam', members: [memberFactory()] }),
+        undefined,
+        entitlement,
+      );
+      render(container);
+      fireEvent.press(screen.getByLabelText('Generate PDF report for Amsterdam'));
+
+      await waitFor(() => {
+        const Sharing = require('expo-sharing') as { shareAsync: jest.Mock };
+        expect(Sharing.shareAsync).toHaveBeenCalledTimes(1);
+      });
+      expect(screen.queryByTestId('paywall-premium-card')).toBeNull();
+    });
   });
 });

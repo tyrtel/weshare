@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useService } from '../../../core/di/ServiceContext';
-import { REPORT_SERVICE, RECEIPT_STORAGE, TRIP_STORE } from '../../../core/di/tokens';
+import { REPORT_SERVICE, RECEIPT_STORAGE, TRIP_STORE, ENTITLEMENT } from '../../../core/di/tokens';
+import type { EntitlementStatus } from '../../../core/models/Entitlement';
 import { generateReportHTML } from '../../../core/utils/generateReportHTML';
 import { buildTripReportData } from '../utils/buildTripReportData';
 import { buildGroupReportData } from '../utils/buildGroupReportData';
@@ -14,10 +15,41 @@ export function useGenerateReport() {
   const reportService  = useService(REPORT_SERVICE);
   const receiptStorage = useService(RECEIPT_STORAGE);
   const storeApi       = useService(TRIP_STORE);
+  const entitlement    = useService(ENTITLEMENT);
 
   const [generating, setGenerating] = useState(false);
   const [error, setError]           = useState<string | null>(null);
+  // check_report_rate_limit's own remaining (an abuse guard, resets daily —
+  // independent of the monetization cap below, same relationship as OCR's
+  // rate limiter vs. its lifetime scan cap; see TODO_monetization.md).
   const [remaining, setRemaining]   = useState<number | null>(null);
+  // Set instead of `error` when increment_usage_if_allowed rejected the
+  // export for having hit the free-tier lifetime cap (TODO_monetization.md
+  // Chunk F) — the caller shows a paywall for this case, not the rate-limit
+  // banner. limitReachedTripId carries which trip (if any) was being
+  // exported, so a Trip Pass purchased from that paywall applies to it.
+  const [limitReached, setLimitReached]             = useState(false);
+  const [limitReachedTripId, setLimitReachedTripId] = useState<string | undefined>(undefined);
+  // Not read directly — refreshing it and re-storing it is just this hook's
+  // re-render trigger for the entitlement service's own mutable cache
+  // (mirrors PaywallSheet/ReceiptCapture's identical pattern).
+  // remainingFreeExports/hasFullAccess below always read live off the
+  // service, not off `entitlementStatus`.
+  const [, setEntitlementStatus] = useState<EntitlementStatus | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void entitlement.refresh().then(() => { if (!cancelled) setEntitlementStatus(entitlement.getStatus()); });
+    return () => { cancelled = true; };
+  }, [entitlement]);
+
+  const clearLimitReached = useCallback(() => {
+    setLimitReached(false);
+    void entitlement.refresh().then(() => setEntitlementStatus(entitlement.getStatus()));
+  }, [entitlement]);
+
+  const remainingFreeExports = entitlement.remainingFreeUses('report_export');
+  const hasFullAccess         = entitlement.hasFullAccess();
 
   const shareReport = async (title: string, html: string): Promise<void> => {
     // expo-print/expo-sharing have no real web implementation: printToFileAsync
@@ -44,7 +76,15 @@ export function useGenerateReport() {
   const generateTripReport = useCallback(async (tripId: string): Promise<boolean> => {
     setGenerating(true);
     setError(null);
+    setLimitReached(false);
     try {
+      const usage = await entitlement.consumeUsage('report_export', tripId);
+      if (!usage.ok || !usage.value.allowed) {
+        setLimitReachedTripId(tripId);
+        setLimitReached(true);
+        return false;
+      }
+
       const status = await reportService.checkRateLimit();
       setRemaining(status.remaining);
       if (!status.allowed) { setError(RATE_LIMIT_MESSAGE); return false; }
@@ -69,12 +109,22 @@ export function useGenerateReport() {
     } finally {
       setGenerating(false);
     }
-  }, [reportService, receiptStorage, storeApi]);
+  }, [reportService, receiptStorage, storeApi, entitlement]);
 
   const generateGroupReport = useCallback(async (groupId: string, month: Date): Promise<boolean> => {
     setGenerating(true);
     setError(null);
+    setLimitReached(false);
     try {
+      // Groups have no trip-pass concept — an active subscription or
+      // override still bypasses the cap via consumeUsage's own precedence.
+      const usage = await entitlement.consumeUsage('report_export');
+      if (!usage.ok || !usage.value.allowed) {
+        setLimitReachedTripId(undefined);
+        setLimitReached(true);
+        return false;
+      }
+
       const status = await reportService.checkRateLimit();
       setRemaining(status.remaining);
       if (!status.allowed) { setError(RATE_LIMIT_MESSAGE); return false; }
@@ -112,7 +162,12 @@ export function useGenerateReport() {
     } finally {
       setGenerating(false);
     }
-  }, [reportService, receiptStorage, storeApi]);
+  }, [reportService, receiptStorage, storeApi, entitlement]);
 
-  return { generating, error, remaining, generateTripReport, generateGroupReport };
+  return {
+    generating, error, remaining,
+    limitReached, limitReachedTripId, clearLimitReached,
+    remainingFreeExports, hasFullAccess,
+    generateTripReport, generateGroupReport,
+  };
 }

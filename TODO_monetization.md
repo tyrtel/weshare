@@ -410,10 +410,21 @@ above). See "Layer 3 — Real store sandbox" below.
       purchase from that paywall unlocks OCR for the same trip. 6/6 tests in the new
       `ReceiptCapture.test.tsx`, plus 3 new tests on `useReceiptParser`'s `limitReached` state.
 
-### Chunk F — Gate Reports
+### Chunk F — Gate Reports — DONE
 **Depends on:** Chunk A.
-- [ ] `useGenerateReport` calls `increment_usage_if_allowed('report_export')` before generating
-- [ ] Paywall on rejection
+- [x] `useGenerateReport` calls `increment_usage_if_allowed('report_export')` before generating —
+      via `entitlement.consumeUsage`, same client-side RPC pattern the design doc calls for
+      (reports have no server round-trip to embed the check in, unlike OCR's Edge Function).
+      This is a genuinely separate gate from the pre-existing `check_report_rate_limit` RPC —
+      that one is a rolling-24h **abuse guard** (mirrors OCR's rate limiter), unrelated to and
+      independent of this **lifetime monetization cap**; both stay, same relationship as
+      TODO_monetization.md already documents for OCR. Verified directly against a local
+      Postgres RPC call (no Edge Function involved here): 5 calls succeed, the 6th is blocked,
+      and granting a Trip Pass for that trip immediately restores unlimited access.
+- [x] Paywall on rejection — `ReportsScreen` shows "N free exports left" (hidden once the user
+      has full access) and opens `PaywallSheet` — scoped to the trip being exported via
+      `limitReachedTripId` for trip reports, unscoped for group reports (groups have no trip-pass
+      concept). 9 new tests across `useGenerateReport.test.ts` and `ReportsScreen.test.tsx`.
 
 ### Chunk G — Gate recurring expenses + groups
 **Depends on:** Chunk A.

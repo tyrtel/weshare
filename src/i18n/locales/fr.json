@@ -660,7 +660,9 @@
       "title": "Rapports",
       "remaining_one": "{{count}} rapport restant aujourd'hui",
       "remaining_other": "{{count}} rapports restants aujourd'hui",
-      "limit_note": "Générez jusqu'à 5 rapports PDF par jour"
+      "limit_note": "Générez jusqu'à 5 rapports PDF par jour",
+      "remaining_free_one": "{{count}} export gratuit restant",
+      "remaining_free_other": "{{count}} exports gratuits restants"
     },
     "trips": {
       "section_title": "Rapports de voyage",

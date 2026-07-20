@@ -9,6 +9,7 @@ import { tokens } from '../../../theme/tokens';
 import { useTrips } from '../../trips/hooks/useTrips';
 import { useGroups } from '../../groups/hooks/useGroups';
 import { useGenerateReport } from '../hooks/useGenerateReport';
+import { PaywallSheet } from '../../../shared/components/PaywallSheet';
 import type { Trip } from '../../../core/models/Trip';
 import type { Group } from '../../../core/models/Group';
 
@@ -89,7 +90,12 @@ export function ReportsScreen() {
   const colors = useColors();
   const { trips } = useTrips();
   const { groups } = useGroups();
-  const { generating, error, remaining, generateTripReport, generateGroupReport } = useGenerateReport();
+  const {
+    generating, error, remaining,
+    limitReached, limitReachedTripId, clearLimitReached,
+    remainingFreeExports, hasFullAccess,
+    generateTripReport, generateGroupReport,
+  } = useGenerateReport();
 
   const [month, setMonth]       = useState(() => new Date());
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -115,9 +121,14 @@ export function ReportsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text variant="heading1" style={{ marginBottom: tokens.spacing.xs }}>{t('reports.screen.title')}</Text>
-        <Text variant="caption" color={colors.text.tertiary} style={{ marginBottom: tokens.spacing.md }}>
+        <Text variant="caption" color={colors.text.tertiary} style={{ marginBottom: tokens.spacing.xs }}>
           {remaining !== null ? t('reports.screen.remaining', { count: remaining }) : t('reports.screen.limit_note')}
         </Text>
+        {!hasFullAccess && (
+          <Text variant="caption" color={colors.text.tertiary} style={{ marginBottom: tokens.spacing.md }}>
+            {t('reports.screen.remaining_free', { count: remainingFreeExports })}
+          </Text>
+        )}
 
         {error ? (
           <View style={{
@@ -163,6 +174,12 @@ export function ReportsScreen() {
           />
         ))}
       </ScrollView>
+      <PaywallSheet
+        visible={limitReached}
+        onClose={clearLimitReached}
+        tripId={limitReachedTripId}
+        onPurchased={clearLimitReached}
+      />
     </ScreenWrapper>
   );
 }

@@ -15,6 +15,7 @@ import { TRIP_STORE } from '../../../core/di/tokens';
 import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
 import { InMemorySplitRequestRepository } from '../../../__mocks__/InMemorySplitRequestRepository';
 import { MockReportService } from '../../../__mocks__/MockReportService';
+import { MockEntitlementService } from '../../../__mocks__/MockEntitlementService';
 import { useGenerateReport } from '../hooks/useGenerateReport';
 import { tripFactory, memberFactory, groupFactory, groupMemberFactory, expenseFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
@@ -35,7 +36,7 @@ describe('useGenerateReport', () => {
   });
 
   describe('generateTripReport', () => {
-    function setup() {
+    function setup(entitlementService?: MockEntitlementService) {
       const trip = tripFactory({
         id: 't1',
         name: 'Amsterdam',
@@ -44,7 +45,7 @@ describe('useGenerateReport', () => {
       const expenseRepo = new InMemoryExpenseRepository().seed([
         expenseFactory({ id: 'e1', tripId: 't1', paidByUserId: 'u1' }),
       ]);
-      const container = createTestContainer({ expenseRepo });
+      const container = createTestContainer({ expenseRepo, entitlementService });
       container.resolve(TRIP_STORE).getState().appendTrip(trip);
       return container;
     }
@@ -130,6 +131,52 @@ describe('useGenerateReport', () => {
       expect(success).toBe(false);
       expect(result.current.error).toContain('not found');
     });
+
+    it('sets limitReached (not error) and skips the rate-limit check once the free-tier cap is exhausted', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setUsageCount('report_export', 5);
+      const container = setup(entitlement);
+      const reportService = container.resolve(require('../../../core/di/tokens').REPORT_SERVICE) as MockReportService;
+      const { result } = renderHook(() => useGenerateReport(), { wrapper: makeWrapper(container) });
+
+      let success: boolean | undefined;
+      await act(async () => { success = await result.current.generateTripReport('t1'); });
+
+      expect(success).toBe(false);
+      expect(result.current.limitReached).toBe(true);
+      expect(result.current.limitReachedTripId).toBe('t1');
+      expect(result.current.error).toBeNull();
+      expect(reportService.callCount).toBe(0);
+      const Print = require('expo-print') as { printToFileAsync: jest.Mock };
+      expect(Print.printToFileAsync).not.toHaveBeenCalled();
+    });
+
+    it('an active Trip Pass for the trip bypasses an exhausted free-tier cap', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setUsageCount('report_export', 5);
+      entitlement.grantTripPass('t1', new Date('2099-01-01T00:00:00Z'));
+      const container = setup(entitlement);
+      const { result } = renderHook(() => useGenerateReport(), { wrapper: makeWrapper(container) });
+
+      let success: boolean | undefined;
+      await act(async () => { success = await result.current.generateTripReport('t1'); });
+
+      expect(success).toBe(true);
+      expect(result.current.limitReached).toBe(false);
+    });
+
+    it('clearLimitReached resets limitReached', async () => {
+      const entitlement = new MockEntitlementService();
+      entitlement.setUsageCount('report_export', 5);
+      const container = setup(entitlement);
+      const { result } = renderHook(() => useGenerateReport(), { wrapper: makeWrapper(container) });
+
+      await act(async () => { await result.current.generateTripReport('t1'); });
+      expect(result.current.limitReached).toBe(true);
+
+      act(() => { result.current.clearLimitReached(); });
+      expect(result.current.limitReached).toBe(false);
+    });
   });
 
   describe('generateGroupReport', () => {
@@ -184,6 +231,42 @@ describe('useGenerateReport', () => {
       expect(success).toBe(false);
       const Print = require('expo-print') as { printToFileAsync: jest.Mock };
       expect(Print.printToFileAsync).not.toHaveBeenCalled();
+    });
+
+    it('sets limitReached with no tripId once the free-tier cap is exhausted', async () => {
+      const group = groupFactory({ id: 'g1', members: [groupMemberFactory()] });
+      const entitlement = new MockEntitlementService();
+      entitlement.setUsageCount('report_export', 5);
+      const container = createTestContainer({ entitlementService: entitlement });
+      container.resolve(TRIP_STORE).getState().appendGroup(group);
+
+      const { result } = renderHook(() => useGenerateReport(), { wrapper: makeWrapper(container) });
+
+      let success: boolean | undefined;
+      await act(async () => { success = await result.current.generateGroupReport('g1', new Date()); });
+
+      expect(success).toBe(false);
+      expect(result.current.limitReached).toBe(true);
+      expect(result.current.limitReachedTripId).toBeUndefined();
+      const Print = require('expo-print') as { printToFileAsync: jest.Mock };
+      expect(Print.printToFileAsync).not.toHaveBeenCalled();
+    });
+
+    it('an active subscription bypasses an exhausted free-tier cap', async () => {
+      const group = groupFactory({ id: 'g1', members: [groupMemberFactory()] });
+      const entitlement = new MockEntitlementService();
+      entitlement.setUsageCount('report_export', 5);
+      entitlement.grantSubscription(new Date('2099-01-01T00:00:00Z'));
+      const container = createTestContainer({ entitlementService: entitlement });
+      container.resolve(TRIP_STORE).getState().appendGroup(group);
+
+      const { result } = renderHook(() => useGenerateReport(), { wrapper: makeWrapper(container) });
+
+      let success: boolean | undefined;
+      await act(async () => { success = await result.current.generateGroupReport('g1', new Date()); });
+
+      expect(success).toBe(true);
+      expect(result.current.limitReached).toBe(false);
     });
   });
 });

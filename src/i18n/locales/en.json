@@ -660,7 +660,9 @@
       "title": "Reports",
       "remaining_one": "{{count}} report remaining today",
       "remaining_other": "{{count}} reports remaining today",
-      "limit_note": "Generate up to 5 PDF reports per day"
+      "limit_note": "Generate up to 5 PDF reports per day",
+      "remaining_free_one": "{{count}} free export left",
+      "remaining_free_other": "{{count}} free exports left"
     },
     "trips": {
       "section_title": "Trip Reports",
