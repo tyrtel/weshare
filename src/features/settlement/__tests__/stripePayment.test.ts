@@ -1,7 +1,6 @@
 import { MockStripeService } from '../../../__mocks__/MockStripeService';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { STRIPE, SPLIT_REQUEST_REPO } from '../../../core/di/tokens';
-import type { SplitRequest } from '../../../core/models/SplitRequest';
 import { splitRequestFactory } from '../../../__testUtils__/factories';
 
 // ── MockStripeService unit tests ──────────────────────────────────────────────
@@ -90,7 +89,6 @@ describe('MockStripeService — openCheckout', () => {
 
 // ── Integration: Stripe session persisted to storage ─────────────────────────
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 describe('Stripe SplitRequest — storage integration', () => {
   it('saves a SplitRequest with Stripe session fields', async () => {

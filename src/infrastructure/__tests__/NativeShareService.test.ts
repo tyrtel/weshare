@@ -9,6 +9,7 @@ jest.mock('expo-linking', () => ({
 }));
 
 import { NativeShareService } from '../services/NativeShareService';
+import { getErrorMessage } from '../../core/types/AppError';
 
 const { Share } = require('react-native') as { Share: { share: jest.Mock } };
 
@@ -52,7 +53,7 @@ describe('NativeShareService', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.kind).toBe('NetworkError');
-      expect(result.error.message).toContain('user cancelled');
+      expect(getErrorMessage(result.error)).toContain('user cancelled');
     }
   });
 
@@ -83,7 +84,7 @@ describe('NativeShareService', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.kind).toBe('NetworkError');
-      expect(result.error.message).toContain('user cancelled');
+      expect(getErrorMessage(result.error)).toContain('user cancelled');
     }
   });
 });

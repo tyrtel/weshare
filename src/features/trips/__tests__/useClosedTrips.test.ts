@@ -13,7 +13,6 @@ import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { AUTH, TRIP_REPO } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { Trip } from '../../../core/models/Trip';
 import { tripFactory } from '../../../__testUtils__/factories';
 
 function makeWrapper(container: ServiceContainer) {
@@ -22,7 +21,6 @@ function makeWrapper(container: ServiceContainer) {
   };
 }
 
-const BASE_DATE = new Date('2026-01-01T00:00:00Z');
 
 // ── No user ───────────────────────────────────────────────────────────────────
 

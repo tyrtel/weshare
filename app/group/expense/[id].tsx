@@ -55,6 +55,7 @@ export default function GroupExpenseDetailScreen() {
   const memberMap = new Map(group.members.map(m => [m.userId, m]));
   const payer     = memberMap.get(expense.paidByUserId);
   const payerName = payer?.displayName ?? 'Unknown';
+  const lineItems = expense.metadata?.lineItems ?? [];
 
   const currentUserId = auth.currentUser()?.id ?? '';
 
@@ -92,7 +93,21 @@ export default function GroupExpenseDetailScreen() {
 
   return (
     <ScreenWrapper>
-      <Stack.Screen options={{ title: expense.description }} />
+      <Stack.Screen
+        options={{
+          title: expense.description,
+          headerRight: expense.settledAt ? undefined : () => (
+            <Pressable
+              onPress={() => router.push(`/expense/edit?id=${expense.id}&groupId=${groupId}`)}
+              accessibilityRole="button"
+              accessibilityLabel={t('expenses.detail.edit_label')}
+              hitSlop={10}
+            >
+              <Feather name="edit-2" size={18} color={colors.text.secondary} />
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView
         contentContainerStyle={{ padding: tokens.spacing.md, paddingBottom: tokens.spacing.md + TAB_BAR_HEIGHT }}
         showsVerticalScrollIndicator={false}
@@ -123,6 +138,43 @@ export default function GroupExpenseDetailScreen() {
           label={t('expenses.detail.paid_by_label')}
           style={{ marginBottom: tokens.spacing.md }}
         />
+
+        {/* Items — only shown for an itemized expense */}
+        {lineItems.length > 0 && (
+          <View style={{ backgroundColor: colors.surface, borderRadius: tokens.radius.card, padding: tokens.spacing.md, marginBottom: tokens.spacing.md }}>
+            <Text variant="label" color={colors.text.secondary} style={{ marginBottom: tokens.spacing.sm }}>
+              {t('expenses.detail.items_title', { count: lineItems.length })}
+            </Text>
+            {lineItems.map((item, i) => (
+              <View key={item.id}>
+                <View style={{ paddingVertical: tokens.spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text variant="body" style={{ flex: 1, marginRight: tokens.spacing.sm }} numberOfLines={1}>
+                      {item.description || t('expenses.line_item.placeholder')}
+                    </Text>
+                    <Text variant="label" color={colors.text.primary}>
+                      {formatCurrency(item.amountCents, expense.currency)}
+                    </Text>
+                  </View>
+                  <View
+                    style={{ flexDirection: 'row', gap: 6, marginTop: tokens.spacing.xs }}
+                    accessibilityLabel={t('expenses.detail.assigned_to_label')}
+                  >
+                    {item.assignedUserIds.map(userId => {
+                      const member = memberMap.get(userId);
+                      const name   = member?.displayName ?? userId;
+                      const palette = personColorFor(userId, group.members);
+                      return (
+                        <Avatar key={userId} initials={getInitials(name)} bg={palette.bg} url={member?.avatarUrl} size="xs" />
+                      );
+                    })}
+                  </View>
+                </View>
+                {i < lineItems.length - 1 && <Divider />}
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Splits */}
         {expense.splits.length > 0 && (

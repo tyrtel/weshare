@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useService } from '../../src/core/di/ServiceContext';
 import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
+import { getErrorMessage } from '../../src/core/types/AppError';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
 import { useColors } from '../../src/theme/colors';
@@ -40,7 +41,7 @@ export default function ForgotPasswordScreen() {
     setBusy(false);
 
     if (!isOk(result)) {
-      setError(result.error.message);
+      setError(getErrorMessage(result.error));
       return;
     }
 

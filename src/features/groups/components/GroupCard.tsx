@@ -47,7 +47,7 @@ export function GroupCard({ group, index, tripCount, summary, onPress }: GroupCa
 
   const balanceColor = summary?.direction === 'owe'
     ? colors.error.default
-    : summary?.direction === 'owed'
+    : summary?.direction === 'owed' || summary?.direction === 'settled'
     ? colors.success.default
     : colors.text.tertiary;
 
@@ -55,8 +55,10 @@ export function GroupCard({ group, index, tripCount, summary, onPress }: GroupCa
     ? t('groups.card.you_owe', { amount: formatCurrency(summary.amountCents, summary.currency) })
     : summary?.direction === 'owed'
     ? t('groups.card.you_are_owed', { amount: formatCurrency(summary.amountCents, summary.currency) })
-    : summary?.direction === 'even'
+    : summary?.direction === 'settled'
     ? t('groups.card.all_settled')
+    : summary?.direction === 'partial'
+    ? t('groups.card.you_settled')
     : null;
 
   return (

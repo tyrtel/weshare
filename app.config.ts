@@ -1,6 +1,7 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
 const isSimulation = process.env.EXPO_PUBLIC_SIMULATE === 'true';
+const isQaUnlock = process.env.EXPO_PUBLIC_QA_UNLOCK === 'true';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -28,7 +29,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#1a1a2e',
+      monochromeImage: './assets/adaptive-icon-monochrome.png',
+      backgroundColor: '#F2EDE4',
     },
     package: 'com.ouishare.app',
     permissions: [
@@ -52,7 +54,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-router',
     'expo-sharing',
-    'expo-sqlite',
     'expo-secure-store',
     'expo-apple-authentication',
     [
@@ -79,11 +80,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     // Consumed by ServiceProvider to swap in mock implementations.
     simulation: isSimulation,
+    // Consumed by RevenueCatEntitlementService to bypass every paywall gate
+    // without touching RevenueCat. Only set on development/debug-device/preview
+    // build profiles in eas.json — never on production.
+    qaUnlock: isQaUnlock,
     privacyPolicyUrl: 'https://tyrtel.github.io/ouishare-legal/',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     googleWebClientId:   process.env.GOOGLE_WEB_CLIENT_ID   ?? '',
     googleIosUrlScheme:  process.env.GOOGLE_IOS_URL_SCHEME  ?? 'com.googleusercontent.apps.placeholder',
+    revenueCatIosApiKey:     process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY     ?? '',
+    revenueCatAndroidApiKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY ?? '',
     eas: {
       projectId: 'a1b9adb5-735f-46c6-9457-e4161f0eee99',
     },

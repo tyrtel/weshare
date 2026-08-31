@@ -27,7 +27,6 @@ export const ServiceContext = createContext<ServiceContainer | null>(null);
 // from two differently-resolved paths — a known Metro quirk). A module-level
 // variable alone is not sufficient because each evaluation gets its own closure.
 declare global {
-  // eslint-disable-next-line no-var
   var __weShareContainerPromise: Promise<ServiceContainer> | undefined;
 }
 
@@ -56,11 +55,10 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
   const [container, setContainer] = useState<ServiceContainer | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
 
-  const init = useCallback((retry = false) => {
-    if (retry) resetContainerPromise();
-    setInitError(null);
-    setContainer(null);
-
+  // Only the async acquisition — setContainer/setInitError here run inside the
+  // .then/.catch callbacks, never synchronously in the caller's own body, so
+  // this is safe to invoke directly from the mount effect below.
+  const load = useCallback(() => {
     const isSimulation =
       Constants.expoConfig?.extra?.simulation === true ||
       process.env.EXPO_PUBLIC_SIMULATE === 'true';
@@ -81,13 +79,22 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  useEffect(() => { init(); }, [init]);
+  // Resets state synchronously before retrying — only ever called from the
+  // retry button's onPress, never from an effect.
+  const retry = useCallback(() => {
+    resetContainerPromise();
+    setInitError(null);
+    setContainer(null);
+    load();
+  }, [load]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (initError) {
     return (
       <AppLoadingScreen
         error="Something went wrong starting the app."
-        onRetry={() => init(true)}
+        onRetry={retry}
       />
     );
   }

@@ -3,7 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useGroupDetail } from '../hooks/useGroupDetail';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { EXPENSE_REPO, SPLIT_REQUEST_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { SPLIT_REQUEST_REPO, TRIP_STORE, TRIP_REPO } from '../../../core/di/tokens';
 import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
 import { groupFactory, groupMemberFactory, tripFactory, expenseFactory, splitFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
@@ -96,12 +96,14 @@ describe('useGroupDetail — recordPayment', () => {
     const { result } = renderHook(() => useGroupDetail('g2'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.settlements).toHaveLength(1);
+    expect(result.current.archivableExpenseIds.has('e1')).toBe(false);
 
     await act(async () => {
       await result.current.recordPayment('marie', 'jay', 2000, 'EUR');
     });
 
     await waitFor(() => expect(result.current.settlements).toHaveLength(0));
+    expect(result.current.archivableExpenseIds.has('e1')).toBe(true);
 
     const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequestsForGroup('g2');
     expect(stored.ok).toBe(true);
@@ -112,5 +114,55 @@ describe('useGroupDetail — recordPayment', () => {
       payerUserId: 'marie', requesterUserId: 'jay',
       amountCents: 2000, status: 'paid',
     });
+  });
+});
+
+// ── closeExpense / closeTrip (archive quick-action) ─────────────────────────
+// The icon on the group screen calls these directly, without navigating to
+// the expense/trip detail screen first.
+
+describe('useGroupDetail — closeExpense', () => {
+  it('sets settledAt on the expense and moves it into closedExpenses', async () => {
+    const expenseRepo = new InMemoryExpenseRepository();
+    const expense = expenseFactory({ id: 'e1', groupId: 'g1', tripId: undefined, settledAt: null });
+    expenseRepo.seed([expense]);
+    const container = createTestContainer({ expenseRepo });
+    const group = groupFactory({ id: 'g1', members: [groupMemberFactory()] });
+    container.resolve(TRIP_STORE).getState().appendGroup(group);
+    await container.resolve(TRIP_STORE).getState().loadGroupDetail('g1');
+
+    const { result } = renderHook(() => useGroupDetail('g1'), { wrapper: makeWrapper(container) });
+    expect(result.current.activeExpenses.map(e => e.id)).toEqual(['e1']);
+
+    await act(async () => {
+      const ok = await result.current.closeExpense(expense);
+      expect(ok).toBe(true);
+    });
+
+    expect(result.current.activeExpenses).toHaveLength(0);
+    expect(result.current.closedExpenses.map(e => e.id)).toEqual(['e1']);
+  });
+});
+
+describe('useGroupDetail — closeTrip', () => {
+  it('sets the trip status to closed and moves it into closedTrips', async () => {
+    const container = createTestContainer();
+    const group = groupFactory({ id: 'g1', members: [groupMemberFactory()] });
+    const trip = tripFactory({ id: 't1', groupId: 'g1', status: 'active' });
+    await container.resolve(TRIP_REPO).saveTrip(trip);
+    const store = container.resolve(TRIP_STORE);
+    store.getState().appendGroup(group);
+    store.getState().appendTrip(trip);
+
+    const { result } = renderHook(() => useGroupDetail('g1'), { wrapper: makeWrapper(container) });
+    expect(result.current.activeTrips.map(t => t.id)).toEqual(['t1']);
+
+    await act(async () => {
+      const ok = await result.current.closeTrip(trip);
+      expect(ok).toBe(true);
+    });
+
+    expect(result.current.activeTrips).toHaveLength(0);
+    expect(result.current.closedTrips.map(t => t.id)).toEqual(['t1']);
   });
 });

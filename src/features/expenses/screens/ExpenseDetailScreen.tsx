@@ -106,6 +106,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   const payerName   = payer?.displayName ?? 'Unknown';
   const payerColor  = personColorFor(expense.paidByUserId, members);
   const originalAmount = expense.metadata.originalAmount;
+  const lineItems   = expense.metadata.lineItems ?? [];
 
   return (
     <ScreenWrapper>
@@ -166,6 +167,43 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
           label={t('expenses.detail.paid_by_label')}
           style={{ marginBottom: 16 }}
         />
+
+        {/* Items — only shown for an itemized expense */}
+        {lineItems.length > 0 && (
+          <View style={[detailStyles.card, { marginBottom: 16 }]}>
+            <Text style={[detailStyles.fieldLabel, { marginBottom: 8 }]}>
+              {t('expenses.detail.items_title', { count: lineItems.length })}
+            </Text>
+            {lineItems.map((item, i) => (
+              <View key={item.id}>
+                <View style={{ paddingVertical: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text variant="body" style={{ flex: 1, marginRight: 8 }} numberOfLines={1}>
+                      {item.description || t('expenses.line_item.placeholder')}
+                    </Text>
+                    <Text style={detailStyles.splitAmount}>
+                      {formatCurrency(item.amountCents, expense.currency)}
+                    </Text>
+                  </View>
+                  <View
+                    style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}
+                    accessibilityLabel={t('expenses.detail.assigned_to_label')}
+                  >
+                    {item.assignedUserIds.map(userId => {
+                      const member = members.find(m => m.userId === userId);
+                      const name   = member?.displayName ?? userId;
+                      const palette = personColorFor(userId, members);
+                      return (
+                        <Avatar key={userId} initials={name} bg={palette.bg} url={member?.avatarUrl} size="xs" />
+                      );
+                    })}
+                  </View>
+                </View>
+                {i < lineItems.length - 1 && <Divider />}
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Splits */}
         <View style={detailStyles.card}>

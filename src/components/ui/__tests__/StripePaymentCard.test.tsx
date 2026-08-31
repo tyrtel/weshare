@@ -5,7 +5,6 @@ import { createTestContainer } from '../../../core/di/testContainer';
 import { STRIPE } from '../../../core/di/tokens';
 import { MockStripeService } from '../../../__mocks__/MockStripeService';
 import { StripePaymentCard } from '../StripePaymentCard';
-import type { SplitRequest } from '../../../core/models/SplitRequest';
 import { splitRequestFactory } from '../../../__testUtils__/factories';
 
 // Clipboard is not available in the test renderer environment.
@@ -24,7 +23,6 @@ function makeWrapper() {
   };
 }
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 const CHECKOUT_URL = 'https://checkout.stripe.com/pay/cs_test_abc123';
 

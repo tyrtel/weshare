@@ -25,3 +25,20 @@ export type ValidationError = {
 };
 
 export type AppError = NetworkError | NotFoundError | AuthError | ValidationError;
+
+// NotFoundError has no `message` field, so `error.message` doesn't typecheck on
+// the AppError union directly — this is the one place that narrows every kind.
+export function getErrorMessage(error: AppError): string {
+  switch (error.kind) {
+    case 'NetworkError':
+    case 'AuthError':
+    case 'ValidationError':
+      return error.message;
+    case 'NotFoundError':
+      return `${error.resource} not found`;
+    default: {
+      const exhaustive: never = error;
+      return exhaustive;
+    }
+  }
+}

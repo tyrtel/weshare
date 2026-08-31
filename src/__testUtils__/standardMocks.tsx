@@ -32,6 +32,9 @@ export function mockExpoRouterModule() {
     useLocalSearchParams: jest.fn(() => ({})),
     // Approximates "runs on screen focus" as "runs on mount" — enough for hooks
     // like useTripDetail/useExpenseDetail that fetch inside useFocusEffect.
+    // The lint can't see into the caller-supplied effect's own deps — that's
+    // the nature of a passthrough shim like this one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useFocusEffect: (effect: () => void | (() => void)) => { useEffect(effect, []); },
     Stack: {
       // Several screens put their primary action in the native header via

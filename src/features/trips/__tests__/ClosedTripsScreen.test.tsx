@@ -32,7 +32,6 @@ import { tripFactory } from '../../../__testUtils__/factories';
 const mockUseClosedTrips = useClosedTrips as jest.Mock;
 const mockUseTripSessionStore = useTripSessionStore as jest.Mock;
 
-const NOW = new Date('2026-05-01T12:00:00Z');
 const CLOSED_AT = new Date('2026-05-28T12:00:00Z');
 
 describe('ClosedTripsScreen — card rendering', () => {

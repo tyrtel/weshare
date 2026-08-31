@@ -207,3 +207,45 @@ describe('ExpenseDetailScreen — currency conversion caption', () => {
     expect(screen.queryByText('EUR')).toBeNull();
   });
 });
+
+describe('ExpenseDetailScreen — itemized items', () => {
+  beforeEach(() => {
+    mockParams.mockReturnValue({ id: 'e1' });
+  });
+
+  it('shows an Items card with each line item\'s description and amount', () => {
+    mockUseExpenseDetail.mockReturnValue({
+      expense: {
+        ...BASE_EXPENSE,
+        metadata: {
+          lineItems: [
+            { id: 'li1', description: 'Pizza',  amountCents: 3000, assignedUserIds: ['u1', 'u2'] },
+            { id: 'li2', description: 'Drinks', amountCents: 2000, assignedUserIds: ['u1'] },
+          ],
+        },
+      },
+      loading: false,
+      error: null,
+    });
+
+    render(<ExpenseDetailScreen />);
+
+    expect(screen.getByText('Items (2)')).toBeTruthy();
+    expect(screen.getByText('Pizza')).toBeTruthy();
+    expect(screen.getByText(formatCurrency(3000, 'EUR'))).toBeTruthy();
+    expect(screen.getByText('Drinks')).toBeTruthy();
+    expect(screen.getByText(formatCurrency(2000, 'EUR'))).toBeTruthy();
+  });
+
+  it('renders no Items card at all for a non-itemized expense', () => {
+    mockUseExpenseDetail.mockReturnValue({
+      expense: { ...BASE_EXPENSE, metadata: {} },
+      loading: false,
+      error: null,
+    });
+
+    render(<ExpenseDetailScreen />);
+
+    expect(screen.queryByText(/^Items \(/)).toBeNull();
+  });
+});

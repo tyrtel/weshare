@@ -11,12 +11,9 @@ import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { useTripDetail } from '../hooks/useTripDetail';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { TRIP_REPO, EXPENSE_REPO } from '../../../core/di/tokens';
+import { TRIP_REPO, EXPENSE_REPO, MEMBER_REPO } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { Trip } from '../../../core/models/Trip';
-import type { Expense } from '../../../core/models/Expense';
-import type { TripMember } from '../../../core/models/TripMember';
-import { tripFactory, expenseFactory } from '../../../__testUtils__/factories';
+import { tripFactory, expenseFactory, memberFactory } from '../../../__testUtils__/factories';
 
 function makeWrapper(container: ServiceContainer) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
@@ -24,7 +21,6 @@ function makeWrapper(container: ServiceContainer) {
   };
 }
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 // ── Loading state ─────────────────────────────────────────────────────────────
 
@@ -110,5 +106,49 @@ describe('useTripDetail — refetch', () => {
     await act(async () => { await result.current.refetch(); });
 
     expect(result.current.expenses).toHaveLength(1);
+  });
+});
+
+// ── Payer identity survives a fresh load ──────────────────────────────────────
+// Regression coverage for a reported bug: create an expense, pick a non-owner
+// member as payer, save, then leave and come back to the trip — the payer no
+// longer showed as who paid. useFocusEffect re-runs this hook's load() (and
+// its own equivalent refetch) every time the screen regains focus, which is
+// exactly "returning" to the trip — so the payer identity must survive both a
+// first load and an explicit refetch, matched against a trip member that
+// actually exists (not just a raw id the UI can't resolve to a name).
+
+describe('useTripDetail — payer identity survives a fresh load', () => {
+  it('preserves a non-owner payer on first load, resolvable against trip.members', async () => {
+    const container = createTestContainer();
+    await container.resolve(TRIP_REPO).saveTrip(tripFactory({ ownerId: 'jay' }));
+    await container.resolve(MEMBER_REPO).addMember(memberFactory({ tripId: 't1', userId: 'marie', displayName: 'Marie' }));
+    await container.resolve(EXPENSE_REPO).saveExpense(
+      expenseFactory({ id: 'e1', tripId: 't1', paidByUserId: 'marie', totalAmountCents: 5000 }),
+    );
+
+    const { result } = renderHook(() => useTripDetail('t1'), { wrapper: makeWrapper(container) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.expenses[0].paidByUserId).toBe('marie');
+    expect(result.current.trip?.members.some(m => m.userId === 'marie')).toBe(true);
+  });
+
+  it('still resolves the same payer after an explicit refetch (the "return to the trip" path)', async () => {
+    const container = createTestContainer();
+    await container.resolve(TRIP_REPO).saveTrip(tripFactory({ ownerId: 'jay' }));
+    await container.resolve(MEMBER_REPO).addMember(memberFactory({ tripId: 't1', userId: 'marie', displayName: 'Marie' }));
+    await container.resolve(EXPENSE_REPO).saveExpense(
+      expenseFactory({ id: 'e1', tripId: 't1', paidByUserId: 'marie', totalAmountCents: 5000 }),
+    );
+
+    const { result } = renderHook(() => useTripDetail('t1'), { wrapper: makeWrapper(container) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => { await result.current.refetch(); });
+
+    const reloaded = result.current.expenses.find(e => e.id === 'e1');
+    expect(reloaded?.paidByUserId).toBe('marie');
+    expect(result.current.trip?.members.find(m => m.userId === 'marie')?.displayName).toBe('Marie');
   });
 });

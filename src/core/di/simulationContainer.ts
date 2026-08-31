@@ -10,7 +10,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import { InMemoryTripRepository } from '../../__mocks__/InMemoryTripRepository';
@@ -33,6 +33,7 @@ import { InMemoryGroupRepository } from '../../__mocks__/InMemoryGroupRepository
 import { InMemoryRecurringExpenseRepository } from '../../__mocks__/InMemoryRecurringExpenseRepository';
 import { MockNotificationService } from '../../__mocks__/MockNotificationService';
 import { MockReportService } from '../../__mocks__/MockReportService';
+import { MockEntitlementService } from '../../__mocks__/MockEntitlementService';
 
 import { restaurantScenario, RESTAURANT_CURRENT_USER, RESTAURANT_CURRENT_USER_EMAIL } from '../../__mocks__/fixtures/restaurantScenario';
 import { twoPersonScenario } from '../../__mocks__/fixtures/twoPersonScenario';
@@ -103,6 +104,7 @@ async function _create(): Promise<ServiceContainer> {
   container.register(RECURRING_EXPENSE_REPO,  new InMemoryRecurringExpenseRepository());
   container.register(NOTIFICATION_SERVICE,    new MockNotificationService());
   container.register(REPORT_SERVICE,          new MockReportService());
+  container.register(ENTITLEMENT,             new MockEntitlementService());
   container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }));
   return container;
 }

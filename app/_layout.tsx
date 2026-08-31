@@ -10,7 +10,7 @@ import {
   Inter_500Medium,
   Inter_600SemiBold,
 } from '@expo-google-fonts/inter';
-import { View, Text, ScrollView, Alert, Appearance } from 'react-native';
+import { View, Text, ScrollView, Appearance } from 'react-native';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -28,6 +28,7 @@ import i18next from 'i18next';
 import { useColors, getColors } from '../src/theme/colors';
 import { useResolvedTheme } from '../src/store/themeStore';
 import { useRegisterPushToken } from '../src/features/notifications/hooks/useRegisterPushToken';
+import { confirm } from '../src/core/utils/confirm';
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -179,25 +180,15 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [user, phase, segments, router, navState?.key]);
 
   const handleDebugReset = useCallback(() => {
-    Alert.alert(
-      t('common.debug.reset_auth_title'),
-      t('common.debug.reset_auth_message'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.debug.clear_and_sign_out'),
-          style: 'destructive',
-          onPress: async () => {
-            Sentry.captureMessage('debug_reset_auth_triggered', 'info');
-            didResetRef.current = true;
-            await auth.debugSignOut().catch(() => {});
-            setUser(null);
-            setPhase('ready');
-          },
-        },
-      ],
-    );
-  }, [auth]);
+    void confirm(t('common.debug.reset_auth_title'), t('common.debug.reset_auth_message'), t('common.debug.clear_and_sign_out')).then(async confirmed => {
+      if (!confirmed) return;
+      Sentry.captureMessage('debug_reset_auth_triggered', 'info');
+      didResetRef.current = true;
+      await auth.debugSignOut().catch(() => {});
+      setUser(null);
+      setPhase('ready');
+    });
+  }, [auth, t]);
 
   if (phase !== 'ready') {
     const message = phase === 'trips'

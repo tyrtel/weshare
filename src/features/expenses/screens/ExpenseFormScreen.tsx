@@ -22,7 +22,7 @@ import { useTripSessionStore, useService } from '../../../core/di/ServiceContext
 import { AUTH } from '../../../core/di/tokens';
 import { CURRENCIES, currencyLabel, currencySymbol, getMinorUnitMultiplier } from '../../../core/constants/currencies';
 import { formatCurrency, formatRate } from '../../../core/utils/formatCurrency';
-import type { Expense } from '../../../core/models/Expense';
+import type { Expense, ExpenseLineItem } from '../../../core/models/Expense';
 import type { ParsedReceiptLineItem } from '../../../core/models/ParsedReceipt';
 import type { SplitResult } from '../utils/splitCalculations';
 import type { TripMember } from '../../../core/models/TripMember';
@@ -112,6 +112,22 @@ function scaleAndCorrect(splits: SplitResult[], rate: number, targetCents: numbe
   return scaled;
 }
 
+// Same reasoning as scaleAndCorrect, applied to line items instead of splits —
+// they're saved in context currency alongside the splits they were computed
+// from, so a foreign-currency entry needs the same rescale-then-correct pass.
+function scaleLineItems(items: ExpenseLineItem[], rate: number): ExpenseLineItem[] {
+  const scaled = items.map(item => ({ ...item, amountCents: Math.round(item.amountCents * rate) }));
+  const target = Math.round(items.reduce((sum, item) => sum + item.amountCents, 0) * rate);
+  const diff   = target - scaled.reduce((sum, item) => sum + item.amountCents, 0);
+  if (diff !== 0 && scaled.length > 0) {
+    scaled[scaled.length - 1] = {
+      ...scaled[scaled.length - 1],
+      amountCents: scaled[scaled.length - 1].amountCents + diff,
+    };
+  }
+  return scaled;
+}
+
 function groupMembersAsTripMembers(members: GroupMember[]): TripMember[] {
   return members.map(m => ({
     userId:      m.userId,
@@ -133,9 +149,13 @@ export function ExpenseFormScreen() {
   const colors  = useColors();
   const addStyles = useMemo(() => makeAddStyles(colors), [colors]);
 
-  const isGroupMode    = !!groupId && !tripId && !expenseId;
-  const isRecurring    = isGroupMode && recurring === 'true';
   const mode           = expenseId ? 'edit' : 'add';
+  // groupId (not the expenseId exclusion this used to carry) is what actually
+  // distinguishes a group expense from a trip one — the edit route passes it
+  // alongside id for a group expense, the same way it relies on expense.tripId
+  // (rather than a tripId param) once loaded for a trip expense.
+  const isGroupMode    = !!groupId && !tripId;
+  const isRecurring    = mode === 'add' && isGroupMode && recurring === 'true';
 
   const [recurringSheetOpen,  setRecurringSheetOpen]  = useState(false);
   const [savedForRecurring,   setSavedForRecurring]   = useState<Expense | null>(null);
@@ -157,18 +177,18 @@ export function ExpenseFormScreen() {
 
   // ── Save hooks (always called; only one fires per submit) ─────────────────────
 
-  const { addExpense,         loading: addLoading,   error: addError   } = useAddExpense(resolvedTripId);
-  const { createGroupExpense, loading: groupLoading, error: groupError  } = useCreateGroupExpense(groupId ?? '');
-  const { editExpense,        loading: editLoading,  error: editError   } = useEditExpense();
+  const { addExpense,         loading: addLoading   } = useAddExpense(resolvedTripId);
+  const { createGroupExpense, loading: groupLoading } = useCreateGroupExpense(groupId ?? '');
+  const { editExpense,        loading: editLoading  } = useEditExpense();
 
-  const saving = isGroupMode ? groupLoading : mode === 'add' ? addLoading  : editLoading;
-  const error  = isGroupMode ? groupError   : mode === 'add' ? addError    : editError;
+  const saving = mode === 'edit' ? editLoading : isGroupMode ? groupLoading : addLoading;
 
   // ── Unified members + currency ────────────────────────────────────────────────
 
-  const contextMembers: TripMember[] = isGroupMode
-    ? groupMembersAsTripMembers(group?.members ?? [])
-    : trip?.members ?? [];
+  const contextMembers: TripMember[] = useMemo(
+    () => (isGroupMode ? groupMembersAsTripMembers(group?.members ?? []) : trip?.members ?? []),
+    [isGroupMode, group?.members, trip?.members],
+  );
 
   const contextCurrency = isGroupMode ? (group?.currency ?? 'EUR') : (trip?.currency ?? 'EUR');
 
@@ -183,9 +203,7 @@ export function ExpenseFormScreen() {
   const [entryCurrency,       setEntryCurrency]       = useState('');
   const [currencyDropVisible, setCurrencyDropVisible] = useState(false);
   const [initialised,         setInitialised]         = useState(false);
-  const [dirty,               setDirty]               = useState(false);
   const [receiptPath,         setReceiptPath]         = useState<string | undefined>(undefined);
-  const [splitExpanded,       setSplitExpanded]       = useState(mode === 'edit');
   const [rawAmount,           setRawAmount]           = useState('');
   // Raw text the user is typing per exact-split member / itemized item, keyed
   // by userId / line-item id. Kept separate from the parsed cents value so the
@@ -195,11 +213,11 @@ export function ExpenseFormScreen() {
 
   // Render-phase initialisation — fires once when the necessary data arrives.
   if (!initialised) {
-    if (isGroupMode && group) {
+    if (mode === 'add' && isGroupMode && group) {
       if (group.members.length > 0) setPaidByUserId(group.members[0].userId);
       setEntryCurrency(group.currency);
       setInitialised(true);
-    } else if (mode === 'add' && trip) {
+    } else if (mode === 'add' && !isGroupMode && trip) {
       if (trip.members.length > 0) setPaidByUserId(trip.members[0].userId);
       const lastForeign = [...tripExpenses]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -207,10 +225,10 @@ export function ExpenseFormScreen() {
         ?.metadata?.originalAmount?.currency ?? null;
       setEntryCurrency(lastForeign ?? trip.currency);
       setInitialised(true);
-    } else if (mode === 'edit' && expense && trip) {
+    } else if (mode === 'edit' && expense && (isGroupMode ? group : trip)) {
       setDescription(expense.description);
       setTotalAmountCents(expense.metadata.originalAmount?.amountCents ?? expense.totalAmountCents);
-      setEntryCurrency(expense.metadata.originalAmount?.currency ?? trip.currency);
+      setEntryCurrency(expense.metadata.originalAmount?.currency ?? contextCurrency);
       setCategory(expense.metadata.category);
       setPaidByUserId(expense.paidByUserId);
       setReceiptPath(expense.metadata.receiptUrl);
@@ -231,29 +249,47 @@ export function ExpenseFormScreen() {
   // saved splits are stored in context currency — reconstruct the original
   // entry-currency amount using the exchange rate captured at save time.
   const initialEntries: SplitFormEntry[] | undefined = useMemo(() => {
-    if (mode !== 'edit' || !expense || !trip) return undefined;
+    if (mode !== 'edit' || !expense || (isGroupMode ? !group : !trip)) return undefined;
     const orig = expense.metadata.originalAmount;
-    return trip.members.map(m => {
+    return contextMembers.map(m => {
       const s = expense.splits.find(sp => sp.userId === m.userId);
       if (!s) return { userId: m.userId, included: false, customAmountCents: null };
       const customAmountCents = orig
-        ? Math.round(s.amountOwedCents / currencyConversionRate(orig.exchangeRate, orig.currency, trip.currency))
+        ? Math.round(s.amountOwedCents / currencyConversionRate(orig.exchangeRate, orig.currency, contextCurrency))
         : s.amountOwedCents;
       return { userId: m.userId, included: true, customAmountCents };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, expense?.id, trip?.id]);
+  }, [mode, expense?.id, trip?.id, group?.id, isGroupMode]);
+
+  // Same reconstruction as initialEntries above, for an itemized expense's
+  // line items — without this, re-opening one for edit silently drops back
+  // to "custom" mode and the items disappear.
+  const initialLineItems: ExpenseLineItem[] | undefined = useMemo(() => {
+    if (mode !== 'edit' || !expense || (isGroupMode ? !group : !trip)) return undefined;
+    const items = expense.metadata.lineItems;
+    if (!items || items.length === 0) return undefined;
+    const orig = expense.metadata.originalAmount;
+    if (!orig) return items;
+    const rate = currencyConversionRate(orig.exchangeRate, orig.currency, contextCurrency);
+    return items.map(item => ({ ...item, amountCents: Math.round(item.amountCents / rate) }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, expense?.id, trip?.id, group?.id, isGroupMode]);
+
+  const initialSplitMode: SplitMode | undefined = mode === 'edit'
+    ? ((expense?.metadata.lineItems?.length ?? 0) > 0 ? 'itemized' : 'custom')
+    : undefined;
 
   const split = useSplitForm({
     members:          contextMembers,
     totalAmountCents,
     initialEntries,
-    initialMode:      mode === 'edit' ? 'custom' : undefined,
-    ready:            mode === 'edit' ? (!!expense && !!trip) : undefined,
+    initialLineItems,
+    initialMode:      initialSplitMode,
+    ready:            mode === 'edit' ? (!!expense && (isGroupMode ? !!group : !!trip)) : undefined,
   });
 
   const isItemized        = split.splitMode === 'itemized';
-  const showSplitToggle   = splitExpanded || split.splitMode !== 'equal';
   // Members without an explicit amount silently absorb the remainder at save
   // time (see computeSplitInputs), so `split.remainder` is nearly always 0.
   // "Unassigned" instead reflects only what's been explicitly typed so far.
@@ -305,6 +341,12 @@ export function ExpenseFormScreen() {
       ? scaleAndCorrect(rawSplits, currencyConversionRate(rate.result.rate, entryCurrency, contextCurrency), effectiveTotal)
       : rawSplits;
 
+    const finalLineItems = isItemized
+      ? (isForeign && rate.result
+        ? scaleLineItems(split.lineItems, currencyConversionRate(rate.result.rate, entryCurrency, contextCurrency))
+        : split.lineItems)
+      : undefined;
+
     const originalAmount = isForeign && rate.result
       ? { amountCents: enteredTotal, currency: entryCurrency, exchangeRate: rate.result.rate, source: rate.result.source }
       : undefined;
@@ -317,12 +359,12 @@ export function ExpenseFormScreen() {
       splits:           finalSplits,
       category,
       receiptUrl:       receiptPath,
-      lineItems:        isItemized ? split.lineItems : undefined,
+      lineItems:        finalLineItems,
       originalAmount,
     };
 
     let saved = null;
-    if (isGroupMode) {
+    if (isGroupMode && mode === 'add') {
       saved = await createGroupExpense(input);
       if (saved && isRecurring) {
         setSavedForRecurring(saved);
@@ -332,6 +374,9 @@ export function ExpenseFormScreen() {
     } else if (mode === 'add') {
       saved = await addExpense(input);
     } else if (expense) {
+      // editExpense is generic over trip vs group expenses — it just carries
+      // existing.groupId/tripId through, and the store routes the update to
+      // whichever cache bucket actually holds the expense.
       saved = await editExpense(expense, input);
     }
 
@@ -357,12 +402,12 @@ export function ExpenseFormScreen() {
   // ── Loading state ────────────────────────────────────────────────────────────
 
   const isLoading = isGroupMode
-    ? !group
+    ? !group || (mode === 'edit' && (expLoading || !expense))
     : tripLoading || (mode === 'edit' && expLoading) || !trip || (mode === 'edit' && !expense);
 
-  const title = isGroupMode
-    ? t('groups.expense.add_title')
-    : mode === 'add' ? t('expenses.form.add_title') : t('expenses.form.edit_title');
+  const title = mode === 'edit'
+    ? t('expenses.form.edit_title')
+    : isGroupMode ? t('groups.expense.add_title') : t('expenses.form.add_title');
 
   if (isLoading) {
     return (
@@ -476,6 +521,10 @@ export function ExpenseFormScreen() {
               return (
                 <Pressable
                   key={m.userId}
+                  testID={`payer-select-${m.userId}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('expenses.form.paid_by_select_label', { name: m.displayName })}
+                  accessibilityState={{ selected: active }}
                   onPress={() => setPaidByUserId(m.userId)}
                   style={{ alignItems: 'center', gap: 4, opacity: active ? 1 : 0.5 }}
                 >
@@ -844,11 +893,15 @@ const makeAddStyles = (colors: ColorPalette) => StyleSheet.create({
     padding: 16,
     ...ledgerShadow.card,
   },
-  currency: { fontFamily: ledgerFonts.displaySemibold, fontSize: 26, color: colors.text.secondary },
+  // lineHeight is set explicitly (rather than left to the platform default)
+  // on every style below that renders the amount — SpaceGrotesk's line box at
+  // these sizes runs tight against its own glyph metrics, and device testing
+  // showed the hero amount getting its top/bottom pixels clipped without it.
+  currency: { fontFamily: ledgerFonts.displaySemibold, fontSize: 26, lineHeight: 32, color: colors.text.secondary },
   amountInput: {
     fontFamily: ledgerFonts.display,
-    fontSize: 44, color: colors.text.primary,
-    minWidth: 140, textAlign: 'center',
+    fontSize: 44, lineHeight: 52, color: colors.text.primary,
+    minWidth: 140, paddingHorizontal: 4, textAlign: 'center',
   },
   titleInput: {
     fontSize: 15, color: colors.text.primary, textAlign: 'center',
@@ -864,8 +917,8 @@ const makeAddStyles = (colors: ColorPalette) => StyleSheet.create({
   splitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   rowDivider: { height: 1, backgroundColor: colors.border },
   splitName: { fontSize: 14.5, fontWeight: '500', color: colors.text.primary, flex: 1 },
-  splitAmount: { fontFamily: ledgerFonts.displaySemibold, fontSize: 14, color: colors.text.primary, fontVariant: ['tabular-nums'] },
-  convertedAmount: { fontFamily: ledgerFonts.body, fontSize: 11, fontWeight: '400', color: colors.text.tertiary, fontVariant: ['tabular-nums'] },
+  splitAmount: { fontFamily: ledgerFonts.displaySemibold, fontSize: 14, lineHeight: 20, color: colors.text.primary, fontVariant: ['tabular-nums'] },
+  convertedAmount: { fontFamily: ledgerFonts.body, fontSize: 11, lineHeight: 16, fontWeight: '400', color: colors.text.tertiary, fontVariant: ['tabular-nums'] },
   check: {
     width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: colors.borderMuted,
     alignItems: 'center', justifyContent: 'center',
@@ -875,7 +928,7 @@ const makeAddStyles = (colors: ColorPalette) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 2,
     backgroundColor: colors.background, borderRadius: ledgerRadius.sm, paddingHorizontal: 10, height: 38,
   },
-  exactInput: { fontSize: 15, fontWeight: '500', color: colors.text.primary, minWidth: 62, textAlign: 'right' },
+  exactInput: { fontSize: 15, lineHeight: 22, fontWeight: '500', color: colors.text.primary, minWidth: 62, textAlign: 'right' },
   saveBtn: {
     flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
     paddingVertical: 15, borderRadius: ledgerRadius.md,

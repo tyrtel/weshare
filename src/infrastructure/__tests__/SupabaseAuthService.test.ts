@@ -49,6 +49,7 @@ jest.mock('../supabase/supabaseClient', () => ({
 }));
 
 import { SupabaseAuthService } from '../supabase/SupabaseAuthService';
+import { getErrorMessage } from '../../core/types/AppError';
 import * as SecureStore from 'expo-secure-store';
 
 const { supabase } = require('../supabase/supabaseClient') as {
@@ -261,7 +262,7 @@ describe('SupabaseAuthService', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.kind).toBe('AuthError');
-      expect(result.error.message).toContain('already registered');
+      expect(getErrorMessage(result.error)).toContain('already registered');
     }
   });
 
@@ -301,7 +302,7 @@ describe('SupabaseAuthService', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.kind).toBe('AuthError');
-      expect(result.error.message).toContain('expired or is invalid');
+      expect(getErrorMessage(result.error)).toContain('expired or is invalid');
     }
   });
 
@@ -331,7 +332,7 @@ describe('SupabaseAuthService', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.kind).toBe('AuthError');
-      expect(result.error.message).toContain('Rate limit');
+      expect(getErrorMessage(result.error)).toContain('Rate limit');
     }
   });
 
@@ -439,7 +440,7 @@ describe('SupabaseAuthService', () => {
 
     mod.default.expoConfig.extra.googleIosUrlScheme = saved;
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.message).toContain('not configured');
+    if (!result.ok) expect(getErrorMessage(result.error)).toContain('not configured');
   });
 
   // ── signIn cold-start message (GAP 12) ───────────────────────────────────
@@ -454,7 +455,7 @@ describe('SupabaseAuthService', () => {
     const result = await promise;
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.message).toBe('Server is starting up — please try again in a moment.');
+      expect(getErrorMessage(result.error)).toBe('Server is starting up — please try again in a moment.');
     }
   });
 
@@ -594,7 +595,7 @@ describe('SupabaseAuthService', () => {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.kind).toBe('AuthError');
-        expect(result.error.message).toContain('No ID token');
+        expect(getErrorMessage(result.error)).toContain('No ID token');
       }
     });
 
@@ -648,7 +649,7 @@ describe('SupabaseAuthService', () => {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.kind).toBe('AuthError');
-        expect(result.error.message).toContain('No identity token');
+        expect(getErrorMessage(result.error)).toContain('No identity token');
       }
     });
 
@@ -689,8 +690,8 @@ describe('SupabaseAuthService', () => {
       supabase.from.mockReturnValue(mockFromChain({ data: USER_ROW, error: null }));
       await service.signIn('jay@example.com', 'password');
 
-      let capturedHandler: Function = () => {};
-      supabase.auth.onAuthStateChange.mockImplementation((handler: Function) => {
+      let capturedHandler: (...args: unknown[]) => void = () => {};
+      supabase.auth.onAuthStateChange.mockImplementation((handler: (...args: unknown[]) => void) => {
         capturedHandler = handler;
         return { data: { subscription: { unsubscribe: jest.fn() } } };
       });

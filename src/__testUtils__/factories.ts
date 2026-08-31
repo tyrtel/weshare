@@ -6,6 +6,7 @@ import type { SplitRequest } from '../core/models/SplitRequest';
 import type { Group } from '../core/models/Group';
 import type { GroupMember } from '../core/models/GroupMember';
 import type { RecurringExpense, RecurringExpenseSplit } from '../core/models/RecurringExpense';
+import type { SubscriptionWindow, TripPass } from '../core/models/Entitlement';
 
 export const TEST_DATE = new Date('2025-06-01T12:00:00Z');
 
@@ -110,6 +111,29 @@ export function recurringExpenseFactory(overrides: Partial<RecurringExpense> = {
     createdAt:        TEST_DATE,
     createdByUserId:  'u1',
     splits:           [],
+    ...overrides,
+  };
+}
+
+export function tripPassFactory(overrides: Partial<TripPass> = {}): TripPass {
+  return {
+    id: 'pass-1',
+    userId: 'u1',
+    tripId: 't1',
+    purchasedAt: TEST_DATE,
+    expiresAt: new Date('2025-07-01T12:00:00Z'),
+    storeTransactionId: 'txn-1',
+    ...overrides,
+  };
+}
+
+export function subscriptionWindowFactory(overrides: Partial<SubscriptionWindow> = {}): SubscriptionWindow {
+  return {
+    id: 'sub-1',
+    userId: 'u1',
+    startedAt: TEST_DATE,
+    expiresAt: new Date('2025-07-01T12:00:00Z'),
+    storeTransactionId: 'txn-sub-1',
     ...overrides,
   };
 }

@@ -48,7 +48,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
         })}
       >
         <Ionicons
-          name={(selected?.icon ?? 'pricetag-outline') as any}
+          name={(selected?.icon ?? 'pricetag-outline') as React.ComponentProps<typeof Ionicons>['name']}
           size={16}
           color={hasCategory ? colors.primary.default : colors.text.tertiary}
         />
@@ -111,7 +111,7 @@ export function CategorySelector({ value, onChange }: CategorySelectorProps) {
                   })}
                 >
                   <Ionicons
-                    name={item.icon as any}
+                    name={item.icon as React.ComponentProps<typeof Ionicons>['name']}
                     size={20}
                     color={isSelected ? colors.primary.default : colors.text.secondary}
                   />

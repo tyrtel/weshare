@@ -5,7 +5,6 @@ import type { Settlement } from '../../../core/models/Settlement';
 import type { TripMember } from '../../../core/models/TripMember';
 import { memberFactory } from '../../../__testUtils__/factories';
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 const MEMBERS: TripMember[] = [
   memberFactory({ userId: 'u1', displayName: 'Alice' }),

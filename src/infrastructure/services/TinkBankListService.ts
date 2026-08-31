@@ -45,7 +45,7 @@ export class TinkBankListService implements IBankListService {
     if (cached && Date.now() < cached.expiresAt) return ok(cached.banks);
 
     if (!this.clientId || !this.clientSecret) {
-      return err({ kind: 'NotFound', message: 'Tink credentials not configured' });
+      return err({ kind: 'NetworkError', message: 'Tink credentials not configured' });
     }
 
     try {

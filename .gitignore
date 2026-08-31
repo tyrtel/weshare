@@ -44,6 +44,7 @@ serviceAccountKey.json
 
 # Supabase CLI temp files (created by supabase link/start)
 supabase/.temp/
+supabase/.branches/
 
 # Windows/WSL Zone Identifier sidecar files
 *.Zone.Identifier

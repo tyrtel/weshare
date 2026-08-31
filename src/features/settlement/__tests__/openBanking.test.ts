@@ -2,7 +2,6 @@ import { MockOpenBankingService } from '../../../__mocks__/MockOpenBankingServic
 import { createTestContainer } from '../../../core/di/testContainer';
 import { OPEN_BANKING, SPLIT_REQUEST_REPO } from '../../../core/di/tokens';
 import { validateIBAN, formatIBAN } from '../utils/ibanValidation';
-import type { SplitRequest } from '../../../core/models/SplitRequest';
 import { splitRequestFactory } from '../../../__testUtils__/factories';
 
 // ── IBAN validation (pure, no DI) ─────────────────────────────────────────────
@@ -128,7 +127,6 @@ describe('MockOpenBankingService — openAuthorizationUrl', () => {
 
 // ── OB SplitRequest — storage integration ────────────────────────────────────
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 describe('OB SplitRequest — storage integration', () => {
   it('saves a SplitRequest with OB fields', async () => {

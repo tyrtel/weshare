@@ -10,7 +10,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SIMULATE": "true"
+        "EXPO_PUBLIC_SIMULATE": "true",
+        "EXPO_PUBLIC_QA_UNLOCK": "true"
       },
       "ios": {
         "simulator": true
@@ -20,13 +21,15 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SIMULATE": "false"
+        "EXPO_PUBLIC_SIMULATE": "false",
+        "EXPO_PUBLIC_QA_UNLOCK": "true"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SIMULATE": "false"
+        "EXPO_PUBLIC_SIMULATE": "false",
+        "EXPO_PUBLIC_QA_UNLOCK": "true"
       },
       "ios": {
         "simulator": false

@@ -12,7 +12,7 @@ import { useAddExpense } from '../hooks/useAddExpense';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import {
-  TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
+  SPLIT_REQUEST_REPO,
 } from '../../../core/di/tokens';
 import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
 import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepository';
@@ -20,11 +20,6 @@ import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRep
 import { InMemorySplitRepository } from '../../../__mocks__/InMemorySplitRepository';
 import { InMemorySplitRequestRepository } from '../../../__mocks__/InMemorySplitRequestRepository';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { Trip } from '../../../core/models/Trip';
-import type { TripMember } from '../../../core/models/TripMember';
-import type { Expense } from '../../../core/models/Expense';
-import type { Split } from '../../../core/models/Split';
-import type { SplitRequest } from '../../../core/models/SplitRequest';
 import { tripFactory, memberFactory, expenseFactory, splitFactory, splitRequestFactory } from '../../../__testUtils__/factories';
 
 // ── Shared fixtures ───────────────────────────────────────────────────────────

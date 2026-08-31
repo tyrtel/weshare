@@ -395,6 +395,16 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
     },
 
     replaceExpense(expense: Expense): void {
+      if (expense.groupId) {
+        const groupId = expense.groupId;
+        set((state) => ({
+          groupExpenses: {
+            ...state.groupExpenses,
+            [groupId]: (state.groupExpenses[groupId] ?? []).map(e => (e.id === expense.id ? expense : e)),
+          },
+        }));
+        return;
+      }
       set((state) => {
         const updated: Record<string, Expense[]> = {};
         for (const [tid, tripExpenses] of Object.entries(state.expenses)) {

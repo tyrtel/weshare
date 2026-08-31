@@ -20,6 +20,7 @@ export function AppLoadingScreen({ message, error, onRetry, onDebugReset }: AppL
   return (
     <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center', padding: tokens.spacing.xl }}>
       <Image
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         source={require('../../../assets/icon.png')}
         style={{ width: 96, height: 96, borderRadius: 20, marginBottom: tokens.spacing.xl }}
         resizeMode="contain"

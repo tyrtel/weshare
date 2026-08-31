@@ -57,7 +57,8 @@ export interface TripSessionActions {
   removeTrip(tripId: string): void;
   /** Append a newly-created expense to the trip's cache bucket (no repo call). */
   appendExpense(expense: Expense): void;
-  /** Replace an expense in its trip's cache bucket by id (no repo call). */
+  /** Replace an expense by id, in its trip's or group's cache bucket — routes
+   *  on expense.groupId (no repo call). */
   replaceExpense(expense: Expense): void;
   /** Append a newly-joined member to the trip's member cache (no repo call). */
   appendMember(member: TripMember): void;

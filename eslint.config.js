@@ -6,7 +6,10 @@ const prettierConfig = require('eslint-config-prettier');
 
 module.exports = [
   // ── Global ignores ──────────────────────────────────────────────────────────
-  { ignores: ['coverage/**'] },
+  // .claude/worktrees/** holds copies of the repo checked out for past
+  // background agents — not source to lint, and left stale ones would double-
+  // count every real error once per worktree.
+  { ignores: ['coverage/**', '.claude/**'] },
 
   // ── TypeScript ───────────────────────────────────────────────────────────────
   {

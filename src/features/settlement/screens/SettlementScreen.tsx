@@ -112,7 +112,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
     });
 
     return () => sub.remove();
-  }, [updateRequestStatus]);
+  }, [updateRequestStatus, t]);
 
   const currency       = settlements[0]?.currency ?? 'EUR';
   const youOweTotal    = settlements

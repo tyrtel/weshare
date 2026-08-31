@@ -3,8 +3,8 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { useGroups } from '../hooks/useGroups';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { AUTH, TRIP_STORE, EXPENSE_REPO } from '../../../core/di/tokens';
-import { groupFactory, groupMemberFactory, tripFactory, expenseFactory, splitFactory } from '../../../__testUtils__/factories';
+import { AUTH, TRIP_STORE, EXPENSE_REPO, SPLIT_REQUEST_REPO } from '../../../core/di/tokens';
+import { groupFactory, groupMemberFactory, tripFactory, expenseFactory, splitFactory, splitRequestFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 
 function makeWrapper(container: ServiceContainer) {
@@ -100,6 +100,108 @@ describe('useGroups', () => {
 
     await waitFor(() => {
       expect(result.current.groupSummaries['g1']).toEqual({ direction: 'owe', amountCents: 2000, currency: 'EUR' });
+    });
+  });
+
+  // Regression: groupSummaries never merged completed split requests into
+  // the balance, at either scope — so a trip settled from its own screen
+  // (a trip-scoped split request) or a group settled via "Settle everything"
+  // (a group-scoped one) left the home screen's group card permanently
+  // showing the pre-settlement balance.
+  it('reflects a completed trip-scoped payment in the group balance pill', async () => {
+    const auth = container.resolve(AUTH);
+    await auth.signIn('jay@example.com', 'password');
+    const userId = auth.currentUser()!.id;
+
+    const group = groupFactory({
+      id: 'g1', currency: 'EUR',
+      members: [groupMemberFactory({ userId, groupId: 'g1' }), groupMemberFactory({ userId: 'u2', groupId: 'g1' })],
+    });
+    const trip = tripFactory({ id: 't1', groupId: 'g1', currency: 'EUR' });
+    const store = container.resolve(TRIP_STORE).getState();
+    store.appendGroup(group);
+    store.appendTrip(trip);
+
+    // Trip-level expenses aren't loaded by useGroups itself — in the real app
+    // they're already in the store by the time the home screen renders,
+    // hydrated at sign-in for every trip (see AuthGate). Mirror that here via
+    // the store directly rather than useTripDetail/useTrips, which useGroups
+    // doesn't depend on.
+    const expense = expenseFactory({
+      id: 'e1', tripId: 't1', groupId: undefined, totalAmountCents: 2000, currency: 'EUR', paidByUserId: userId,
+      splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId, amountOwedCents: 1000 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u2', amountOwedCents: 1000 }),
+      ],
+    });
+    await container.resolve(EXPENSE_REPO).saveExpense(expense);
+    store.appendExpense(expense);
+
+    await container.resolve(SPLIT_REQUEST_REPO).saveSplitRequest(
+      splitRequestFactory({ id: 'req1', tripId: 't1', payerUserId: 'u2', requesterUserId: userId, amountCents: 1000, currency: 'EUR', status: 'paid' }),
+    );
+
+    const { result } = renderHook(() => useGroups(), { wrapper: makeWrapper(container) });
+
+    await waitFor(() => {
+      expect(result.current.groupSummaries['g1']).toEqual({ direction: 'settled', amountCents: 0, currency: 'EUR' });
+    });
+  });
+
+  // Regression: a brand-new group with no expenses ever recorded used to be
+  // indistinguishable from one that had debts and got fully paid off — both
+  // collapsed to the same "no-data" bucket. They now read differently on the
+  // home screen ("no card at all" vs "All settled").
+  it('reports no-activity for a group with no expenses, rather than treating it as settled', async () => {
+    const auth = container.resolve(AUTH);
+    await auth.signIn('jay@example.com', 'password');
+    const userId = auth.currentUser()!.id;
+
+    const group = groupFactory({
+      id: 'g1', currency: 'EUR',
+      members: [groupMemberFactory({ userId, groupId: 'g1' }), groupMemberFactory({ userId: 'u2', groupId: 'g1' })],
+    });
+    container.resolve(TRIP_STORE).getState().appendGroup(group);
+
+    const { result } = renderHook(() => useGroups(), { wrapper: makeWrapper(container) });
+
+    await waitFor(() => {
+      expect(result.current.groupSummaries['g1']).toEqual({ direction: 'no-activity', amountCents: 0, currency: 'EUR' });
+    });
+  });
+
+  // Regression: previously labelled 'even' and shown on the home screen as
+  // "All settled" — misleading, since the group as a whole still has an
+  // outstanding debt between two other members even though the signed-in
+  // user's own balance nets to zero.
+  it('reports partial when the current user is settled but other members still owe each other', async () => {
+    const auth = container.resolve(AUTH);
+    await auth.signIn('jay@example.com', 'password');
+    const userId = auth.currentUser()!.id;
+
+    const group = groupFactory({
+      id: 'g1', currency: 'EUR',
+      members: [
+        groupMemberFactory({ userId, groupId: 'g1' }),
+        groupMemberFactory({ userId: 'u2', groupId: 'g1' }),
+        groupMemberFactory({ userId: 'u3', groupId: 'g1' }),
+      ],
+    });
+    container.resolve(TRIP_STORE).getState().appendGroup(group);
+
+    const expense = expenseFactory({
+      id: 'e1', tripId: undefined, groupId: 'g1', totalAmountCents: 2000, currency: 'EUR', paidByUserId: 'u2',
+      splits: [
+        splitFactory({ id: 's1', expenseId: 'e1', userId: 'u2', amountOwedCents: 1000 }),
+        splitFactory({ id: 's2', expenseId: 'e1', userId: 'u3', amountOwedCents: 1000 }),
+      ],
+    });
+    await container.resolve(EXPENSE_REPO).saveExpense(expense);
+
+    const { result } = renderHook(() => useGroups(), { wrapper: makeWrapper(container) });
+
+    await waitFor(() => {
+      expect(result.current.groupSummaries['g1']).toEqual({ direction: 'partial', amountCents: 0, currency: 'EUR' });
     });
   });
 });

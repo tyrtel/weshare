@@ -54,6 +54,28 @@ function setupEditMode(expenseOverrides: Parameters<typeof expenseFactory>[0] = 
   return { trip, members, expense };
 }
 
+async function setupGroupEditMode(container: ServiceContainer, expenseOverrides: Parameters<typeof expenseFactory>[0] = {}) {
+  const members = [
+    groupMemberFactory({ userId: 'gu1', groupId: 'grp1', displayName: 'Dee' }),
+    groupMemberFactory({ userId: 'gu2', groupId: 'grp1', displayName: 'Eli' }),
+  ];
+  const group = groupFactory({ id: 'grp1', currency: 'EUR', members });
+  const store = container.resolve(TRIP_STORE);
+  store.getState().appendGroup(group);
+
+  const expense = expenseFactory({ id: 'e1', tripId: undefined, groupId: 'grp1', ...expenseOverrides });
+  await container.resolve(EXPENSE_REPO).saveExpense(expense);
+  store.getState().appendGroupExpense(expense);
+
+  // The edit route passes id + groupId — no tripId, matching the real
+  // navigation wired up from GroupExpenseDetailScreen's edit button.
+  mockUseLocalSearchParams.mockReturnValue({ id: 'e1', groupId: 'grp1' });
+  mockUseTripDetail.mockReturnValue({ trip: null, loading: false, error: null, refetch: jest.fn() });
+  mockUseExpenseDetail.mockReturnValue({ expense, loading: false, error: null, refetch: jest.fn() });
+
+  return { group, members, expense };
+}
+
 function renderForm(container: ServiceContainer = createTestContainer()) {
   // MockExchangeRateService defaults to an 800ms artificial delay; zero it so
   // conversion-dependent tests don't need fake timers.
@@ -383,6 +405,25 @@ describe('ExpenseFormScreen — Save', () => {
       expect(sum).toBe(10000);
     }
   });
+
+  // Regression coverage for a reported bug: pick someone other than the
+  // default first member as payer, save, then check what actually landed in
+  // the repo — not just what the still-mounted form believes.
+  it('persists the explicitly selected payer, not the default first member', async () => {
+    setupTripMode(); // members: Alice (u1, default), Bob (u2), Cleo (u3)
+    const { container } = renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('100');
+
+    fireEvent.press(screen.getByTestId('payer-select-u2')); // Bob
+    fireEvent.press(screen.getByText('Save expense'));
+    await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
+
+    const repo  = container.resolve(EXPENSE_REPO);
+    const saved = await repo.getExpensesForTrip('t1');
+    expect(saved.ok).toBe(true);
+    if (saved.ok) expect(saved.value[0].paidByUserId).toBe('u2');
+  });
 });
 
 // ── Evenly mode ───────────────────────────────────────────────────────────
@@ -436,6 +477,69 @@ describe('ExpenseFormScreen — group mode', () => {
   });
 });
 
+// ── Group mode — edit (regression: group expenses had no edit route) ────
+
+describe('ExpenseFormScreen — group mode edit', () => {
+  it('loads without hanging on trip data and pre-fills the existing values', async () => {
+    const container = createTestContainer();
+    await setupGroupEditMode(container, { description: 'Groceries', totalAmountCents: 4500 });
+
+    const rate = container.resolve(EXCHANGE_RATE) as MockExchangeRateService;
+    rate.delay = 0;
+    renderScreen(<ExpenseFormScreen />, container);
+
+    await waitFor(() => expect(screen.getByTestId('expense-description-input').props.value).toBe('Groceries'));
+    expect(screen.queryByText('Save expense')).toBeTruthy();
+  });
+
+  it('saves via editExpense — updates the existing group expense rather than creating a second one', async () => {
+    const container = createTestContainer();
+    const { expense } = await setupGroupEditMode(container, {
+      description: 'Groceries',
+      totalAmountCents: 4500,
+      splits: [splitFactory({ id: 's1', userId: 'gu1', amountOwedCents: 4500 })],
+    });
+
+    const rate = container.resolve(EXCHANGE_RATE) as MockExchangeRateService;
+    rate.delay = 0;
+    renderScreen(<ExpenseFormScreen />, container);
+
+    await waitFor(() => expect(screen.getByTestId('expense-description-input').props.value).toBe('Groceries'));
+    await fillDescription('Groceries (updated)');
+    fireEvent.press(screen.getByText('Save expense'));
+    await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
+
+    const repo = container.resolve(EXPENSE_REPO);
+    const savedGroup = await repo.getExpensesForGroup('grp1');
+    expect(savedGroup.ok && savedGroup.value).toHaveLength(1);
+    expect(savedGroup.ok && savedGroup.value[0].id).toBe(expense.id);
+    expect(savedGroup.ok && savedGroup.value[0].description).toBe('Groceries (updated)');
+
+    // The store cache reflects the update too (replaceExpense routing).
+    const cached = container.resolve(TRIP_STORE).getState().groupExpenses['grp1'];
+    expect(cached).toHaveLength(1);
+    expect(cached?.[0].description).toBe('Groceries (updated)');
+  });
+
+  it('restores itemized mode and its items for a group expense, same as a trip expense', async () => {
+    const container = createTestContainer();
+    await setupGroupEditMode(container, {
+      totalAmountCents: 5000,
+      splits: [splitFactory({ id: 's1', userId: 'gu1', amountOwedCents: 5000 })],
+      metadata: {
+        lineItems: [{ id: 'li1', description: 'Snacks', amountCents: 5000, assignedUserIds: ['gu1'] }],
+      },
+    });
+
+    const rate = container.resolve(EXCHANGE_RATE) as MockExchangeRateService;
+    rate.delay = 0;
+    renderScreen(<ExpenseFormScreen />, container);
+
+    await waitFor(() => expect(screen.getByTestId('item-description-input-li1')).toBeTruthy());
+    expect(screen.getByTestId('item-description-input-li1').props.value).toBe('Snacks');
+  });
+});
+
 // ── Edit mode — currency reconstruction ──────────────────────────────────
 
 describe('ExpenseFormScreen — edit mode currency reconstruction', () => {
@@ -466,6 +570,70 @@ describe('ExpenseFormScreen — edit mode currency reconstruction', () => {
     await waitFor(() => expect(screen.getByTestId('exact-amount-input-u1').props.value).not.toBe(''));
     const u1Value = Number(screen.getByTestId('exact-amount-input-u1').props.value);
     expect(u1Value).toBeGreaterThan(1000);
+  });
+});
+
+// ── Edit mode — itemized restoration (regression) ────────────────────────
+// Previously, editing an itemized expense always re-opened in the "Exact"
+// tab with no items — initialMode was hardcoded to 'custom' and
+// initialLineItems was never passed to useSplitForm at all.
+
+describe('ExpenseFormScreen — edit mode itemized restoration', () => {
+  it('re-opens directly on the Items tab with every saved item pre-filled', async () => {
+    setupEditMode({
+      totalAmountCents: 5000,
+      currency: 'EUR',
+      splits: [
+        splitFactory({ id: 's1', userId: 'u1', amountOwedCents: 3000 }),
+        splitFactory({ id: 's2', userId: 'u2', amountOwedCents: 2000 }),
+      ],
+      metadata: {
+        lineItems: [
+          { id: 'li1', description: 'Pizza',  amountCents: 3000, assignedUserIds: ['u1', 'u2'] },
+          { id: 'li2', description: 'Drinks', amountCents: 2000, assignedUserIds: ['u1'] },
+        ],
+      },
+    });
+    renderForm();
+
+    // No tap on "Items" needed — it should already be the active tab.
+    await waitFor(() => expect(screen.getByTestId('item-description-input-li1')).toBeTruthy());
+    expect(screen.getByTestId('item-description-input-li1').props.value).toBe('Pizza');
+    expect(screen.getByTestId('item-amount-input-li1').props.value).toBe('30.00');
+    expect(screen.getByTestId('item-description-input-li2').props.value).toBe('Drinks');
+    expect(screen.getByTestId('item-amount-input-li2').props.value).toBe('20.00');
+  });
+
+  it('still opens on the Exact tab for a non-itemized expense (no regression)', async () => {
+    setupEditMode({
+      totalAmountCents: 5000,
+      splits: [splitFactory({ id: 's1', userId: 'u1', amountOwedCents: 5000 })],
+    });
+    renderForm();
+
+    await waitFor(() => expect(screen.getByTestId('exact-amount-input-u1')).toBeTruthy());
+    expect(screen.queryByTestId(/^item-description-input-/)).toBeNull();
+  });
+
+  it('reconstructs item amounts in the original entry currency, not trip currency', async () => {
+    // Mirrors the "edit mode currency reconstruction" case above, but for an
+    // itemized expense: a JPY-entered receipt saved against a EUR trip.
+    const rateUsed = 0.0062;
+    const totalEurCents = Math.round(2000 * rateUsed * 100); // ¥2000 -> EUR cents
+    setupEditMode({
+      totalAmountCents: totalEurCents,
+      currency: 'EUR',
+      splits: [splitFactory({ id: 's1', userId: 'u1', amountOwedCents: totalEurCents })],
+      metadata: {
+        lineItems: [{ id: 'li1', description: 'Ramen', amountCents: totalEurCents, assignedUserIds: ['u1'] }],
+        originalAmount: { amountCents: 2000, currency: 'JPY', exchangeRate: rateUsed, source: 'live' },
+      },
+    });
+    renderForm();
+
+    await waitFor(() => expect(screen.getByTestId('item-amount-input-li1').props.value).not.toBe(''));
+    const shownValue = Number(screen.getByTestId('item-amount-input-li1').props.value);
+    expect(shownValue).toBeGreaterThan(1000); // ~2000 JPY, not the ~12-cent EUR figure
   });
 });
 

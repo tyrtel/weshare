@@ -1,8 +1,6 @@
 import { generateProofHTML } from '../generateProofHTML';
-import type { SplitRequest } from '../../models/SplitRequest';
 import { splitRequestFactory } from '../../../__testUtils__/factories';
 
-const NOW = new Date('2025-12-25T12:00:00Z');
 
 describe('generateProofHTML', () => {
   it('returns a valid HTML document', () => {

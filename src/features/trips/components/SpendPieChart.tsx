@@ -73,7 +73,7 @@ export function SpendPieChart({ expenses, members, currency }: SpendPieChartProp
   const { t } = useTranslation();
   const colors = useColors();
 
-  const { slices, totalCents } = useMemo(() => {
+  const { slices } = useMemo(() => {
     const spendByUser = members
       .map(m => ({
         userId:      m.userId,
@@ -88,7 +88,7 @@ export function SpendPieChart({ expenses, members, currency }: SpendPieChartProp
     if (total === 0) return { slices: [], totalCents: 0 };
 
     let angle = -Math.PI / 2; // start at 12 o'clock
-    const built = spendByUser.map((s, i) => {
+    const built = spendByUser.map((s) => {
       const span  = (s.amountCents / total) * 2 * Math.PI;
       const start = angle;
       const end   = angle + span;

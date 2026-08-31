@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, ScrollView, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, TextInput, ScrollView, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import { useEditGroup } from '../../src/features/groups/hooks/useEditGroup';
 import { useDeleteGroup } from '../../src/features/groups/hooks/useDeleteGroup';
 import { useAddGroupMember } from '../../src/features/groups/hooks/useAddGroupMember';
 import { useTripSessionStore } from '../../src/core/di/ServiceContext';
+import { confirm } from '../../src/core/utils/confirm';
 import { useColors } from '../../src/theme/colors';
 import { personColors } from '../../src/theme/colors';
 import { tokens } from '../../src/theme/tokens';
@@ -53,21 +54,11 @@ export default function EditGroupScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      t('groups.detail.delete_title'),
-      t('groups.detail.delete_message'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text:  t('groups.detail.delete_confirm'),
-          style: 'destructive',
-          onPress: async () => {
-            const ok = await deleteGroup(group.id);
-            if (ok) router.replace('/' as Parameters<typeof router.replace>[0]);
-          },
-        },
-      ],
-    );
+    void confirm(t('groups.detail.delete_title'), t('groups.detail.delete_message'), t('groups.detail.delete_confirm')).then(async confirmed => {
+      if (!confirmed) return;
+      const ok = await deleteGroup(group.id);
+      if (ok) router.replace('/' as Parameters<typeof router.replace>[0]);
+    });
   };
 
   const confirmButton = () => (

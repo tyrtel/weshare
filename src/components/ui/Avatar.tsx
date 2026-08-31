@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Image } from 'react-native';
 import { Text } from './Text';
 
@@ -21,7 +21,13 @@ export function Avatar({ initials, bg, size = 'md', url }: AvatarProps) {
   const [imgError, setImgError] = useState(false);
 
   // Reset error state when the URL changes so a new URL gets a fresh attempt.
-  useEffect(() => { setImgError(false); }, [url]);
+  // Adjusted during render (React's documented pattern for this) rather than
+  // in an effect, so the stale image never flashes for a frame first.
+  const [prevUrl, setPrevUrl] = useState(url);
+  if (url !== prevUrl) {
+    setPrevUrl(url);
+    setImgError(false);
+  }
 
   const showImage = !!url && !imgError;
 

@@ -63,7 +63,7 @@ export class InMemoryRecurringExpenseRepository implements IRecurringExpenseRepo
     const re = this.compose(id);
     if (!re) return err({ kind: 'NotFoundError', resource: 'RecurringExpense', id });
     const updated = { ...re, pausedAt: new Date() };
-    const { splits, ...row } = updated;
+    const { splits: _splits, ...row } = updated;
     this.rows.set(id, row);
     return ok(this.compose(id)!);
   };
@@ -72,7 +72,7 @@ export class InMemoryRecurringExpenseRepository implements IRecurringExpenseRepo
     const re = this.compose(id);
     if (!re) return err({ kind: 'NotFoundError', resource: 'RecurringExpense', id });
     const updated = { ...re, pausedAt: null };
-    const { splits, ...row } = updated;
+    const { splits: _splits, ...row } = updated;
     this.rows.set(id, row);
     return ok(this.compose(id)!);
   };

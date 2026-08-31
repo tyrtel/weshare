@@ -25,7 +25,7 @@ export class SupabaseAuditLogRepository implements IAuditLogRepository {
       .eq('entity_id', splitRequestId)
       .order('created_at', { ascending: false });
 
-    if (error) return err(toAppError(error));
+    if (error) return err(toAppError(error, 'AuditEvent'));
     return ok((data ?? []).map(rowToEvent));
   }
 
@@ -43,7 +43,7 @@ export class SupabaseAuditLogRepository implements IAuditLogRepository {
       .select()
       .single();
 
-    if (error) return err(toAppError(error));
+    if (error) return err(toAppError(error, 'AuditEvent'));
     return ok(rowToEvent(data as Record<string, unknown>));
   }
 }

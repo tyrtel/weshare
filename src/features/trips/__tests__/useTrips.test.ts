@@ -15,7 +15,6 @@ import { AUTH, TRIP_REPO } from '../../../core/di/tokens';
 import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
 import { err } from '../../../core/types/Result';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { Trip } from '../../../core/models/Trip';
 import { tripFactory } from '../../../__testUtils__/factories';
 
 function makeWrapper(container: ServiceContainer) {
@@ -24,7 +23,6 @@ function makeWrapper(container: ServiceContainer) {
   };
 }
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 // ── No user ───────────────────────────────────────────────────────────────────
 

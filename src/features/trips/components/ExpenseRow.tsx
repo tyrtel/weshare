@@ -60,7 +60,7 @@ export function ExpenseRow({ expense, members, index = 0, onPress, showDivider =
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
             {category && (
-              <Ionicons name={category.icon as any} size={11} color={colors.text.tertiary} />
+              <Ionicons name={category.icon as React.ComponentProps<typeof Ionicons>['name']} size={11} color={colors.text.tertiary} />
             )}
             <Text variant="caption" color={colors.text.secondary}>
               {t('trips.expense_row.paid_by', { name: payerName })}

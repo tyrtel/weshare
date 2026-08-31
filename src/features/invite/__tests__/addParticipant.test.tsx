@@ -19,11 +19,9 @@ import { useRouter } from 'expo-router';
 import { AddParticipantScreen } from '../screens/AddParticipantScreen';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { TRIP_REPO, MEMBER_REPO } from '../../../core/di/tokens';
+import { TRIP_REPO } from '../../../core/di/tokens';
 import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepository';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { Trip } from '../../../core/models/Trip';
-import type { TripMember } from '../../../core/models/TripMember';
 import { tripFactory, memberFactory } from '../../../__testUtils__/factories';
 
 // ── Expo Router mocks ─────────────────────────────────────────────────────────
@@ -43,7 +41,6 @@ jest.mock('expo-router', () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 function makeWrapper(container: ServiceContainer) {
   return function Wrapper({ children }: { children: React.ReactNode }) {

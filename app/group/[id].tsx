@@ -20,6 +20,7 @@ import { tokens, ledgerRadius, ledgerShadow, ledgerFonts } from '../../src/theme
 import { toBalancesRecord, toBalanceBarMembers } from '../../src/core/utils/balanceView';
 import { formatCurrency } from '../../src/core/utils/formatCurrency';
 import { deriveTripFinancialSummary } from '../../src/core/logic/settlement';
+import { confirm } from '../../src/core/utils/confirm';
 import type { Trip } from '../../src/core/models/Trip';
 import type { Expense } from '../../src/core/models/Expense';
 import type { GroupMember } from '../../src/core/models/GroupMember';
@@ -71,6 +72,10 @@ export default function GroupDetailScreen() {
     settlements,
     memberBalances,
     completedPayments,
+    archivableExpenseIds,
+    archivableTripIds,
+    closeExpense,
+    closeTrip,
   } = useGroupDetail(id);
   const { sendInvite, sending } = useSendGroupInvite();
 
@@ -130,6 +135,26 @@ export default function GroupDetailScreen() {
   const handleNewRecurring = () => { setFabOpen(false); router.push(`/group/expense/add?groupId=${group.id}&recurring=true` as Parameters<typeof router.push>[0]); };
   const handleAddMember  = () => { setFabOpen(false); router.push(`/group/add-member?groupId=${group.id}` as Parameters<typeof router.push>[0]); };
   const handleExpensePress = (expense: Expense) => router.push(`/group/expense/${expense.id}?groupId=${group.id}` as Parameters<typeof router.push>[0]);
+
+  const handleArchiveExpense = (expense: Expense) => {
+    void confirm(
+      t('expenses.detail.close_alert_title'),
+      t('expenses.detail.close_alert_message'),
+      t('expenses.detail.close_alert_confirm'),
+    ).then(async confirmed => {
+      if (confirmed) await closeExpense(expense);
+    });
+  };
+
+  const handleArchiveTrip = (trip: Trip) => {
+    void confirm(
+      t('groups.detail.close_trip_alert_title'),
+      t('groups.detail.close_trip_alert_message'),
+      t('groups.detail.close_trip_alert_confirm'),
+    ).then(async confirmed => {
+      if (confirmed) await closeTrip(trip);
+    });
+  };
 
   const balancesRecord = toBalancesRecord(memberBalances);
   const membersForBars = toBalanceBarMembers(group.members);
@@ -255,19 +280,31 @@ export default function GroupDetailScreen() {
               const pillCents = summary?.direction === 'owed' ? summary.amountCents
                 : summary?.direction === 'owe' ? -summary.amountCents : 0;
               return (
-                <Pressable
-                  key={trip.id}
-                  onPress={() => handleTripPress(trip)}
-                  style={({ pressed }) => [lgStyles.card, { opacity: pressed ? 0.85 : 1, marginBottom: 12 }]}
-                >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={lgStyles.expTitle} numberOfLines={1}>✈️{'  '}{trip.name}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      {summary && <BalancePill cents={pillCents} currency={trip.currency} />}
-                      <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+                <View key={trip.id} style={[lgStyles.card, { flexDirection: 'row', alignItems: 'center', marginBottom: 12 }]}>
+                  <Pressable
+                    onPress={() => handleTripPress(trip)}
+                    style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.85 : 1 })}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={lgStyles.expTitle} numberOfLines={1}>✈️{'  '}{trip.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {summary && <BalancePill cents={pillCents} currency={trip.currency} />}
+                        <Feather name="chevron-right" size={18} color={colors.text.tertiary} />
+                      </View>
                     </View>
-                  </View>
-                </Pressable>
+                  </Pressable>
+                  {archivableTripIds.has(trip.id) && (
+                    <Pressable
+                      onPress={() => handleArchiveTrip(trip)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('groups.detail.archive_ready_accessibility')}
+                      hitSlop={8}
+                      style={({ pressed }) => ({ marginLeft: 8, padding: 4, opacity: pressed ? 0.7 : 1 })}
+                    >
+                      <Feather name="check-circle" size={20} color={colors.success.default} />
+                    </Pressable>
+                  )}
+                </View>
               );
             })}
           </>
@@ -330,6 +367,8 @@ export default function GroupDetailScreen() {
                       payerName={payer ? payer.displayName : t('common.unknown_user')}
                       amountCents={expense.totalAmountCents}
                       currency={group.currency}
+                      onArchivePress={archivableExpenseIds.has(expense.id) ? () => handleArchiveExpense(expense) : undefined}
+                      archiveAccessibilityLabel={t('groups.detail.archive_ready_accessibility')}
                       onPress={() => handleExpensePress(expense)}
                     />
                   </View>

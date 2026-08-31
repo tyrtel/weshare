@@ -21,9 +21,19 @@ export function Badge({ label, bg, color }: BadgeProps) {
         paddingHorizontal: tokens.spacing.sm,
         paddingVertical: 2,
         alignSelf: 'flex-start',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      <Text variant="caption" color={color ?? colors.primary.light}>
+      {/* caption's lineHeight (16) is taller than its fontSize (11) for
+          readability in body text, but that extra leading — combined with
+          Android's default font padding — makes the glyph sit visibly off-
+          center in a pill this tight. Collapse both back down here. */}
+      <Text
+        variant="caption"
+        color={color ?? colors.primary.light}
+        style={{ lineHeight: 14, includeFontPadding: false }}
+      >
         {label}
       </Text>
     </View>

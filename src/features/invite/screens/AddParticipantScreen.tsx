@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -237,10 +237,13 @@ export function AddParticipantScreen() {
   const { trip, loading } = useTripDetail(tripId);
 
   // Local mirror of members so new additions reflect immediately in duplicate checks.
+  // Resynced during render (rather than in an effect) whenever `trip` changes.
   const [localMembers, setLocalMembers] = useState<TripMember[]>([]);
-  useEffect(() => {
+  const [prevTrip, setPrevTrip] = useState(trip);
+  if (trip !== prevTrip) {
+    setPrevTrip(trip);
     if (trip) setLocalMembers(trip.members);
-  }, [trip]);
+  }
 
   const handleAdded = useCallback((member: TripMember) => {
     setLocalMembers(prev => [...prev, member]);

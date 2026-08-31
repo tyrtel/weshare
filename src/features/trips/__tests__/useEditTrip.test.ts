@@ -14,7 +14,6 @@ function makeWrapper(container: ServiceContainer) {
   };
 }
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 describe('useEditTrip — validation', () => {
   it('returns null and sets ValidationError for empty name', async () => {

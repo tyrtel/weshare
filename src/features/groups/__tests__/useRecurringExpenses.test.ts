@@ -2,7 +2,7 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react-native';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { RECURRING_EXPENSE_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { TRIP_STORE } from '../../../core/di/tokens';
 import { InMemoryRecurringExpenseRepository } from '../../../__mocks__/InMemoryRecurringExpenseRepository';
 import { MockEntitlementService } from '../../../__mocks__/MockEntitlementService';
 import { useRecurringExpenses } from '../hooks/useRecurringExpenses';
@@ -10,7 +10,7 @@ import { useCreateRecurringExpense } from '../hooks/useCreateRecurringExpense';
 import { useEditRecurringExpense } from '../hooks/useEditRecurringExpense';
 import { useDeleteRecurringExpense } from '../hooks/useDeleteRecurringExpense';
 import { usePauseRecurringExpense } from '../hooks/usePauseRecurringExpense';
-import { recurringExpenseFactory, recurringExpenseSplitFactory, groupFactory, groupMemberFactory } from '../../../__testUtils__/factories';
+import { recurringExpenseFactory, groupFactory, groupMemberFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { RecurringExpense } from '../../../core/models/RecurringExpense';
 

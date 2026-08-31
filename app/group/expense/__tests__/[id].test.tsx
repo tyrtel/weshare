@@ -9,11 +9,19 @@ jest.mock('react-native-svg', () => mockSvgModule());
 const mockSearchParams = jest.fn(() => ({ id: 'e1', groupId: 'g1' }));
 const mockPush = jest.fn();
 const mockBack = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: mockBack }),
-  useLocalSearchParams: () => mockSearchParams(),
-  Stack: { Screen: () => null },
-}));
+jest.mock('expo-router', () => {
+  const { Fragment, createElement } = require('react');
+  return {
+    useRouter: () => ({ push: mockPush, back: mockBack }),
+    useLocalSearchParams: () => mockSearchParams(),
+    // Renders headerLeft/headerRight so tests can find and press them, same
+    // as the header-button screens already covered by mockExpoRouterModule.
+    Stack: {
+      Screen: ({ options }: { options?: { headerLeft?: () => React.ReactNode; headerRight?: () => React.ReactNode } }) =>
+        createElement(Fragment, null, options?.headerLeft?.(), options?.headerRight?.()),
+    },
+  };
+});
 
 import GroupExpenseDetailScreen from '../[id]';
 import { renderScreen } from '../../../../src/__testUtils__/renderScreen';
@@ -108,6 +116,56 @@ describe('GroupExpenseDetailScreen', () => {
     render(container);
 
     expect(screen.queryByText('Receipt')).toBeNull();
+  });
+
+  describe('edit action', () => {
+    it('shows an edit button and navigates to the edit route with id + groupId', async () => {
+      const container = createTestContainer();
+      await seed(container);
+      render(container);
+
+      fireEvent.press(screen.getByLabelText('Edit expense'));
+
+      expect(mockPush).toHaveBeenCalledWith('/expense/edit?id=e1&groupId=g1');
+    });
+
+    it('hides the edit button for a settled (closed) expense', async () => {
+      const container = createTestContainer();
+      await seed(container, { settledAt: new Date('2025-06-02T00:00:00Z') });
+      render(container);
+
+      expect(screen.queryByLabelText('Edit expense')).toBeNull();
+    });
+  });
+
+  describe('itemized items', () => {
+    it("shows an Items card with each line item's description and amount", async () => {
+      const container = createTestContainer();
+      await seed(container, {
+        metadata: {
+          lineItems: [
+            { id: 'li1', description: 'Pizza',  amountCents: 2000, assignedUserIds: ['u1', 'u2'] },
+            { id: 'li2', description: 'Drinks', amountCents: 2000, assignedUserIds: ['u1'] },
+          ],
+        },
+      });
+      render(container);
+
+      expect(screen.getByText('Items (2)')).toBeTruthy();
+      expect(screen.getAllByText('Pizza').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Drinks')).toBeTruthy();
+      // Both items happen to be €20.00 here, plus the €20.00 split rows below —
+      // just assert there are at least as many as the two line items need.
+      expect(screen.getAllByText('€20.00').length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('renders no Items card for a non-itemized expense', async () => {
+      const container = createTestContainer();
+      await seed(container);
+      render(container);
+
+      expect(screen.queryByText(/^Items \(/)).toBeNull();
+    });
   });
 
   describe('close / reopen', () => {

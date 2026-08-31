@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { screen, fireEvent } from '@testing-library/react-native';
 import { mockExpoRouterModule, mockVectorIconsModule, mockSafeAreaModule } from '../../../src/__testUtils__/standardMocks';
 
@@ -8,11 +7,13 @@ jest.mock('react-native-safe-area-context', () => mockSafeAreaModule());
 jest.mock('expo-router', () => mockExpoRouterModule());
 jest.mock('../../../src/features/trips/hooks/useTrips', () => ({ useTrips: jest.fn() }));
 jest.mock('../../../src/features/groups/hooks/useGroups', () => ({ useGroups: jest.fn() }));
+jest.mock('../../../src/core/utils/confirm', () => ({ confirm: jest.fn(() => Promise.resolve(false)) }));
 
 import HomeScreen from '../index';
 import { useTrips } from '../../../src/features/trips/hooks/useTrips';
 import { useGroups } from '../../../src/features/groups/hooks/useGroups';
 import { useRouter } from 'expo-router';
+import { confirm } from '../../../src/core/utils/confirm';
 import { renderScreen } from '../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../src/core/di/testContainer';
 import { AUTH } from '../../../src/core/di/tokens';
@@ -21,6 +22,7 @@ import type { ServiceContainer } from '../../../src/core/di/ServiceContainer';
 
 const mockUseTrips  = useTrips as jest.Mock;
 const mockUseGroups = useGroups as jest.Mock;
+const mockConfirm   = confirm as jest.Mock;
 
 function setup(opts: { trips?: ReturnType<typeof tripFactory>[]; groups?: ReturnType<typeof groupFactory>[] } = {}) {
   mockUseTrips.mockReturnValue({ trips: opts.trips ?? [], summaries: {}, loading: false, refetch: jest.fn() });
@@ -112,6 +114,56 @@ describe('HomeScreen', () => {
     // 200.00 owed minus 21.00 owed by me = net +179.00 ahead, not just the group's -21.00.
     expect(screen.getByText('Overall')).toBeTruthy();
     expect(screen.getByText('+€179.00')).toBeTruthy();
+  });
+
+  // Regression: a fully-settled group and a group where only the current
+  // user happened to net to zero used to render identically — both showed
+  // "+€0.00" via BalancePill, which reads as "you're owed nothing" rather
+  // than communicating anything about the group's actual state.
+  it('shows a green "All settled" badge when the whole group is settled', () => {
+    mockUseGroups.mockReturnValue({
+      groups: [groupFactory({ id: 'g1', name: 'Roomies', members: [groupMemberFactory({ userId: 'u1', groupId: 'g1' })] })],
+      groupTripCounts: {},
+      groupSummaries: { g1: { direction: 'settled', amountCents: 0, currency: 'EUR' } },
+      loading: false,
+      refetch: jest.fn(),
+    });
+
+    render();
+
+    expect(screen.getByText('All settled')).toBeTruthy();
+    expect(screen.queryByText('+€0.00')).toBeNull();
+  });
+
+  it('shows "You\'re settled" (not "All settled") when only the current user is squared away', () => {
+    mockUseGroups.mockReturnValue({
+      groups: [groupFactory({ id: 'g1', name: 'Roomies', members: [groupMemberFactory({ userId: 'u1', groupId: 'g1' })] })],
+      groupTripCounts: {},
+      groupSummaries: { g1: { direction: 'partial', amountCents: 0, currency: 'EUR' } },
+      loading: false,
+      refetch: jest.fn(),
+    });
+
+    render();
+
+    expect(screen.getByText("You're settled")).toBeTruthy();
+    expect(screen.queryByText('All settled')).toBeNull();
+  });
+
+  it('shows no balance indicator for a group with no financial activity yet', () => {
+    mockUseGroups.mockReturnValue({
+      groups: [groupFactory({ id: 'g1', name: 'Roomies', members: [groupMemberFactory({ userId: 'u1', groupId: 'g1' })] })],
+      groupTripCounts: {},
+      groupSummaries: { g1: { direction: 'no-activity', amountCents: 0, currency: 'EUR' } },
+      loading: false,
+      refetch: jest.fn(),
+    });
+
+    render();
+
+    expect(screen.queryByText('All settled')).toBeNull();
+    expect(screen.queryByText("You're settled")).toBeNull();
+    expect(screen.queryByText('+€0.00')).toBeNull();
   });
 
   // Regression: useTrips().error was computed but never read by this screen —
@@ -211,30 +263,28 @@ describe('HomeScreen', () => {
       setup();
       const container = createTestContainer();
       const signOutSpy = jest.spyOn(container.resolve(AUTH), 'signOut');
-      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-        buttons?.[1]?.onPress?.();
-      });
+      mockConfirm.mockResolvedValue(true);
 
       render(container);
       fireEvent.press(screen.getByLabelText('Open menu'));
       fireEvent.press(screen.getByText('Log out'));
 
-      expect(Alert.alert).toHaveBeenCalled();
+      expect(mockConfirm).toHaveBeenCalled();
+      await Promise.resolve();
       expect(signOutSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('does not sign out if the confirmation is cancelled', () => {
+    it('does not sign out if the confirmation is cancelled', async () => {
       setup();
       const container = createTestContainer();
       const signOutSpy = jest.spyOn(container.resolve(AUTH), 'signOut');
-      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-        buttons?.[0]?.onPress?.();
-      });
+      mockConfirm.mockResolvedValue(false);
 
       render(container);
       fireEvent.press(screen.getByLabelText('Open menu'));
       fireEvent.press(screen.getByText('Log out'));
 
+      await Promise.resolve();
       expect(signOutSpy).not.toHaveBeenCalled();
     });
   });

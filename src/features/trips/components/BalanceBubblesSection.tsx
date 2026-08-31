@@ -75,7 +75,7 @@ function StyleToggle() {
 
 // ── Mode A: tinted (dark-bg + vibrant-text, design system convention) ─────────
 
-function TintedBubbles({ sorted, currency, members }: {
+function TintedBubbles({ sorted, currency }: {
   sorted: BalanceRow[];
   currency: string;
   members: TripMember[];

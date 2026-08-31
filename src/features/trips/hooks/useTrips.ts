@@ -147,7 +147,10 @@ export function useTrips() {
   );
 
   const user = auth.currentUser();
-  const visibleTrips: Trip[] = user ? trips.filter(t => t.status !== 'closed') : [];
+  const visibleTrips: Trip[] = useMemo(
+    () => (user ? trips.filter(t => t.status !== 'closed') : []),
+    [user, trips],
+  );
 
   const summaries = useMemo<Record<string, TripFinancialSummary | null>>(() => {
     if (!user) return {};

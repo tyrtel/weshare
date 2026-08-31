@@ -30,7 +30,7 @@ let container: ServiceContainer;
 
 beforeEach(() => {
   jest.useFakeTimers();
-  jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() } as any);
+  jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() } as unknown as ReturnType<typeof AppState.addEventListener>);
 
   mockStripe = new MockStripeService();
   container  = createTestContainer({ stripe: mockStripe });

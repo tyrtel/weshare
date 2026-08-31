@@ -26,12 +26,19 @@ export function BankSelectorSheet({ visible, onSelect, onClose }: BankSelectorSh
   const bankService = useService(BANK_LIST);
 
   const [banks, setBanks]     = useState<Bank[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => visible);
   const [query, setQuery]     = useState('');
+
+  // Flip loading back on synchronously as soon as the sheet opens, rather
+  // than in the effect below, which only runs the fetch itself.
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (visible) setLoading(true);
+  }
 
   useEffect(() => {
     if (!visible) return;
-    setLoading(true);
     bankService.getBanks(TINK_MARKET).then((result) => {
       if (isOk(result)) setBanks(result.value);
       setLoading(false);

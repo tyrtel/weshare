@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { ScrollView, StyleSheet, View, Pressable, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { ScrollView, StyleSheet, View, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
@@ -8,11 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../../src/components/ui/Text';
 import { ErrorBanner } from '../../src/components/ui/ErrorBanner';
 import { BalancePill } from '../../src/components/ui/BalancePill';
+import { Badge } from '../../src/components/ui/Badge';
 import { ActivityDot } from '../../src/components/ui/ActivityDot';
 import { ProfileMenuSheet } from '../../src/components/ui/ProfileMenuSheet';
 import { useTrips } from '../../src/features/trips/hooks/useTrips';
 import { useGroups } from '../../src/features/groups/hooks/useGroups';
 import { useService } from '../../src/core/di/ServiceContext';
+import { confirm } from '../../src/core/utils/confirm';
 import { AUTH } from '../../src/core/di/tokens';
 import { useColors } from '../../src/theme/colors';
 import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../src/theme/tokens';
@@ -68,14 +70,9 @@ export default function HomeScreen() {
   const handleNewGroup   = () => { setFabOpen(false); router.push('/group/create' as Parameters<typeof router.push>[0]); };
   const handleNewTrip    = () => { setFabOpen(false); router.push('/trip/create' as Parameters<typeof router.push>[0]); };
   const handleLogOut     = () => {
-    Alert.alert(
-      t('home.profile_menu.log_out_confirm_title'),
-      t('home.profile_menu.log_out_confirm_body'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('home.profile_menu.log_out'), style: 'destructive', onPress: () => { void auth.signOut(); } },
-      ],
-    );
+    void confirm(t('home.profile_menu.log_out_confirm_title'), t('home.profile_menu.log_out_confirm_body'), t('home.profile_menu.log_out')).then(confirmed => {
+      if (confirmed) void auth.signOut();
+    });
   };
 
   // Sum every line the screen actually shows below — one standalone trip
@@ -252,7 +249,15 @@ export default function HomeScreen() {
                       </View>
                     </View>
                   </View>
-                  <BalancePill cents={pillCents} currency={group.currency} />
+                  {summary?.direction === 'owed' || summary?.direction === 'owe' ? (
+                    <BalancePill cents={pillCents} currency={group.currency} />
+                  ) : summary?.direction === 'settled' ? (
+                    <Badge label={t('groups.card.all_settled')} bg={colors.success.bg} color={colors.success.default} />
+                  ) : summary?.direction === 'partial' ? (
+                    <Text style={{ fontSize: 12.5, fontFamily: ledgerFonts.body, color: colors.text.tertiary }}>
+                      {t('groups.card.you_settled')}
+                    </Text>
+                  ) : null}
                 </View>
               </Pressable>
             );

@@ -19,7 +19,6 @@ import { canonicalizeEmail } from '../../core/utils/emailValidation';
 // ServiceContext.tsx) ensures there is exactly one SupabaseAuthService per JS
 // runtime regardless of how many times this module is evaluated.
 declare global {
-  // eslint-disable-next-line no-var
   var __weShareAuthService: SupabaseAuthService | undefined;
 }
 

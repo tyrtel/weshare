@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useEditGroup } from '../hooks/useEditGroup';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { GROUP_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { TRIP_STORE } from '../../../core/di/tokens';
 import { InMemoryGroupRepository } from '../../../__mocks__/InMemoryGroupRepository';
 import { groupFactory, groupMemberFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';

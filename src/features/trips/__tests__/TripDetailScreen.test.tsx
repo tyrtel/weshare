@@ -71,6 +71,33 @@ describe('TripDetailScreen — expense row meta text', () => {
     expect(screen.getByText('Unknown paid')).toBeTruthy();
     expect(screen.queryByText(/equal/i)).toBeNull();
   });
+
+  // Regression coverage: a reported bug had the payer stop showing correctly
+  // after creating an expense and returning to the trip. This pins the row's
+  // display to a non-owner, non-default member — "Unknown paid" (the only
+  // case the test above exercises) would pass even if the lookup silently
+  // matched the wrong member, as long as it matched *someone*.
+  it('shows the actual paying member by name, not the trip owner or "Unknown"', () => {
+    mockUseLocalSearchParams.mockReturnValue({ id: 't1' });
+    mockUseTripDetail.mockReturnValue({
+      trip: {
+        ...BASE_TRIP,
+        status: 'active',
+        members: [
+          { userId: 'u1', tripId: 't1', displayName: 'Alice', joinedAt: NOW, isGuest: false },
+          { userId: 'u2', tripId: 't1', displayName: 'Bob',   joinedAt: NOW, isGuest: false },
+        ],
+      },
+      expenses: [{ ...EXPENSE, paidByUserId: 'u2' }],
+      loading: false, error: null, refetch: jest.fn(),
+    });
+
+    renderScreen(<TripDetailScreen />, createTestContainer());
+
+    expect(screen.getByText('Bob paid')).toBeTruthy();
+    expect(screen.queryByText('Alice paid')).toBeNull();
+    expect(screen.queryByText('Unknown paid')).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -11,7 +11,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { PaymentProofCard } from '../PaymentProofCard';
-import type { SplitRequest } from '../../../core/models/SplitRequest';
 import { splitRequestFactory } from '../../../__testUtils__/factories';
 
 function makeWrapper() {
@@ -21,7 +20,6 @@ function makeWrapper() {
   };
 }
 
-const NOW = new Date('2025-12-25T12:00:00Z');
 
 describe('PaymentProofCard', () => {
   beforeEach(() => { jest.clearAllMocks(); });

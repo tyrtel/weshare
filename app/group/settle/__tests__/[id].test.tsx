@@ -1,10 +1,10 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { mockVectorIconsModule, mockSvgModule } from '../../../../src/__testUtils__/standardMocks';
 
 jest.mock('@expo/vector-icons', () => mockVectorIconsModule());
 jest.mock('react-native-svg', () => mockSvgModule());
+jest.mock('../../../../src/core/utils/confirm', () => ({ confirm: jest.fn(() => Promise.resolve(false)) }));
 
 const mockBack = jest.fn();
 const mockPush = jest.fn();
@@ -20,6 +20,7 @@ jest.mock('../../../../src/features/groups/hooks/useGroupDetail', () => ({
 
 import GroupSettlementScreen from '../[id]';
 import { useGroupDetail } from '../../../../src/features/groups/hooks/useGroupDetail';
+import { confirm } from '../../../../src/core/utils/confirm';
 import { renderScreen } from '../../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../../src/core/di/testContainer';
 import { SPLIT_REQUEST_REPO, TRIP_STORE } from '../../../../src/core/di/tokens';
@@ -27,6 +28,7 @@ import { groupFactory, groupMemberFactory, expenseFactory, tripFactory } from '.
 import type { ServiceContainer } from '../../../../src/core/di/ServiceContainer';
 
 const mockUseGroupDetail = useGroupDetail as jest.Mock;
+const mockConfirm        = confirm as jest.Mock;
 
 const MEMBERS = [
   groupMemberFactory({ userId: 'u1', groupId: 'g1', displayName: 'Alice' }),
@@ -47,8 +49,9 @@ function render(container: ServiceContainer = createTestContainer()) {
 // this mirrors that contract so tests don't have to repeat empty defaults.
 function mockDetail(overrides: Partial<ReturnType<typeof useGroupDetail>>) {
   mockUseGroupDetail.mockReturnValue({
-    activeTrips: [],
-    activeExpenses: [],
+    groupTrips: [],
+    groupExpenses: [],
+    tripExpenses: {},
     completedPayments: [],
     ...overrides,
   });
@@ -89,9 +92,7 @@ describe('GroupSettlementScreen', () => {
 
     render(container);
 
-    jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-      buttons?.[1]?.onPress?.();
-    });
+    mockConfirm.mockResolvedValue(true);
 
     fireEvent.press(screen.getByText('Settle everything'));
 
@@ -136,10 +137,10 @@ describe('GroupSettlementScreen', () => {
       const now = Date.now();
       mockDetail({
         ...ALL_EVEN_ARGS,
-        activeExpenses: [
+        groupExpenses: [
           expenseFactory({ id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries', totalAmountCents: 2000, currency: 'EUR', createdAt: new Date(now - 5 * 86400000) }),
         ],
-        activeTrips: [
+        groupTrips: [
           tripFactory({ id: 't1', groupId: 'g1', name: 'Weekend in Ghent', createdAt: new Date(now - 2 * 86400000) }),
         ],
       });
@@ -157,7 +158,7 @@ describe('GroupSettlementScreen', () => {
       const now = Date.now();
       mockDetail({
         ...ALL_EVEN_ARGS,
-        activeExpenses: [
+        groupExpenses: [
           expenseFactory({ id: 'e1', tripId: undefined, groupId: 'g1', description: 'Old dinner', totalAmountCents: 1000, currency: 'EUR', createdAt: new Date(now - 45 * 86400000) }),
         ],
       });
@@ -166,6 +167,33 @@ describe('GroupSettlementScreen', () => {
 
       expect(screen.queryByText('Recent activity')).toBeNull();
       expect(screen.queryByText('Old dinner')).toBeNull();
+    });
+
+    it('includes closed trips and expenses with a "Closed" badge, dated by their most recent activity', () => {
+      const now = Date.now();
+      mockDetail({
+        ...ALL_EVEN_ARGS,
+        groupExpenses: [
+          expenseFactory({
+            id: 'e1', tripId: undefined, groupId: 'g1', description: 'Settled dinner',
+            totalAmountCents: 1500, currency: 'EUR',
+            createdAt: new Date(now - 10 * 86400000), settledAt: new Date(now - 1 * 86400000),
+          }),
+        ],
+        groupTrips: [
+          tripFactory({
+            id: 't1', groupId: 'g1', name: 'Closed trip', status: 'closed',
+            createdAt: new Date(now - 10 * 86400000), closedAt: new Date(now - 2 * 86400000),
+          }),
+        ],
+      });
+
+      render();
+
+      expect(screen.getByText('Recent activity')).toBeTruthy();
+      expect(screen.getByText('Settled dinner')).toBeTruthy();
+      expect(screen.getByText('Closed trip')).toBeTruthy();
+      expect(screen.getAllByText('Closed')).toHaveLength(2);
     });
 
     it('lists completed payments with who paid whom, the date, and the amount', () => {

@@ -16,9 +16,11 @@ jest.mock('expo-router', () => ({
 jest.mock('../../../src/features/groups/hooks/useGroupDetail', () => ({
   useGroupDetail: jest.fn(),
 }));
+jest.mock('../../../src/core/utils/confirm', () => ({ confirm: jest.fn(() => Promise.resolve(false)) }));
 
 import GroupDetailScreen from '../[id]';
 import { useGroupDetail } from '../../../src/features/groups/hooks/useGroupDetail';
+import { confirm } from '../../../src/core/utils/confirm';
 import { renderScreen } from '../../../src/__testUtils__/renderScreen';
 import { createTestContainer } from '../../../src/core/di/testContainer';
 import { groupFactory, groupMemberFactory, expenseFactory, tripFactory, memberFactory, splitFactory } from '../../../src/__testUtils__/factories';
@@ -27,12 +29,16 @@ import type { ServiceContainer } from '../../../src/core/di/ServiceContainer';
 import type { MockShareService } from '../../../src/__mocks__/MockShareService';
 
 const mockUseGroupDetail = useGroupDetail as jest.Mock;
+const mockConfirm        = confirm as jest.Mock;
 
 const MEMBERS = [
   groupMemberFactory({ userId: 'u1', groupId: 'g1', displayName: 'Alice' }),
   groupMemberFactory({ userId: 'u2', groupId: 'g1', displayName: 'Bob' }),
 ];
 const GROUP = groupFactory({ id: 'g1', name: 'Roomies', currency: 'EUR', members: MEMBERS });
+
+const mockCloseExpense = jest.fn(() => Promise.resolve(true));
+const mockCloseTrip    = jest.fn(() => Promise.resolve(true));
 
 function setup(overrides: Partial<ReturnType<typeof useGroupDetail>> = {}) {
   mockUseGroupDetail.mockReturnValue({
@@ -46,6 +52,10 @@ function setup(overrides: Partial<ReturnType<typeof useGroupDetail>> = {}) {
     settlements: [],
     memberBalances: MEMBERS.map(m => ({ userId: m.userId, balanceCents: 0 })),
     completedPayments: [],
+    archivableExpenseIds: new Set<string>(),
+    archivableTripIds: new Set<string>(),
+    closeExpense: mockCloseExpense,
+    closeTrip: mockCloseTrip,
     loading: false,
     ...overrides,
   });
@@ -54,6 +64,9 @@ function setup(overrides: Partial<ReturnType<typeof useGroupDetail>> = {}) {
 beforeEach(() => {
   mockPush.mockClear();
   mockBack.mockClear();
+  mockConfirm.mockReset().mockResolvedValue(false);
+  mockCloseExpense.mockClear();
+  mockCloseTrip.mockClear();
 });
 
 function render(container: ServiceContainer = createTestContainer()) {
@@ -78,6 +91,68 @@ describe('GroupDetailScreen', () => {
     // field, rendering "NaN" instead of the real total.
     expect(screen.getByText('€30.00')).toBeTruthy();
     expect(screen.queryByText(/NaN/)).toBeNull();
+  });
+
+  it('shows an archive-ready icon on an expense flagged as archivable', () => {
+    setup({
+      activeExpenses: [expenseFactory({
+        id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries',
+        totalAmountCents: 3000, currency: 'EUR', paidByUserId: 'u1',
+      })],
+      archivableExpenseIds: new Set(['e1']),
+    });
+    render();
+
+    expect(screen.getByLabelText('Ready to archive — tap to close')).toBeTruthy();
+  });
+
+  it('does not show the archive-ready icon on an expense that is not flagged', () => {
+    setup({
+      activeExpenses: [expenseFactory({
+        id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries',
+        totalAmountCents: 3000, currency: 'EUR', paidByUserId: 'u1',
+      })],
+      archivableExpenseIds: new Set(),
+    });
+    render();
+
+    expect(screen.queryByLabelText('Ready to archive — tap to close')).toBeNull();
+  });
+
+  it('tapping the archive-ready icon confirms and closes the expense in place', async () => {
+    setup({
+      activeExpenses: [expenseFactory({
+        id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries',
+        totalAmountCents: 3000, currency: 'EUR', paidByUserId: 'u1',
+      })],
+      archivableExpenseIds: new Set(['e1']),
+    });
+    mockConfirm.mockResolvedValue(true);
+    render();
+
+    fireEvent.press(screen.getByLabelText('Ready to archive — tap to close'));
+
+    expect(mockConfirm).toHaveBeenCalledWith('Close this expense?', expect.any(String), 'Close expense');
+    await Promise.resolve();
+    expect(mockCloseExpense).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('does not close the expense when the archive confirmation is declined', async () => {
+    setup({
+      activeExpenses: [expenseFactory({
+        id: 'e1', tripId: undefined, groupId: 'g1', description: 'Groceries',
+        totalAmountCents: 3000, currency: 'EUR', paidByUserId: 'u1',
+      })],
+      archivableExpenseIds: new Set(['e1']),
+    });
+    mockConfirm.mockResolvedValue(false);
+    render();
+
+    fireEvent.press(screen.getByLabelText('Ready to archive — tap to close'));
+
+    await Promise.resolve();
+    expect(mockCloseExpense).not.toHaveBeenCalled();
   });
 
   it('shows "All settled" when every member balance is zero', () => {
@@ -292,6 +367,41 @@ describe('GroupDetailScreen', () => {
 
       expect(screen.getByText(/New Trip/)).toBeTruthy();
       expect(screen.queryByText(/€/)).toBeNull();
+    });
+
+    it('shows an archive-ready icon on a trip flagged as archivable', () => {
+      const trip = tripFactory({ id: 't1', name: 'Ski Trip', groupId: 'g1', currency: 'EUR', members: [] });
+      setup({ activeTrips: [trip], tripExpenses: { t1: [] }, archivableTripIds: new Set(['t1']) });
+
+      render();
+
+      expect(screen.getByLabelText('Ready to archive — tap to close')).toBeTruthy();
+    });
+
+    it('tapping the archive-ready icon confirms and closes the trip in place', async () => {
+      const trip = tripFactory({ id: 't1', name: 'Ski Trip', groupId: 'g1', currency: 'EUR', members: [] });
+      setup({ activeTrips: [trip], tripExpenses: { t1: [] }, archivableTripIds: new Set(['t1']) });
+      mockConfirm.mockResolvedValue(true);
+
+      render();
+      fireEvent.press(screen.getByLabelText('Ready to archive — tap to close'));
+
+      expect(mockConfirm).toHaveBeenCalledWith('Close this trip?', expect.any(String), 'Close trip');
+      await Promise.resolve();
+      expect(mockCloseTrip).toHaveBeenCalledTimes(1);
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('does not close the trip when the archive confirmation is declined', async () => {
+      const trip = tripFactory({ id: 't1', name: 'Ski Trip', groupId: 'g1', currency: 'EUR', members: [] });
+      setup({ activeTrips: [trip], tripExpenses: { t1: [] }, archivableTripIds: new Set(['t1']) });
+      mockConfirm.mockResolvedValue(false);
+
+      render();
+      fireEvent.press(screen.getByLabelText('Ready to archive — tap to close'));
+
+      await Promise.resolve();
+      expect(mockCloseTrip).not.toHaveBeenCalled();
     });
   });
 

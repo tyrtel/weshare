@@ -40,10 +40,14 @@ export default function GroupAddMemberScreen() {
 
   const [localMembers,  setLocalMembers]  = useState<GroupMember[]>([]);
 
-  // Sync from store on first load
-  React.useEffect(() => {
+  // Sync from store on first load — during render rather than in an effect,
+  // keyed on group.id so a re-fetch that returns the same group with a new
+  // object identity doesn't clobber locally-added members.
+  const [prevGroupId, setPrevGroupId] = useState(group?.id);
+  if (group?.id !== prevGroupId) {
+    setPrevGroupId(group?.id);
     if (group) setLocalMembers(group.members);
-  }, [group?.id]);
+  }
 
   const handleAdded = useCallback((member: GroupMember) => {
     setLocalMembers(prev => [...prev, member]);

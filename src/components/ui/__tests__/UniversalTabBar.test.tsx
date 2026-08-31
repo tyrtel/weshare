@@ -14,9 +14,6 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { UniversalTabBar } from '../UniversalTabBar';
 
-const ACTIVE_TINT   = '#1D9E75';
-const INACTIVE_TINT = '#5a5a7a';
-
 function renderBar(pathname: string) {
   mockPathname = pathname;
   return render(<UniversalTabBar />);

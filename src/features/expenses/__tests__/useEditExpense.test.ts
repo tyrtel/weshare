@@ -15,7 +15,6 @@ function makeWrapper(container: ServiceContainer) {
   };
 }
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 function makeInput(overrides: Partial<AddExpenseInput> = {}): AddExpenseInput {
   return {

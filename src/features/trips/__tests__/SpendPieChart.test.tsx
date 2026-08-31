@@ -1,11 +1,9 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { SpendPieChart } from '../components/SpendPieChart';
-import type { Expense } from '../../../core/models/Expense';
 import type { TripMember } from '../../../core/models/TripMember';
 import { memberFactory, expenseFactory } from '../../../__testUtils__/factories';
 
-const NOW = new Date('2025-06-01T12:00:00Z');
 
 const MEMBERS: TripMember[] = [
   memberFactory({ userId: 'u1', displayName: 'Alice' }),

@@ -7,7 +7,7 @@ import { useSettlement } from '../hooks/useSettlement';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import {
-  TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO, TRIP_STORE, STRIPE,
+  TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO, TRIP_STORE,
 } from '../../../core/di/tokens';
 import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
 import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepository';

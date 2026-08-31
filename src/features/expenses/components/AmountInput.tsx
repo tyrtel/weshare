@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { TextInput, View, Text as RNText, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../../../theme/colors';
@@ -49,9 +49,15 @@ export function AmountInput({
 
   // Only sync external amountCents changes (e.g. equal-split recalculation) when
   // the field is not focused — otherwise we'd reformat the string mid-typing.
-  useEffect(() => {
-    if (!focused) setDisplayValue(minorUnitsToDisplay(amountCents, multiplier));
-  }, [amountCents, focused, multiplier]);
+  // Adjusted during render rather than in an effect so the stale value never
+  // flashes for a frame first.
+  const [prevAmountCents, setPrevAmountCents] = useState(amountCents);
+  const [prevMultiplier, setPrevMultiplier] = useState(multiplier);
+  if (!focused && (amountCents !== prevAmountCents || multiplier !== prevMultiplier)) {
+    setPrevAmountCents(amountCents);
+    setPrevMultiplier(multiplier);
+    setDisplayValue(minorUnitsToDisplay(amountCents, multiplier));
+  }
 
   const handleFocus = () => {
     setFocused(true);
@@ -70,10 +76,14 @@ export function AmountInput({
     onChangeCents(displayToMinorUnits(text, multiplier));
   };
 
+  // Every text/TextInput style below sets an explicit lineHeight, comfortably
+  // larger than fontSize — left to the platform default it runs tight enough
+  // to clip the top/bottom of digits on some devices. Matches the ratio the
+  // shared typography scale uses (src/theme/typography.ts).
   if (compact) {
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
-        <RNText style={{ color: colors.text.primary, fontSize: tokens.fontSize.md, marginRight: 2 }}>
+        <RNText style={{ color: colors.text.primary, fontSize: tokens.fontSize.md, lineHeight: 22, marginRight: 2 }}>
           {currency}
         </RNText>
         <TextInput
@@ -84,7 +94,7 @@ export function AmountInput({
           keyboardType={multiplier === 1 ? 'number-pad' : 'decimal-pad'}
           editable={!readOnly}
           accessibilityLabel={label ?? t('expenses.form.amount_accessibility')}
-          style={{ color: colors.text.primary, fontSize: tokens.fontSize.md, padding: 0, minWidth: 50, textAlign: 'right' }}
+          style={{ color: colors.text.primary, fontSize: tokens.fontSize.md, lineHeight: 22, paddingHorizontal: 2, paddingVertical: 0, minWidth: 50, textAlign: 'right' }}
         />
       </View>
     );
@@ -99,6 +109,7 @@ export function AmountInput({
           style={{
             color: colors.text.secondary,
             fontSize: tokens.fontSize.sm,
+            lineHeight: 18,
             marginBottom: tokens.spacing.xs,
           }}
         >
@@ -133,13 +144,13 @@ export function AmountInput({
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <RNText style={{ color: currencyColor, fontSize: tokens.fontSize.sm, fontWeight: '600' }}>
+            <RNText style={{ color: currencyColor, fontSize: tokens.fontSize.sm, lineHeight: 18, fontWeight: '600' }}>
               {currency}
             </RNText>
             <Ionicons name="chevron-down" size={11} color={currencyColor} style={{ marginLeft: 2 }} />
           </Pressable>
         ) : (
-          <RNText style={{ color: colors.text.secondary, marginRight: tokens.spacing.xs }}>
+          <RNText style={{ color: colors.text.secondary, lineHeight: 22, marginRight: tokens.spacing.xs }}>
             {currency}
           </RNText>
         )}
@@ -155,7 +166,9 @@ export function AmountInput({
             flex: 1,
             color: readOnly ? colors.text.secondary : colors.text.primary,
             fontSize: tokens.fontSize.md,
-            padding: 0,
+            lineHeight: 22,
+            paddingHorizontal: 2,
+            paddingVertical: 0,
           }}
         />
       </View>

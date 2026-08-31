@@ -7,44 +7,13 @@ import { SupabaseTripRepository } from '../supabase/SupabaseTripRepository';
 import { SupabaseSplitRepository } from '../supabase/SupabaseSplitRepository';
 import { SupabaseExpenseRepository } from '../supabase/SupabaseExpenseRepository';
 import { SupabaseMemberRepository } from '../supabase/SupabaseMemberRepository';
+import { mockChain } from '../../__testUtils__/supabaseMockChain';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const { supabase } = require('../supabase/supabaseClient') as {
   supabase: { from: jest.Mock };
 };
-
-/**
- * Build a chainable Supabase query mock that resolves with `result` at the end.
- * Every method in the chain returns `this` except the terminal call which
- * returns a Promise.
- */
-function mockChain(result: { data: unknown; error: null | { message: string; code?: string } }) {
-  const terminal = jest.fn().mockResolvedValue(result);
-  const chain: Record<string, unknown> = {};
-  const proxy = new Proxy(chain, {
-    get(_target, prop: string) {
-      if (prop === 'then' || prop === 'catch' || prop === 'finally') {
-        return terminal().then.bind(terminal());
-      }
-      if (['single', 'maybeSingle'].includes(prop)) return terminal;
-      return () => proxy;
-    },
-  });
-
-  // Also allow awaiting the chain itself (for non-.single() calls like .select())
-  const asyncChain = new Proxy(chain, {
-    get(_target, prop: string) {
-      if (prop === 'then') return (res: unknown, rej: unknown) => terminal().then(res, rej);
-      if (prop === 'catch') return (fn: unknown) => terminal().catch(fn);
-      if (prop === 'finally') return (fn: unknown) => terminal().finally(fn);
-      if (['single', 'maybeSingle'].includes(prop)) return terminal;
-      return () => asyncChain;
-    },
-  });
-
-  return asyncChain;
-}
 
 // ── SupabaseTripRepository — row mapping ──────────────────────────────────────
 

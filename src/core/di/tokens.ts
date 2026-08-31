@@ -20,6 +20,7 @@ import type { IGroupRepository } from '../interfaces/IGroupRepository';
 import type { IRecurringExpenseRepository } from '../interfaces/IRecurringExpenseRepository';
 import type { INotificationService } from '../interfaces/INotificationService';
 import type { IReportService } from '../interfaces/IReportService';
+import type { IEntitlementService } from '../interfaces/IEntitlementService';
 
 export const TRIP_REPO          = createToken<ITripRepository>('ITripRepository');
 export const MEMBER_REPO        = createToken<IMemberRepository>('IMemberRepository');
@@ -42,3 +43,4 @@ export const GROUP_REPO              = createToken<IGroupRepository>('IGroupRepo
 export const RECURRING_EXPENSE_REPO  = createToken<IRecurringExpenseRepository>('IRecurringExpenseRepository');
 export const NOTIFICATION_SERVICE    = createToken<INotificationService>('INotificationService');
 export const REPORT_SERVICE          = createToken<IReportService>('IReportService');
+export const ENTITLEMENT             = createToken<IEntitlementService>('IEntitlementService');

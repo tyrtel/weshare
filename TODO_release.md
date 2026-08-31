@@ -196,9 +196,40 @@ All written copy is in `store-assets/play-store-metadata.md`:
 - [x] Placeholder assets added (assets/icon.png, adaptive-icon.png, splash.png, favicon.png)
 - [x] metro.config.js added — all expo doctor checks pass
 - [x] First Android production build completed successfully
+- [x] **Found and fixed a build-breaking regression** (2026-08-31, this session): `app.config.ts`'s plugin list still had `'expo-sqlite'` after `expo-sqlite` was removed from `package.json` in an unrelated dead-dependency cleanup — `npx expo config` (and therefore any EAS build) failed outright with `PluginError: Failed to resolve plugin for module "expo-sqlite"`. Removed the stale plugin entry; `npx expo config --type public` resolves cleanly again.
 - [x] Download the `.aab` from EAS dashboard and upload to Google Play Console → Internal testing track
 - [x] Register app SHA-1 fingerprint in Google Cloud Console (get from EAS keystore after upload)
 - [ ] Run iOS build when ready for Phase 3: `eas build --platform ios --profile production`
+
+### Android Developer Verification (Google email, received 2026-08-31) 🔴 TIME-SENSITIVE — deadline 2026-09-30
+
+This is Google's new ecosystem-wide **Android Developer Verification** program
+(distinct from Play App Signing above) — by 2026-09-30, every app installable
+on a certified Android device needs a verified developer identity + a
+registered signing key, regardless of distribution channel. Google's email
+had three action bullets; only the first applies here:
+
+- [ ] **Register the Play app (the one that matters)** — log into Play
+      Console → Home page, find `com.ouishare.app`, check the package-name
+      registration status shown next to it.
+      - Google states they've **auto-registered >99% of apps that use Play
+        signing keys** — since this app's AAB is signed via EAS's
+        Play-App-Signing-managed keystore (a standard setup), it's very
+        likely already auto-registered.
+      - If Play Console shows it as registered: nothing further to do here.
+      - If it shows unregistered or a draft registration: finish that flow
+        directly in Play Console — it's developer identity verification
+        (legal name/address, government ID or business documents), which
+        only the account holder can complete, not something scriptable.
+- [x] ~~Register apps distributed outside Google Play~~ — **not applicable**.
+      ouiShare is Play-only (Internal Testing track today); revisit only if a
+      non-Play distribution channel (direct APK, another store) is ever added.
+- [x] ~~Add additional signing keys used outside Google Play~~ — **not
+      applicable**, same reasoning: single signing setup, no other channel.
+
+**Next step:** check the Play Console Home page status and report back —
+if it needs the identity-verification flow, that's a one-time account-level
+task with no code changes, so it can be closed out independent of any build.
 
 ---
 
@@ -338,3 +369,41 @@ Supabase's built-in shared SMTP caps at **2 emails per hour**. Resend has a free
   - [x] Audit all user-facing strings and list them as keys in `en.json` — zero key-parity drift between `en.json`/`fr.json` confirmed, ~41 hardcoded strings found and wired through `t()`
   - [x] Produce French translations for all keys in `fr.json`
   - [ ] Verify French copy with a native speaker or translation service — machine/AI-drafted FR text, not yet reviewed by a native speaker
+
+---
+
+## 12 — Payment Infra: Full E2E Testing 🟡 UNIT DONE — INTEGRATION DEFERRED
+
+Follows from the 2026-07-18 production-readiness audit, which found the Stripe/Open
+Banking/deep-link payment code had zero dedicated tests.
+
+- [x] **Unit tests** — `src/infrastructure/payment/*` (Stripe/Open Banking/deep-link
+  `IPaymentMethod` adapters) and `src/infrastructure/services/StripeService.ts` /
+  `OpenBankingService.ts` (the actual network-boundary implementations). Covers
+  checkout-session creation, request/status mapping, the create→request_sent
+  two-step write in the deep-link flow, and every error-shape branch (context body,
+  bare `error.message`, empty response, non-2xx, thrown fetch). 25 new tests, all
+  passing (`src/infrastructure/__tests__/paymentMethods.test.ts`,
+  `StripeService.test.ts`, `OpenBankingService.test.ts`).
+- [ ] **Deno unit tests for the Edge Functions** — `stripe-webhook`, `ob-webhook`,
+  `create-payment-link`, `ob-initiate`, `ob-status`, `payment-status` run on Deno,
+  not Jest, and have zero tests today. Needs a small refactor first: pull each
+  handler's signature-verification and event→`SplitRequestStatus` mapping out into
+  a plain exported function separate from the `Deno.serve(...)` entrypoint, then
+  add `deno test` coverage for those pure pieces (mirrors the instinct behind
+  `supabase/__tests__/rlsPolicyRecursion.test.ts`'s static analysis of RLS). New
+  tooling for this repo — no `deno test` setup exists yet.
+- [ ] **Scripted webhook integration run** — formalize the manual §2 workflow
+  (`supabase functions serve` + `stripe listen --forward-to` +
+  `stripe trigger checkout.session.completed`, confirm the `split_requests` row
+  updates) into a checked-in script, e.g. `scripts/test-stripe-webhook.sh`, so it's
+  a repeatable regression check rather than a one-time manual verification. Same
+  idea for Tink once sandbox credentials exist (see §11 Tink `BankSelectorSheet`
+  item above — currently blocked on that).
+- [ ] **Full mobile E2E** (tap "pay" → real Stripe Checkout / bank auth screen →
+  deep-link back → status updates in-app) — would need Detox or Maestro, neither
+  of which exists in this repo. Real infra investment (dev-client build, device/
+  simulator wiring, driving an external checkout page from the test). Defer until
+  there's a concrete reason to believe Tiers above aren't catching regressions —
+  the physical-device pass in §9 already exercises this path manually once per
+  release.

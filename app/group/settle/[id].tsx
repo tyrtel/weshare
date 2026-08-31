@@ -8,11 +8,13 @@ import { TAB_BAR_HEIGHT } from '../../../src/components/ui/UniversalTabBar';
 import { Text } from '../../../src/components/ui/Text';
 import { Card } from '../../../src/components/ui/Card';
 import { Avatar } from '../../../src/components/ui';
+import { Badge } from '../../../src/components/ui/Badge';
 import { ErrorBanner } from '../../../src/components/ui/ErrorBanner';
 import { RecordPaymentSheet } from '../../../src/features/settlement/components/RecordPaymentSheet';
 import { useGroupDetail } from '../../../src/features/groups/hooks/useGroupDetail';
 import { useSettleAllGroupDebts } from '../../../src/features/groups/hooks/useSettleAllGroupDebts';
 import { useService } from '../../../src/core/di/ServiceContext';
+import { confirm } from '../../../src/core/utils/confirm';
 import { PAYMENT } from '../../../src/core/di/tokens';
 import { useColors } from '../../../src/theme/colors';
 import { personColors } from '../../../src/theme/colors';
@@ -23,8 +25,8 @@ import type { Settlement } from '../../../src/core/models/Settlement';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 type ActivityItem =
-  | { kind: 'expense'; id: string; date: Date; label: string; amountCents: number; currency: string }
-  | { kind: 'trip'; id: string; date: Date; label: string };
+  | { kind: 'expense'; id: string; date: Date; label: string; amountCents: number; currency: string; closed: boolean }
+  | { kind: 'trip'; id: string; date: Date; label: string; closed: boolean };
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -41,23 +43,46 @@ export default function GroupSettlementScreen() {
 
   const {
     group, settlements, memberBalances, recordPayment, recording,
-    activeTrips, activeExpenses, completedPayments,
+    groupTrips, groupExpenses, tripExpenses, completedPayments,
   } = useGroupDetail(id);
   const { settleAll, loading, error }          = useSettleAllGroupDebts(id, settlements);
   const [recordTarget, setRecordTarget] = useState<Settlement | null>(null);
+  // Captured once per mount rather than read live inside the memo below —
+  // Date.now() is impure and React may re-invoke render functions.
+  const [now] = useState(() => Date.now());
 
+  // Includes both open and closed items (see ActivityItem.closed) — closing
+  // something is itself a recent event worth surfacing here, not just its
+  // creation. A trip's activity date is the latest of its own creation, its
+  // most recent expense, and when it was closed.
   const recentActivity = useMemo<ActivityItem[]>(() => {
-    const cutoff = Date.now() - THIRTY_DAYS_MS;
-    const expenseItems: ActivityItem[] = activeExpenses
-      .filter(e => e.createdAt.getTime() >= cutoff)
-      .map(e => ({ kind: 'expense', id: e.id, date: e.createdAt, label: e.description, amountCents: e.totalAmountCents, currency: e.currency }));
-    const tripItems: ActivityItem[] = activeTrips
-      .filter(tr => tr.createdAt.getTime() >= cutoff)
-      .map(tr => ({ kind: 'trip', id: tr.id, date: tr.createdAt, label: tr.name }));
+    const cutoff = now - THIRTY_DAYS_MS;
+
+    const expenseItems: ActivityItem[] = groupExpenses
+      .map(e => ({
+        kind: 'expense' as const,
+        id: e.id,
+        date: e.settledAt && e.settledAt.getTime() > e.createdAt.getTime() ? e.settledAt : e.createdAt,
+        label: e.description,
+        amountCents: e.totalAmountCents,
+        currency: e.currency,
+        closed: !!e.settledAt,
+      }))
+      .filter(item => item.date.getTime() >= cutoff);
+
+    const tripItems: ActivityItem[] = groupTrips
+      .map(tr => {
+        const expenseDates = (tripExpenses[tr.id] ?? []).map(e => e.createdAt.getTime());
+        const closedMs = tr.status === 'closed' && tr.closedAt ? tr.closedAt.getTime() : 0;
+        const latestMs = Math.max(tr.createdAt.getTime(), closedMs, ...expenseDates);
+        return { kind: 'trip' as const, id: tr.id, date: new Date(latestMs), label: tr.name, closed: tr.status === 'closed' };
+      })
+      .filter(item => item.date.getTime() >= cutoff);
+
     return [...expenseItems, ...tripItems]
       .sort((a, b) => b.date.getTime() - a.date.getTime())
       .slice(0, 5);
-  }, [activeExpenses, activeTrips]);
+  }, [now, groupExpenses, groupTrips, tripExpenses]);
 
   const paymentHistory = useMemo(
     () => [...completedPayments].sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0)),
@@ -80,21 +105,11 @@ export default function GroupSettlementScreen() {
   const hasDebts  = settlements.length > 0;
 
   const handleSettleAll = () => {
-    Alert.alert(
-      t('groups.settle.confirm_title'),
-      t('groups.settle.confirm_message'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text:  t('groups.settle.confirm_action'),
-          style: 'destructive',
-          onPress: async () => {
-            const ok = await settleAll();
-            if (ok) router.back();
-          },
-        },
-      ],
-    );
+    void confirm(t('groups.settle.confirm_title'), t('groups.settle.confirm_message'), t('groups.settle.confirm_action')).then(async confirmed => {
+      if (!confirmed) return;
+      const ok = await settleAll();
+      if (ok) router.back();
+    });
   };
 
   return (
@@ -297,17 +312,24 @@ export default function GroupSettlementScreen() {
                         <Ionicons
                           name={item.kind === 'expense' ? 'receipt-outline' : 'airplane-outline'}
                           size={18}
-                          color={colors.text.tertiary}
+                          color={item.closed ? colors.success.default : colors.text.tertiary}
                         />
                         <View style={{ flex: 1, marginLeft: tokens.spacing.sm }}>
-                          <Text variant="body">{item.label}</Text>
+                          <Text variant="body" style={item.closed ? { opacity: 0.6 } : undefined}>{item.label}</Text>
                           <Text variant="caption" color={colors.text.tertiary} style={{ marginTop: 2 }}>
                             {item.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                           </Text>
                         </View>
-                        {item.kind === 'expense' && (
-                          <Text variant="label">{formatCurrency(item.amountCents, item.currency)}</Text>
-                        )}
+                        <View style={{ alignItems: 'flex-end', gap: tokens.spacing.xs }}>
+                          {item.kind === 'expense' && (
+                            <Text variant="label" color={item.closed ? colors.text.tertiary : colors.text.primary}>
+                              {formatCurrency(item.amountCents, item.currency)}
+                            </Text>
+                          )}
+                          {item.closed && (
+                            <Badge label={t('groups.settle.closed_badge')} bg={colors.success.bg} color={colors.success.default} />
+                          )}
+                        </View>
                       </Pressable>
                     </View>
                   ))}

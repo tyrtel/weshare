@@ -98,7 +98,7 @@ function RolloverScreenContent({ tripId }: { tripId: string }) {
         <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
       </Pressable>
     ),
-  }), [handleBack, colors.text.primary]);
+  }), [handleBack, colors.text.primary, t]);
 
   return (
     <ScreenWrapper>

@@ -6,9 +6,7 @@ import { InMemorySplitRequestRepository } from '../../__mocks__/InMemorySplitReq
 import { InMemoryGroupRepository } from '../../__mocks__/InMemoryGroupRepository';
 import { createTripSessionStore } from '../tripSessionStore';
 import type { TripSessionStoreApi } from '../tripSessionStore';
-import { groupFactory, groupMemberFactory, expenseFactory } from '../../__testUtils__/factories';
-
-const NOW = new Date('2026-01-01T00:00:00.000Z');
+import { groupFactory, expenseFactory } from '../../__testUtils__/factories';
 
 function makeStore(groupRepo?: InMemoryGroupRepository, expenseRepo?: InMemoryExpenseRepository): TripSessionStoreApi {
   return createTripSessionStore({

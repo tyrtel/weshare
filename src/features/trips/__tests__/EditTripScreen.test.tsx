@@ -1,15 +1,16 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { mockExpoRouterModule, mockVectorIconsModule } from '../../../__testUtils__/standardMocks';
 
 jest.mock('@expo/vector-icons', () => mockVectorIconsModule());
 jest.mock('expo-router', () => mockExpoRouterModule());
 jest.mock('../hooks/useTripDetail', () => ({ useTripDetail: jest.fn() }));
+jest.mock('../../../core/utils/confirm', () => ({ confirm: jest.fn(() => Promise.resolve(false)) }));
 
 import { EditTripScreen } from '../screens/EditTripScreen';
 import { useTripDetail } from '../hooks/useTripDetail';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { confirm } from '../../../core/utils/confirm';
 import { renderScreen } from '../../../__testUtils__/renderScreen';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { TRIP_REPO, TRIP_STORE, AUTH } from '../../../core/di/tokens';
@@ -17,6 +18,7 @@ import { tripFactory } from '../../../__testUtils__/factories';
 
 const mockUseTripDetail = useTripDetail as jest.Mock;
 const mockParams        = useLocalSearchParams as jest.Mock;
+const mockConfirm       = confirm as jest.Mock;
 
 const OWNER_EMAIL = 'owner@example.com';
 
@@ -104,11 +106,7 @@ describe('EditTripScreen', () => {
       await container.resolve(TRIP_REPO).saveTrip(trip);
       container.resolve(TRIP_STORE).getState().appendTrip(trip);
       mockUseTripDetail.mockReturnValue({ trip, loading: false });
-
-      // handleDelete's Alert.alert buttons are [cancel, delete] — press index 1.
-      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-        buttons?.[1]?.onPress?.();
-      });
+      mockConfirm.mockResolvedValue(true);
 
       renderScreen(<EditTripScreen />, container);
       fireEvent.press(screen.getByText('Delete'));
@@ -128,14 +126,12 @@ describe('EditTripScreen', () => {
       await container.resolve(TRIP_REPO).saveTrip(trip);
       container.resolve(TRIP_STORE).getState().appendTrip(trip);
       mockUseTripDetail.mockReturnValue({ trip, loading: false });
-
-      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-        buttons?.[0]?.onPress?.();
-      });
+      mockConfirm.mockResolvedValue(false);
 
       renderScreen(<EditTripScreen />, container);
       fireEvent.press(screen.getByText('Delete'));
 
+      await Promise.resolve();
       const stored = await container.resolve(TRIP_REPO).getTrip('t1');
       expect(stored.ok).toBe(true);
     });

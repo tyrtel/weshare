@@ -1,8 +1,6 @@
 import { matchParticipants } from '../participantMatcher';
-import type { TripMember } from '../../models/TripMember';
 import { memberFactory } from '../../../__testUtils__/factories';
 
-const NOW = new Date('2025-01-01');
 
 // ── userId matching ───────────────────────────────────────────────────────────
 

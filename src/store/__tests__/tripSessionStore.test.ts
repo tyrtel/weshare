@@ -533,6 +533,19 @@ describe('replaceExpense', () => {
     store.getState().replaceExpense(renamed);
     expect(store.getState().expenses['t1'][0].description).toBe('Lunch');
   });
+
+  it('routes to the group expenses bucket for a group expense, not the trip bucket', () => {
+    const store = makeStore();
+    const groupExpense: Expense = { ...expense, tripId: undefined, groupId: 'g1' };
+    store.getState().appendGroupExpense(groupExpense);
+
+    const renamed = { ...groupExpense, description: 'Renamed' };
+    store.getState().replaceExpense(renamed);
+
+    expect(store.getState().groupExpenses['g1']?.[0]?.description).toBe('Renamed');
+    // Never touches the trip expenses slice for a group expense.
+    expect(store.getState().expenses['t1']).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

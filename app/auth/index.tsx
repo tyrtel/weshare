@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useService } from '../../src/core/di/ServiceContext';
 import { AUTH } from '../../src/core/di/tokens';
 import { isOk } from '../../src/core/types/Result';
+import { getErrorMessage } from '../../src/core/types/AppError';
 import { Text } from '../../src/components/ui/Text';
 import { useTranslation } from 'react-i18next';
 import { useColors } from '../../src/theme/colors';
@@ -47,7 +48,7 @@ export default function SignInScreen() {
     const result = await auth.signIn(email.trim(), password);
     setBusy(null);
     if (!isOk(result)) {
-      setError(result.error.message);
+      setError(getErrorMessage(result.error));
     } else {
       router.replace('/' as Parameters<typeof router.replace>[0]);
     }
@@ -59,7 +60,7 @@ export default function SignInScreen() {
     const result = await auth.signInWithGoogle();
     setBusy(null);
     if (!isOk(result)) {
-      const msg = result.error.message;
+      const msg = getErrorMessage(result.error);
       if (!msg.includes('SIGN_IN_CANCELLED') && !msg.includes('PLAY_SERVICES_NOT_AVAILABLE')) {
         setError(msg);
       }
@@ -74,7 +75,7 @@ export default function SignInScreen() {
     const result = await auth.signInWithApple();
     setBusy(null);
     if (!isOk(result)) {
-      const msg = result.error.message;
+      const msg = getErrorMessage(result.error);
       if (!msg.includes('ERR_CANCELED')) setError(msg);
     } else {
       router.replace('/' as Parameters<typeof router.replace>[0]);
@@ -98,6 +99,7 @@ export default function SignInScreen() {
         {/* Branding */}
         <View style={styles.brandSection}>
           <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             source={require('../../assets/icon.png')}
             style={[styles.logoPlaceholder, { backgroundColor: colors.surface }]}
           />
