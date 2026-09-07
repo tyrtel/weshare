@@ -392,6 +392,23 @@ describe('ExpenseFormScreen — Itemized mode', () => {
     expect(screen.getByTestId('expense-amount-input')).toBeTruthy();
     expect(screen.queryByTestId('expense-itemized-total')).toBeNull();
   });
+
+  // Regression: reverting to a single amount reset totalAmountCents but left
+  // the old line items in place, so "Items" stayed offered in step 2 with
+  // stale data, and re-selecting it silently overrode the freshly typed total.
+  it('reverting to a single amount clears the previously entered items', async () => {
+    renderForm();
+    await fillDescription('Receipt');
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByText('Add item'));
+    fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '15');
+
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    await fillAmount('50');
+    await goToSplitStep();
+
+    expect(screen.queryByText('Items')).toBeNull();
+  });
 });
 
 // ── Two-step flow (add mode) ─────────────────────────────────────────────
@@ -468,6 +485,22 @@ describe('ExpenseFormScreen — Two-step flow (add mode)', () => {
     await fillAmount('60');
     await goToSplitStep();
     expect(screen.getAllByText('€20.00')).toHaveLength(3); // 60 / 3 members
+  });
+
+  // Regression: going straight to "Break into items" without ever typing a
+  // top amount left totalAmountCents at 0. Switching the step-2 tab away from
+  // "Itemized" then divided that stale 0 among members instead of the real
+  // itemized total, so Save looked enabled but silently failed validation.
+  it('switching from Itemized to Evenly after skipping the typed amount computes real shares, not zero', async () => {
+    renderForm();
+    await fillDescription('Receipt');
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByText('Add item'));
+    fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '30');
+    await goToSplitStep();
+
+    fireEvent.press(screen.getByText('Evenly'));
+    expect(screen.getAllByText('€10.00')).toHaveLength(3); // €30 / 3 members
   });
 
   it('paid-by and split-method selections survive a trip back to step 1 and forward again', async () => {
@@ -584,6 +617,25 @@ describe('ExpenseFormScreen — Save', () => {
     const saved = await repo.getExpensesForTrip('t1');
     expect(saved.ok).toBe(true);
     if (saved.ok) expect(saved.value[0].paidByUserId).toBe('u2');
+  });
+
+  // Regression: useAddExpense/useEditExpense/useCreateGroupExpense's `error`
+  // was computed and returned but never read by the screen, so any rejected
+  // save (repo failure, or a validation error the hook itself raises) left
+  // Save looking like it silently did nothing.
+  it('surfaces a save error instead of failing silently', async () => {
+    setupTripMode();
+    const { container } = renderForm();
+    container.resolve(EXPENSE_REPO).saveExpense = async () => { throw new Error('simulated failure'); };
+
+    await fillDescription('Dinner');
+    await fillAmount('100');
+    await goToSplitStep();
+
+    fireEvent.press(screen.getByText('Save expense'));
+    await waitFor(() => expect(screen.getByText('simulated failure')).toBeTruthy());
+    // Never navigated away, and the form is still there to retry.
+    expect(screen.getByText('Save expense')).toBeTruthy();
   });
 });
 
@@ -798,6 +850,25 @@ describe('ExpenseFormScreen — edit mode itemized restoration', () => {
     await waitFor(() => expect(screen.getByTestId('item-amount-input-li1').props.value).not.toBe(''));
     const shownValue = Number(screen.getByTestId('item-amount-input-li1').props.value);
     expect(shownValue).toBeGreaterThan(1000); // ~2000 JPY, not the ~12-cent EUR figure
+  });
+
+  // Regression: the top amount field was forced read-only whenever isItemized
+  // was true, with no check for edit vs. add mode — so editing an itemized
+  // expense left the user with no way to reconcile the "Unassigned" figure
+  // against the top total, and the field wasn't even pre-filled to begin with.
+  it('the top amount field is editable and pre-filled when editing an itemized expense', async () => {
+    setupEditMode({
+      totalAmountCents: 5000,
+      splits: [splitFactory({ id: 's1', userId: 'u1', amountOwedCents: 5000 })],
+      metadata: {
+        lineItems: [{ id: 'li1', description: 'Pizza', amountCents: 5000, assignedUserIds: ['u1'] }],
+      },
+    });
+    renderForm();
+
+    await waitFor(() => expect(screen.getByTestId('expense-amount-input')).toBeTruthy());
+    expect(screen.getByTestId('expense-amount-input').props.value).toBe('50.00');
+    expect(screen.queryByTestId('expense-itemized-total')).toBeNull();
   });
 });
 

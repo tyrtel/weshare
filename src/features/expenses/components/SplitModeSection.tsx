@@ -7,7 +7,7 @@ import { Segmented } from '../../../components/ui/Segmented';
 import { useColors, personColorFor } from '../../../theme/colors';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
 import { currencySymbol } from '../../../core/constants/currencies';
-import { makeExpenseFormStyles } from '../screens/expenseFormStyles';
+import type { ExpenseFormStyles } from '../screens/expenseFormStyles';
 import { useTranslation } from 'react-i18next';
 import type { TripMember } from '../../../core/models/TripMember';
 import type { SplitMode } from './SplitMemberRow';
@@ -40,15 +40,15 @@ interface SplitModeSectionProps {
   toMinorUnits: (majorValue: string, currency: string) => number;
   sanitizeAmountInput: (v: string) => string;
   description: string;
+  styles: ExpenseFormStyles;
 }
 
 export function SplitModeSection({
   modes, split, members, totalAmountCents, expenseCurrency, convertedLabel, itemsEditable,
-  exactRaw, setExactRaw, itemRaw, setItemRaw, fromMinorUnits, toMinorUnits, sanitizeAmountInput, description,
+  exactRaw, setExactRaw, itemRaw, setItemRaw, fromMinorUnits, toMinorUnits, sanitizeAmountInput, description, styles,
 }: SplitModeSectionProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const styles = makeExpenseFormStyles(colors);
 
   const assignedCents = split.splitEntries
     .filter(e => e.included && e.customAmountCents !== null)

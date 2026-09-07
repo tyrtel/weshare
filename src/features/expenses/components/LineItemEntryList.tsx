@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
 import { useColors } from '../../../theme/colors';
 import { currencySymbol } from '../../../core/constants/currencies';
-import { makeExpenseFormStyles } from '../screens/expenseFormStyles';
+import type { ExpenseFormStyles } from '../screens/expenseFormStyles';
 import { useTranslation } from 'react-i18next';
 import type { ExpenseLineItem } from '../../../core/models/Expense';
 
@@ -19,17 +19,17 @@ interface LineItemEntryListProps {
   fromMinorUnits: (minorUnits: number, currency: string) => string;
   toMinorUnits: (majorValue: string, currency: string) => number;
   sanitizeAmountInput: (v: string) => string;
+  styles: ExpenseFormStyles;
 }
 
 // Step-1-only item entry: description + amount per item, no member assignment
 // (that happens in step 2, once "Itemized" is chosen as the split method).
 export function LineItemEntryList({
   items, currency, itemRaw, setItemRaw, onUpdateItem, onRemoveItem, onAddItem,
-  fromMinorUnits, toMinorUnits, sanitizeAmountInput,
+  fromMinorUnits, toMinorUnits, sanitizeAmountInput, styles,
 }: LineItemEntryListProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const styles = makeExpenseFormStyles(colors);
 
   return (
     <View style={styles.card}>

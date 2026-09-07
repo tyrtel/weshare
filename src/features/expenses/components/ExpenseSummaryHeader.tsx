@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { Text } from '../../../components/ui/Text';
 import { useColors } from '../../../theme/colors';
 import { formatCurrency } from '../../../core/utils/formatCurrency';
-import { makeExpenseFormStyles } from '../screens/expenseFormStyles';
+import type { ExpenseFormStyles } from '../screens/expenseFormStyles';
 import { useTranslation } from 'react-i18next';
 
 interface ExpenseSummaryHeaderProps {
@@ -13,15 +13,15 @@ interface ExpenseSummaryHeaderProps {
   currency: string;
   itemCount: number;
   onPress: () => void;
+  styles: ExpenseFormStyles;
 }
 
 // Add-flow, step 2 only: a compact, read-only recap of what was entered on
 // step 1 — the editable amount card is gone from this step, so this is the
 // only place the total/name are still visible. Tapping it goes back to step 1.
-export function ExpenseSummaryHeader({ description, totalAmountCents, currency, itemCount, onPress }: ExpenseSummaryHeaderProps) {
+export function ExpenseSummaryHeader({ description, totalAmountCents, currency, itemCount, onPress, styles }: ExpenseSummaryHeaderProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const styles = makeExpenseFormStyles(colors);
 
   return (
     <Pressable

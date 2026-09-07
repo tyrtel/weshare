@@ -3,7 +3,7 @@ import { View, Pressable } from 'react-native';
 import { Text } from '../../../components/ui/Text';
 import { Avatar } from '../../../components/ui/Avatar';
 import { useColors, personColorFor } from '../../../theme/colors';
-import { makeExpenseFormStyles } from '../screens/expenseFormStyles';
+import type { ExpenseFormStyles } from '../screens/expenseFormStyles';
 import { useTranslation } from 'react-i18next';
 import type { TripMember } from '../../../core/models/TripMember';
 
@@ -14,12 +14,12 @@ interface PayerPickerProps {
   // Disambiguating first-name labels for members sharing a first initial —
   // see initialCollisionLabels in ExpenseFormScreen.
   labels: Record<string, string>;
+  styles: ExpenseFormStyles;
 }
 
-export function PayerPicker({ members, paidByUserId, onSelect, labels }: PayerPickerProps) {
+export function PayerPicker({ members, paidByUserId, onSelect, labels, styles }: PayerPickerProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const styles = makeExpenseFormStyles(colors);
 
   return (
     <>

@@ -37,6 +37,7 @@ import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColors } from '../../../theme/colors';
 import { HeaderConfirmButton } from '../../../components/ui/HeaderConfirmButton';
+import { ErrorBanner } from '../../../components/ui/ErrorBanner';
 import { makeExpenseFormStyles } from './expenseFormStyles';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -186,11 +187,12 @@ export function ExpenseFormScreen() {
 
   // ── Save hooks (always called; only one fires per submit) ─────────────────────
 
-  const { addExpense,         loading: addLoading   } = useAddExpense(resolvedTripId);
-  const { createGroupExpense, loading: groupLoading } = useCreateGroupExpense(groupId ?? '');
-  const { editExpense,        loading: editLoading  } = useEditExpense();
+  const { addExpense,         loading: addLoading,   error: addError   } = useAddExpense(resolvedTripId);
+  const { createGroupExpense, loading: groupLoading, error: groupError } = useCreateGroupExpense(groupId ?? '');
+  const { editExpense,        loading: editLoading,  error: editError  } = useEditExpense();
 
-  const saving = mode === 'edit' ? editLoading : isGroupMode ? groupLoading : addLoading;
+  const saving   = mode === 'edit' ? editLoading : isGroupMode ? groupLoading : addLoading;
+  const saveError = mode === 'edit' ? editError : isGroupMode ? groupError : addError;
 
   // ── Unified members + currency ────────────────────────────────────────────────
 
@@ -235,9 +237,12 @@ export function ExpenseFormScreen() {
       setEntryCurrency(lastForeign ?? trip.currency);
       setInitialised(true);
     } else if (mode === 'edit' && expense && (isGroupMode ? group : trip)) {
+      const initialAmountCents = expense.metadata.originalAmount?.amountCents ?? expense.totalAmountCents;
+      const initialCurrency    = expense.metadata.originalAmount?.currency ?? contextCurrency;
       setDescription(expense.description);
-      setTotalAmountCents(expense.metadata.originalAmount?.amountCents ?? expense.totalAmountCents);
-      setEntryCurrency(expense.metadata.originalAmount?.currency ?? contextCurrency);
+      setTotalAmountCents(initialAmountCents);
+      setEntryCurrency(initialCurrency);
+      setRawAmount(fromMinorUnits(initialAmountCents, initialCurrency));
       setCategory(expense.metadata.category);
       setPaidByUserId(expense.paidByUserId);
       setReceiptPath(expense.metadata.receiptUrl);
@@ -342,11 +347,21 @@ export function ExpenseFormScreen() {
   const handleToggleItemized = () => {
     if (isItemized) {
       split.handleSetMode('custom');
+      split.clearLineItems();
       setRawAmount('');
       setTotalAmountCents(0);
     } else {
       split.handleSetMode('itemized');
     }
+  };
+
+  // Step 1 -> step 2: items are read-only recap from here on (add mode), so
+  // this is the last moment totalAmountCents can pick up an itemized total —
+  // without it, switching the split-mode tab away from "Itemized" in step 2
+  // would divide a stale/zero totalAmountCents instead of what was entered.
+  const handleContinue = () => {
+    if (isItemized) setTotalAmountCents(split.itemizedTotal);
+    setStep('split');
   };
 
   const handleSubmit = async () => {
@@ -495,7 +510,7 @@ export function ExpenseFormScreen() {
             {mode === 'add' && step === 'details' ? (
               <HeaderConfirmButton
                 testID="expense-continue-button"
-                onPress={() => setStep('split')}
+                onPress={handleContinue}
                 disabled={!detailsValid}
                 loading={false}
                 icon="arrow-forward"
@@ -528,7 +543,7 @@ export function ExpenseFormScreen() {
 
               <ExpenseAmountCard
                 currency={expenseCurrency}
-                amount={isItemized
+                amount={isItemized && mode === 'add'
                   ? { editable: false, totalCents: split.itemizedTotal }
                   : { editable: true, rawAmount, onChangeAmount: handleAmountChange }}
                 onPressCurrency={() => setCurrencyDropVisible(true)}
@@ -539,6 +554,7 @@ export function ExpenseFormScreen() {
                 entryCurrency={entryCurrency}
                 contextCurrency={contextCurrency}
                 convertedCents={convertedCents}
+                styles={addStyles}
               />
 
               {mode === 'add' && (
@@ -566,6 +582,7 @@ export function ExpenseFormScreen() {
                   fromMinorUnits={fromMinorUnits}
                   toMinorUnits={toMinorUnits}
                   sanitizeAmountInput={sanitizeAmountInput}
+                  styles={addStyles}
                 />
               )}
             </>
@@ -580,6 +597,7 @@ export function ExpenseFormScreen() {
                   currency={expenseCurrency}
                   itemCount={split.lineItems.length}
                   onPress={() => setStep('details')}
+                  styles={addStyles}
                 />
               )}
 
@@ -588,6 +606,7 @@ export function ExpenseFormScreen() {
                 paidByUserId={paidByUserId}
                 onSelect={setPaidByUserId}
                 labels={payerLabels}
+                styles={addStyles}
               />
 
               <SplitModeSection
@@ -606,7 +625,10 @@ export function ExpenseFormScreen() {
                 toMinorUnits={toMinorUnits}
                 sanitizeAmountInput={sanitizeAmountInput}
                 description={description}
+                styles={addStyles}
               />
+
+              <ErrorBanner error={saveError} fallback={t('expenses.form.error_save')} style={{ marginTop: 16 }} />
 
               <View style={{ height: 20 }} />
 

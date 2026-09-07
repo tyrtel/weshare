@@ -5,7 +5,7 @@ import { Text } from '../../../components/ui/Text';
 import { useColors } from '../../../theme/colors';
 import { currencySymbol } from '../../../core/constants/currencies';
 import { formatCurrency, formatRate } from '../../../core/utils/formatCurrency';
-import { makeExpenseFormStyles } from '../screens/expenseFormStyles';
+import type { ExpenseFormStyles } from '../screens/expenseFormStyles';
 import { useTranslation } from 'react-i18next';
 import type { UseCurrencyRateReturn } from '../hooks/useCurrencyRate';
 
@@ -25,15 +25,15 @@ interface ExpenseAmountCardProps {
   entryCurrency: string;
   contextCurrency: string;
   convertedCents: number;
+  styles: ExpenseFormStyles;
 }
 
 export function ExpenseAmountCard({
   currency, amount, onPressCurrency, description, onChangeDescription,
-  isForeign, rate, entryCurrency, contextCurrency, convertedCents,
+  isForeign, rate, entryCurrency, contextCurrency, convertedCents, styles,
 }: ExpenseAmountCardProps) {
   const { t } = useTranslation();
   const colors = useColors();
-  const styles = makeExpenseFormStyles(colors);
 
   return (
     <View style={styles.card}>

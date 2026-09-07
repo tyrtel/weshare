@@ -46,6 +46,7 @@ export interface UseSplitFormReturn {
   addLineItem: () => void;
   updateLineItem: (id: string, changes: Partial<Pick<ExpenseLineItem, 'description' | 'amountCents'>>) => void;
   removeLineItem: (id: string) => void;
+  clearLineItems: () => void;
   toggleMemberInItem: (itemId: string, userId: string) => void;
   initFromParsed: (parsedItems: ParsedReceiptLineItem[], allMembers: TripMember[]) => void;
   rescaleForCurrency: (scale: number) => void;
@@ -199,6 +200,8 @@ export function useSplitForm({
     setLineItems(prev => prev.filter(item => item.id !== id));
   };
 
+  const clearLineItems = () => setLineItems([]);
+
   const toggleMemberInItem = (itemId: string, userId: string) => {
     setLineItems(prev => prev.map(item => {
       if (item.id !== itemId) return item;
@@ -253,6 +256,7 @@ export function useSplitForm({
     addLineItem,
     updateLineItem,
     removeLineItem,
+    clearLineItems,
     toggleMemberInItem,
     initFromParsed,
     rescaleForCurrency,
