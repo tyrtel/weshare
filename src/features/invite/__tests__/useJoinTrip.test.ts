@@ -7,6 +7,7 @@ import { TRIP_REPO, MEMBER_REPO, AUTH } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Trip } from '../../../core/models/Trip';
 import { tripFactory } from '../../../__testUtils__/factories';
+import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepository';
 
 function makeWrapper(container: ServiceContainer) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
@@ -152,5 +153,30 @@ describe('useJoinTrip — already a member', () => {
 
     expect(joined).not.toBeNull();
     expect(result.current.joinError).toBeNull();
+  });
+});
+
+// Regression coverage, same class of bug as useAddExpense/useEditExpense:
+// joinAuthenticated had no try/catch, so a thrown exception (a real network
+// failure, distinct from a repo returning Result.err) left `joining` stuck at
+// true forever and skipped the caller's post-join navigation entirely.
+describe('useJoinTrip — exception safety', () => {
+  it('resets joining and sets a NetworkError when addMember throws, instead of hanging forever', async () => {
+    const memberRepo = new InMemoryMemberRepository();
+    memberRepo.addMember = async () => { throw new Error('fetch failed'); };
+    const container = createTestContainer({ memberRepo });
+    await container.resolve(TRIP_REPO).saveTrip(tripFactory({ inviteToken: 'TESTTOKEN' }));
+    const auth = container.resolve(AUTH);
+    await auth.signIn('jay@example.com', 'password');
+
+    const { result } = renderHook(() => useJoinTrip('TESTTOKEN'), { wrapper: makeWrapper(container) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let joined: unknown = 'not-null';
+    await act(async () => { joined = await result.current.joinAuthenticated(); });
+
+    expect(joined).toBeNull();
+    expect(result.current.joining).toBe(false);
+    expect(result.current.joinError?.kind).toBe('NetworkError');
   });
 });

@@ -28,60 +28,67 @@ export function useEditExpense() {
       }
 
       setLoading(true);
+      try {
+        const updated: Expense = {
+          ...existing,
+          description:      input.description.trim(),
+          totalAmountCents: input.totalAmountCents,
+          currency:         input.currency,
+          paidByUserId:     input.paidByUserId,
+          metadata: {
+            category:       input.category,
+            receiptUrl:     input.receiptUrl,
+            lineItems:      input.lineItems,
+            originalAmount: input.originalAmount,
+          },
+        };
 
-      const updated: Expense = {
-        ...existing,
-        description:      input.description.trim(),
-        totalAmountCents: input.totalAmountCents,
-        currency:         input.currency,
-        paidByUserId:     input.paidByUserId,
-        metadata: {
-          category:       input.category,
-          receiptUrl:     input.receiptUrl,
-          lineItems:      input.lineItems,
-          originalAmount: input.originalAmount,
-        },
-      };
+        const expResult = await expenseRepo.updateExpense(updated);
+        if (!isOk(expResult)) {
+          setError(expResult.error);
+          return null;
+        }
 
-      const expResult = await expenseRepo.updateExpense(updated);
-      if (!isOk(expResult)) {
-        setError(expResult.error);
-        setLoading(false);
+        // Delete old splits, then save new ones.
+        const oldSplits = await splitRepo.getSplitsForExpense(existing.id);
+        if (isOk(oldSplits)) {
+          await Promise.all(oldSplits.value.map(s => splitRepo.deleteSplit(s.id)));
+        }
+
+        const splitResults = await Promise.all(
+          input.splits.map(s =>
+            splitRepo.saveSplit({
+              id: generateId(),
+              expenseId: existing.id,
+              userId: s.userId,
+              amountOwedCents: s.amountOwedCents,
+              amountPaidCents: 0,
+            }),
+          ),
+        );
+
+        const firstError = splitResults.find(r => !isOk(r));
+        if (firstError && !isOk(firstError)) {
+          setError(firstError.error);
+          return null;
+        }
+
+        // Use `updated` (not the server response) as the store base so the new
+        // paidByUserId and metadata are reflected immediately, regardless of what
+        // the DB echoes back.
+        const savedExpense = { ...updated, splits: splitResults.filter(isOk).map(r => r.value) };
+        storeApi.getState().replaceExpense(savedExpense);
+        return savedExpense;
+      } catch (e) {
+        // See useAddExpense's identical guard: an uncaught throw here (a real
+        // network failure, not an API error the repo already maps to
+        // Result.err) used to leave loading stuck true and never navigate
+        // the screen away.
+        setError({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' });
         return null;
-      }
-
-      // Delete old splits, then save new ones.
-      const oldSplits = await splitRepo.getSplitsForExpense(existing.id);
-      if (isOk(oldSplits)) {
-        await Promise.all(oldSplits.value.map(s => splitRepo.deleteSplit(s.id)));
-      }
-
-      const splitResults = await Promise.all(
-        input.splits.map(s =>
-          splitRepo.saveSplit({
-            id: generateId(),
-            expenseId: existing.id,
-            userId: s.userId,
-            amountOwedCents: s.amountOwedCents,
-            amountPaidCents: 0,
-          }),
-        ),
-      );
-
-      const firstError = splitResults.find(r => !isOk(r));
-      if (firstError && !isOk(firstError)) {
-        setError(firstError.error);
+      } finally {
         setLoading(false);
-        return null;
       }
-
-      // Use `updated` (not the server response) as the store base so the new
-      // paidByUserId and metadata are reflected immediately, regardless of what
-      // the DB echoes back.
-      const savedExpense = { ...updated, splits: splitResults.filter(isOk).map(r => r.value) };
-      storeApi.getState().replaceExpense(savedExpense);
-      setLoading(false);
-      return savedExpense;
     },
     [expenseRepo, splitRepo, storeApi],
   );

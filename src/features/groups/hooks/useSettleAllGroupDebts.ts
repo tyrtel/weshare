@@ -33,30 +33,39 @@ export function useSettleAllGroupDebts(groupId: string, settlements: Settlement[
     setLoading(true);
     setError(null);
 
-    const results = await Promise.all(
-      settlements.map(s => splitRequestRepo.saveSplitRequest(
-        createManualPaymentRequest({
-          groupId,
-          payerUserId:     s.fromUserId,
-          requesterUserId: s.toUserId,
-          amountCents:     s.amountCents,
-          currency:        s.currency,
-        }),
-      )),
-    );
+    try {
+      const results = await Promise.all(
+        settlements.map(s => splitRequestRepo.saveSplitRequest(
+          createManualPaymentRequest({
+            groupId,
+            payerUserId:     s.fromUserId,
+            requesterUserId: s.toUserId,
+            amountCents:     s.amountCents,
+            currency:        s.currency,
+          }),
+        )),
+      );
 
-    let firstError: AppError | null = null;
-    for (const result of results) {
-      if (isOk(result)) {
-        storeApi.getState().appendSplitRequest(result.value);
-      } else {
-        firstError ??= result.error;
+      let firstError: AppError | null = null;
+      for (const result of results) {
+        if (isOk(result)) {
+          storeApi.getState().appendSplitRequest(result.value);
+        } else {
+          firstError ??= result.error;
+        }
       }
-    }
 
-    setError(firstError);
-    setLoading(false);
-    return firstError === null;
+      setError(firstError);
+      return firstError === null;
+    } catch (e) {
+      // A thrown exception (a real network failure, distinct from a repo
+      // returning Result.err) used to propagate uncaught — loading never
+      // reset and the caller's post-save navigation never ran.
+      setError({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' });
+      return false;
+    } finally {
+      setLoading(false);
+    }
   }, [groupId, settlements, splitRequestRepo, storeApi]);
 
   return { settleAll, loading, error };

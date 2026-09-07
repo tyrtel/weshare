@@ -5,6 +5,7 @@ import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { GROUP_REPO, TRIP_STORE } from '../../../core/di/tokens';
 import { groupFactory } from '../../../__testUtils__/factories';
+import { InMemoryGroupRepository } from '../../../__mocks__/InMemoryGroupRepository';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 
 function makeWrapper(container: ServiceContainer) {
@@ -79,5 +80,25 @@ describe('useAddGroupMember', () => {
 
     expect(saved).toBeNull();
     expect(result.current.error?.kind).toBe('NotFoundError');
+  });
+
+  // Regression coverage, same class of bug as useAddExpense/useEditExpense:
+  // addMember had no try/catch, so a thrown exception (a real network
+  // failure, distinct from a repo returning Result.err) left `loading` stuck
+  // at true forever and skipped the caller's post-save navigation entirely.
+  it('resets loading and sets a NetworkError when addMember throws, instead of hanging forever', async () => {
+    const groupRepo = new InMemoryGroupRepository();
+    groupRepo.seed([groupFactory({ id: GROUP_ID, members: [] })]);
+    groupRepo.addMember = async () => { throw new Error('fetch failed'); };
+    const failingContainer = createTestContainer({ groupRepo });
+
+    const { result } = renderHook(() => useAddGroupMember(GROUP_ID), { wrapper: makeWrapper(failingContainer) });
+
+    let saved: unknown = 'not-null';
+    await act(async () => { saved = await result.current.addMember({ displayName: 'Eve' }); });
+
+    expect(saved).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error?.kind).toBe('NetworkError');
   });
 });

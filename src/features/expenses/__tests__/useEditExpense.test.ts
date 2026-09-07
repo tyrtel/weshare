@@ -8,6 +8,8 @@ import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Expense } from '../../../core/models/Expense';
 import type { AddExpenseInput } from '../hooks/useAddExpense';
 import { expenseFactory } from '../../../__testUtils__/factories';
+import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
+import { InMemorySplitRepository } from '../../../__mocks__/InMemorySplitRepository';
 
 function makeWrapper(container: ServiceContainer) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
@@ -174,5 +176,46 @@ describe('useEditExpense — storage error', () => {
 
     expect(updated).toBeNull();
     expect(result.current.error).not.toBeNull();
+  });
+});
+
+// ── Exception safety ──────────────────────────────────────────────────────────
+// Same class of bug as useAddExpense's identical guard: editExpense had no
+// try/catch, so a thrown exception (a real network failure, distinct from a
+// repo returning Result.err) left `loading` stuck at true forever and never
+// let the screen's post-save navigation run.
+
+describe('useEditExpense — exception safety', () => {
+  it('resets loading and sets a NetworkError when updateExpense throws, instead of hanging forever', async () => {
+    const expenseRepo = new InMemoryExpenseRepository();
+    await expenseRepo.saveExpense(expenseFactory());
+    expenseRepo.updateExpense = async () => { throw new Error('fetch failed'); };
+    const container = createTestContainer({ expenseRepo });
+
+    const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
+
+    let updated: unknown = 'not-null';
+    await act(async () => { updated = await result.current.editExpense(expenseFactory(), makeInput()); });
+
+    expect(updated).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error?.kind).toBe('NetworkError');
+  });
+
+  it('resets loading and sets a NetworkError when a split save throws after the expense already updated', async () => {
+    const expenseRepo = new InMemoryExpenseRepository();
+    await expenseRepo.saveExpense(expenseFactory());
+    const splitRepo = new InMemorySplitRepository();
+    splitRepo.saveSplit = async () => { throw new Error('connection reset'); };
+    const container = createTestContainer({ expenseRepo, splitRepo });
+
+    const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
+
+    let updated: unknown = 'not-null';
+    await act(async () => { updated = await result.current.editExpense(expenseFactory(), makeInput()); });
+
+    expect(updated).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error?.kind).toBe('NetworkError');
   });
 });

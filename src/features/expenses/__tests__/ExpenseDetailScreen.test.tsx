@@ -27,7 +27,7 @@ jest.mock('../hooks/useExpenseDetail', () => ({
 
 // useService is a jest.fn() so tests can override per describe block.
 // Default: satisfies both MEMBER_REPO (getMembersForTrip) and TRIP_STORE (getState).
-const mockRemoveExpense = jest.fn().mockResolvedValue(undefined);
+const mockRemoveExpense = jest.fn().mockResolvedValue(true);
 jest.mock('../../../core/di/ServiceContext', () => ({
   useService: jest.fn(() => ({
     getMembersForTrip: jest.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -138,6 +138,21 @@ describe('ExpenseDetailScreen — delete action', () => {
     await Promise.resolve();
 
     expect(mockRemoveExpense).not.toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  // Regression coverage, same class of bug as create/edit: the screen used to
+  // navigate back unconditionally after awaiting removeExpense, regardless of
+  // whether the delete actually succeeded (it returned void, not a signal).
+  it('does not navigate away when removeExpense reports failure', async () => {
+    mockConfirm.mockResolvedValue(true);
+    mockRemoveExpense.mockResolvedValueOnce(false);
+
+    render(<ExpenseDetailScreen />);
+    fireEvent.press(screen.getByLabelText('Delete expense'));
+
+    await waitFor(() => expect(mockRemoveExpense).toHaveBeenCalledWith('e1', 't1'));
+
     expect(mockBack).not.toHaveBeenCalled();
   });
 });

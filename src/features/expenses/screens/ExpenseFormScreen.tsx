@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, ScrollView, Pressable, TextInput, KeyboardAvoidingView,
-  Platform, ActivityIndicator, StyleSheet,
+  View, ScrollView, Pressable, KeyboardAvoidingView,
+  Platform, ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,10 +18,15 @@ import { useCreateGroupExpense } from '../../groups/hooks/useCreateGroupExpense'
 import { MakeRecurringSheet } from '../../groups/components/MakeRecurringSheet';
 import { useTripDetail } from '../../trips/hooks/useTripDetail';
 import { ReceiptCapture } from '../components/ReceiptCapture';
+import { ExpenseAmountCard } from '../components/ExpenseAmountCard';
+import { PayerPicker } from '../components/PayerPicker';
+import { SplitModeSection } from '../components/SplitModeSection';
+import { LineItemEntryList } from '../components/LineItemEntryList';
+import { ExpenseSummaryHeader } from '../components/ExpenseSummaryHeader';
 import { useTripSessionStore, useService } from '../../../core/di/ServiceContext';
 import { AUTH } from '../../../core/di/tokens';
-import { CURRENCIES, currencyLabel, currencySymbol, getMinorUnitMultiplier } from '../../../core/constants/currencies';
-import { formatCurrency, formatRate } from '../../../core/utils/formatCurrency';
+import { CURRENCIES, currencyLabel, getMinorUnitMultiplier } from '../../../core/constants/currencies';
+import { formatCurrency } from '../../../core/utils/formatCurrency';
 import type { Expense, ExpenseLineItem } from '../../../core/models/Expense';
 import type { ParsedReceiptLineItem } from '../../../core/models/ParsedReceipt';
 import type { SplitResult } from '../utils/splitCalculations';
@@ -30,12 +35,9 @@ import type { GroupMember } from '../../../core/models/GroupMember';
 import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColors, personColorFor } from '../../../theme/colors';
-import type { ColorPalette } from '../../../theme/colors';
-import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
-import { Segmented } from '../../../components/ui/Segmented';
-import { Avatar } from '../../../components/ui/Avatar';
+import { useColors } from '../../../theme/colors';
 import { HeaderConfirmButton } from '../../../components/ui/HeaderConfirmButton';
+import { makeExpenseFormStyles } from './expenseFormStyles';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -147,7 +149,7 @@ export function ExpenseFormScreen() {
   const router  = useRouter();
   const auth    = useService(AUTH);
   const colors  = useColors();
-  const addStyles = useMemo(() => makeAddStyles(colors), [colors]);
+  const addStyles = useMemo(() => makeExpenseFormStyles(colors), [colors]);
 
   const mode           = expenseId ? 'edit' : 'add';
   // groupId (not the expenseId exclusion this used to carry) is what actually
@@ -159,6 +161,13 @@ export function ExpenseFormScreen() {
 
   const [recurringSheetOpen,  setRecurringSheetOpen]  = useState(false);
   const [savedForRecurring,   setSavedForRecurring]   = useState<Expense | null>(null);
+
+  // Add mode only — a two-step "details, then split" flow inside the same
+  // modal. Edit mode ignores this and always renders everything at once (see
+  // the plan doc: lower risk to an already-tested single-screen flow, and
+  // trip vs. group expenses share this exact component so both get the
+  // two-step flow identically — isGroupMode only ever picks the save hook).
+  const [step, setStep] = useState<'details' | 'split'>('details');
 
   // ── Data loading ─────────────────────────────────────────────────────────────
 
@@ -172,7 +181,7 @@ export function ExpenseFormScreen() {
 
   // Trip expenses (for last-foreign-currency heuristic; unused in group mode).
   const tripExpenses = useTripSessionStore(
-    s => (s.expenses as Record<string, typeof EMPTY_EXPENSES>)[resolvedTripId] ?? EMPTY_EXPENSES,
+    s => s.expenses[resolvedTripId] ?? EMPTY_EXPENSES,
   );
 
   // ── Save hooks (always called; only one fires per submit) ─────────────────────
@@ -290,30 +299,25 @@ export function ExpenseFormScreen() {
   });
 
   const isItemized        = split.splitMode === 'itemized';
-  // Members without an explicit amount silently absorb the remainder at save
-  // time (see computeSplitInputs), so `split.remainder` is nearly always 0.
-  // "Unassigned" instead reflects only what's been explicitly typed so far.
-  const assignedCents = split.splitEntries
-    .filter(e => e.included && e.customAmountCents !== null)
-    .reduce((s, e) => s + (e.customAmountCents ?? 0), 0);
-  const unassignedCents = totalAmountCents - assignedCents;
-  // Itemized mode's equivalent: the top total minus the items entered so far
-  // (mirrors Exact mode — new items default to "assigned to everyone", so
-  // tracking assignment status here would almost never show anything).
-  const unassignedItemsCents = totalAmountCents - split.itemizedTotal;
   const enteredTotal   = isItemized ? split.itemizedTotal : totalAmountCents;
   const effectiveTotal = !isForeign || !rate.result
     ? enteredTotal
     : Math.round(enteredTotal * currencyConversionRate(rate.result.rate, entryCurrency, contextCurrency));
 
   const hasValidRate = !isForeign || rate.result !== null;
-  const isValid =
+
+  // Gates step 1's Continue button (add mode) — everything needed to know
+  // *what* the expense is, before moving on to *how* it's split.
+  const detailsValid =
     description.trim().length > 0 &&
     effectiveTotal > 0 &&
-    paidByUserId.length > 0 &&
-    split.splitIsValid &&
     hasValidRate &&
     !rate.loading;
+
+  const isValid =
+    detailsValid &&
+    paidByUserId.length > 0 &&
+    split.splitIsValid;
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -329,6 +333,19 @@ export function ExpenseFormScreen() {
       split.initFromParsed(parsedLineItems, contextMembers);
     } else if (amountCents > 0) {
       setTotalAmountCents(amountCents);
+    }
+  };
+
+  // Step 1's "enter as one amount" / "break into items" toggle. Reuses
+  // split.splitMode itself rather than a second piece of state — see the
+  // plan doc's "Design" section.
+  const handleToggleItemized = () => {
+    if (isItemized) {
+      split.handleSetMode('custom');
+      setRawAmount('');
+      setTotalAmountCents(0);
+    } else {
+      split.handleSetMode('itemized');
     }
   };
 
@@ -387,7 +404,7 @@ export function ExpenseFormScreen() {
     }
   };
 
-  // ── Styles ───────────────────────────────────────────────────────────────────
+  // ── Derived display values ──────────────────────────────────────────────────
 
   const expenseCurrency = entryCurrency || contextCurrency;
 
@@ -397,6 +414,28 @@ export function ExpenseFormScreen() {
     if (!isForeign || !rate.result || amountMinor === 0) return null;
     const converted = Math.round(amountMinor * currencyConversionRate(rate.result.rate, entryCurrency, contextCurrency));
     return `(${formatCurrency(converted, contextCurrency)})`;
+  };
+
+  const handleAmountChange = (v: string) => {
+    const cleaned = sanitizeAmountInput(v);
+    setRawAmount(cleaned);
+    setTotalAmountCents(toMinorUnits(cleaned, expenseCurrency));
+  };
+
+  const handleCurrencySelect = (newCode: string) => {
+    if (newCode !== expenseCurrency) {
+      const scale = getMinorUnitMultiplier(newCode) / getMinorUnitMultiplier(expenseCurrency);
+      if (scale !== 1) {
+        const newTotal = Math.round(totalAmountCents * scale);
+        setTotalAmountCents(newTotal);
+        if (rawAmount !== '') setRawAmount(fromMinorUnits(newTotal, newCode));
+        setExactRaw({});
+        setItemRaw({});
+        split.rescaleForCurrency(scale);
+      }
+    }
+    setEntryCurrency(newCode);
+    setCurrencyDropVisible(false);
   };
 
   // ── Loading state ────────────────────────────────────────────────────────────
@@ -420,6 +459,12 @@ export function ExpenseFormScreen() {
     );
   }
 
+  const showingDetailsStep = mode === 'edit' || step === 'details';
+  const showingSplitStep   = mode === 'edit' || step === 'split';
+  const splitModes: SplitMode[] = mode === 'edit'
+    ? ['equal', 'custom', 'itemized']
+    : split.lineItems.length > 0 ? ['equal', 'custom', 'itemized'] : ['equal', 'custom'];
+
   return (
     <>
       <KeyboardAvoidingView
@@ -429,16 +474,41 @@ export function ExpenseFormScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
           <View style={addStyles.titleRow}>
-            <Pressable onPress={() => router.back()} hitSlop={10}>
-              <Feather name="x" size={24} color={colors.text.primary} />
-            </Pressable>
-            <Text style={addStyles.screenTitle}>{t('expenses.form.screen_title')}</Text>
-            <HeaderConfirmButton
-              onPress={handleSubmit}
-              disabled={!isValid || saving}
-              loading={saving}
-              accessibilityLabel={t('expenses.form.confirm_label')}
-            />
+            {mode === 'add' && step === 'split' ? (
+              <Pressable testID="expense-back-button" onPress={() => setStep('details')} hitSlop={10}
+                accessibilityRole="button" accessibilityLabel={t('expenses.form.back_button_label')}>
+                <Feather name="chevron-left" size={24} color={colors.text.primary} />
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.back()} hitSlop={10}>
+                <Feather name="x" size={24} color={colors.text.primary} />
+              </Pressable>
+            )}
+            <View style={{ alignItems: 'center' }}>
+              <Text style={addStyles.screenTitle}>{t('expenses.form.screen_title')}</Text>
+              {mode === 'add' && (
+                <Text style={addStyles.stepIndicator}>
+                  {step === 'details' ? t('expenses.form.step1_of_2') : t('expenses.form.step2_of_2')}
+                </Text>
+              )}
+            </View>
+            {mode === 'add' && step === 'details' ? (
+              <HeaderConfirmButton
+                testID="expense-continue-button"
+                onPress={() => setStep('split')}
+                disabled={!detailsValid}
+                loading={false}
+                icon="arrow-forward"
+                accessibilityLabel={t('expenses.form.continue_button_label')}
+              />
+            ) : (
+              <HeaderConfirmButton
+                onPress={handleSubmit}
+                disabled={!isValid || saving}
+                loading={saving}
+                accessibilityLabel={t('expenses.form.confirm_label')}
+              />
+            )}
           </View>
         </SafeAreaView>
 
@@ -447,351 +517,119 @@ export function ExpenseFormScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <ReceiptCapture
-            onParsed={handleParsed}
-            tripId={resolvedTripId || undefined}
-            disabled={saving}
-            style={{ marginBottom: 12 }}
-          />
-
-          {/* Amount + title card */}
-          <View style={addStyles.card}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
-              <Pressable
-                onPress={() => setCurrencyDropVisible(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
-                hitSlop={8}
-              >
-                <Text style={addStyles.currency}>{currencySymbol(expenseCurrency)}</Text>
-                <Feather name="chevron-down" size={14} color={colors.text.tertiary} />
-              </Pressable>
-              <TextInput
-                testID="expense-amount-input"
-                style={addStyles.amountInput}
-                value={rawAmount}
-                onChangeText={v => {
-                  const cleaned = sanitizeAmountInput(v);
-                  setRawAmount(cleaned);
-                  setTotalAmountCents(toMinorUnits(cleaned, expenseCurrency));
-                }}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.text.tertiary}
+          {showingDetailsStep && (
+            <>
+              <ReceiptCapture
+                onParsed={handleParsed}
+                tripId={resolvedTripId || undefined}
+                disabled={saving}
+                style={{ marginBottom: 12 }}
               />
-            </View>
-            {isForeign && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6 }}>
-                {rate.loading ? (
-                  <>
-                    <ActivityIndicator size="small" color={colors.text.tertiary} />
-                    <Text style={addStyles.rateText}>{t('expenses.form.rate_fetching')}</Text>
-                  </>
-                ) : rate.error ? (
-                  <>
-                    <Feather name="alert-triangle" size={12} color={colors.warning.default} />
-                    <Text style={[addStyles.rateText, { color: colors.warning.default }]}>{t('expenses.form.rate_unavailable')}</Text>
-                    <Pressable onPress={rate.refresh} hitSlop={8}>
-                      <Text style={[addStyles.rateText, { color: colors.primary.default, fontWeight: '600' }]}>{t('common.retry')}</Text>
-                    </Pressable>
-                  </>
-                ) : rate.result ? (
-                  <Text style={addStyles.rateText}>
-                    {`1 ${entryCurrency} = ${formatRate(rate.result.rate)} ${contextCurrency}${convertedCents > 0 ? ` · ${formatCurrency(convertedCents, contextCurrency)}` : ''}${rate.result.source === 'approximate' ? ' · approx.' : ''}`}
-                  </Text>
-                ) : null}
-              </View>
-            )}
-            <TextInput
-              testID="expense-description-input"
-              style={addStyles.titleInput}
-              value={description}
-              onChangeText={setDescription}
-              placeholder={t('expenses.form.title_placeholder')}
-              placeholderTextColor={colors.text.tertiary}
-            />
-          </View>
 
-          {/* Paid by */}
-          <Text style={addStyles.fieldLabel}>{t('expenses.form.paid_by_label')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
-            {contextMembers.map(m => {
-              const active = paidByUserId === m.userId;
-              const palette = personColorFor(m.userId, contextMembers);
-              const label = payerLabels[m.userId];
-              return (
+              <ExpenseAmountCard
+                currency={expenseCurrency}
+                amount={isItemized
+                  ? { editable: false, totalCents: split.itemizedTotal }
+                  : { editable: true, rawAmount, onChangeAmount: handleAmountChange }}
+                onPressCurrency={() => setCurrencyDropVisible(true)}
+                description={description}
+                onChangeDescription={setDescription}
+                isForeign={isForeign}
+                rate={rate}
+                entryCurrency={entryCurrency}
+                contextCurrency={contextCurrency}
+                convertedCents={convertedCents}
+              />
+
+              {mode === 'add' && (
                 <Pressable
-                  key={m.userId}
-                  testID={`payer-select-${m.userId}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('expenses.form.paid_by_select_label', { name: m.displayName })}
-                  accessibilityState={{ selected: active }}
-                  onPress={() => setPaidByUserId(m.userId)}
-                  style={{ alignItems: 'center', gap: 4, opacity: active ? 1 : 0.5 }}
+                  testID="expense-itemize-toggle"
+                  onPress={handleToggleItemized}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, alignSelf: 'center' }}
                 >
-                  <View style={{
-                    borderWidth: active ? 2 : 0, borderColor: colors.primary.default,
-                    borderRadius: 999, padding: active ? 2 : 0,
-                  }}>
-                    <Avatar initials={m.displayName} bg={palette.bg} url={m.avatarUrl} size="lg" />
-                  </View>
-                  {label && (
-                    <Text
-                      style={{ fontSize: 11, fontWeight: '500', color: active ? colors.primary.default : colors.text.secondary, maxWidth: 64 }}
-                      numberOfLines={1}
-                    >
-                      {label}
-                    </Text>
-                  )}
+                  <Feather name={isItemized ? 'hash' : 'list'} size={13} color={colors.primary.default} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary.default }}>
+                    {isItemized ? t('expenses.form.single_amount_instead') : t('expenses.form.break_into_items')}
+                  </Text>
                 </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Split mode segmented control */}
-          <Text style={addStyles.fieldLabel}>{t('expenses.form.split_label')}</Text>
-          <Segmented
-            value={split.splitMode}
-            onChange={k => {
-              split.handleSetMode(k as SplitMode);
-              setExactRaw({});
-              setItemRaw({});
-            }}
-            options={[
-              { key: 'equal',    label: t('expenses.form.segmented_evenly') },
-              { key: 'custom',   label: t('expenses.form.segmented_exact') },
-              { key: 'itemized', label: t('expenses.form.segmented_items') },
-            ]}
-          />
-
-          <View style={{ height: 12 }} />
-
-          {/* Equal mode */}
-          {split.splitMode === 'equal' && (
-            <View style={addStyles.card}>
-              {split.splitEntries.map((entry, i) => {
-                const member = contextMembers.find(m => m.userId === entry.userId);
-                if (!member) return null;
-                const includedCount = split.splitEntries.filter(e => e.included).length;
-                const share = entry.included && includedCount > 0
-                  ? Math.round(totalAmountCents / includedCount)
-                  : 0;
-                return (
-                  <View key={entry.userId}>
-                    {i > 0 && <View style={addStyles.rowDivider} />}
-                    <Pressable style={addStyles.splitRow} onPress={() => split.handleToggleMember(entry.userId)}>
-                      <View style={[addStyles.check, entry.included && addStyles.checkOn]}>
-                        {entry.included && <Feather name="check" size={13} color={colors.text.inverse} />}
-                      </View>
-                      <Avatar
-                        initials={member.displayName}
-                        bg={personColorFor(member.userId, contextMembers).bg}
-                        url={member.avatarUrl}
-                        size="sm"
-                      />
-                      <Text style={addStyles.splitName}>{member.displayName}</Text>
-                      <Text style={[addStyles.splitAmount, { color: entry.included ? colors.text.primary : colors.text.tertiary }]}>
-                        {formatCurrency(share, expenseCurrency)}
-                        {convertedLabel(share) && (
-                          <Text style={addStyles.convertedAmount}> {convertedLabel(share)}</Text>
-                        )}
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          {/* Custom (exact) mode */}
-          {split.splitMode === 'custom' && (
-            <View style={addStyles.card}>
-              {split.splitEntries.map((entry, i) => {
-                const member = contextMembers.find(m => m.userId === entry.userId);
-                if (!member) return null;
-                const displayVal = exactRaw[entry.userId] ?? (
-                  entry.customAmountCents != null && entry.customAmountCents > 0
-                    ? fromMinorUnits(entry.customAmountCents, expenseCurrency) : ''
-                );
-                return (
-                  <View key={entry.userId}>
-                    {i > 0 && <View style={addStyles.rowDivider} />}
-                    <View style={addStyles.splitRow}>
-                      <Avatar
-                        initials={member.displayName}
-                        bg={personColorFor(member.userId, contextMembers).bg}
-                        url={member.avatarUrl}
-                        size="sm"
-                      />
-                      <Text style={[addStyles.splitName, { flex: 1 }]}>{member.displayName}</Text>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <View style={addStyles.exactBox}>
-                          <Text style={{ fontSize: 14, color: colors.text.secondary }}>
-                            {currencySymbol(expenseCurrency)}
-                          </Text>
-                          <TextInput
-                            testID={`exact-amount-input-${entry.userId}`}
-                            style={addStyles.exactInput}
-                            keyboardType="decimal-pad"
-                            placeholder="0.00"
-                            placeholderTextColor={colors.text.tertiary}
-                            value={displayVal}
-                            onChangeText={v => {
-                              const cleaned = sanitizeAmountInput(v);
-                              setExactRaw(prev => ({ ...prev, [entry.userId]: cleaned }));
-                              split.handleChangeAmount(entry.userId, toMinorUnits(cleaned, expenseCurrency));
-                            }}
-                          />
-                        </View>
-                        {convertedLabel(entry.customAmountCents ?? 0) && (
-                          <Text style={[addStyles.convertedAmount, { marginTop: 2 }]}>
-                            {convertedLabel(entry.customAmountCents ?? 0)}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-              <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 13, fontWeight: '500', color: colors.text.secondary }}>
-                  {t('expenses.form.unassigned_label')}
-                </Text>
-                <Text style={[addStyles.splitAmount, {
-                  color: unassignedCents === 0 ? colors.success.default : colors.error.default,
-                }]}>
-                  {formatCurrency(unassignedCents, expenseCurrency)}
-                  {convertedLabel(unassignedCents) && (
-                    <Text style={addStyles.convertedAmount}> {convertedLabel(unassignedCents)}</Text>
-                  )}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Itemized mode */}
-          {split.splitMode === 'itemized' && (
-            <View style={[addStyles.card, { padding: 20 }]}>
-              <Text style={[addStyles.fieldLabel, { textAlign: 'center', marginTop: 0, marginBottom: 4 }]}>
-                {description.toUpperCase() || t('expenses.form.receipt_fallback')}
-              </Text>
-              <Text style={{ fontSize: 11.5, color: colors.text.tertiary, textAlign: 'center', marginBottom: 8 }}>
-                {t('expenses.form.itemized_hint')}
-              </Text>
-              <View style={{ borderBottomWidth: 1, borderStyle: 'dashed', borderColor: colors.borderMuted, marginBottom: 12 }} />
-              {split.lineItems.map((item, i) => (
-                <View key={item.id}>
-                  {i > 0 && <View style={[addStyles.rowDivider, { marginBottom: 12 }]} />}
-                  <View style={{ marginBottom: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <TextInput
-                        testID={`item-description-input-${item.id}`}
-                        style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.text.primary, paddingVertical: 2 }}
-                        value={item.description}
-                        onChangeText={v => split.updateLineItem(item.id, { description: v })}
-                        placeholder={t('expenses.line_item.placeholder')}
-                        placeholderTextColor={colors.text.tertiary}
-                      />
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                        <Text style={{ fontSize: 14, color: colors.text.secondary }}>
-                          {currencySymbol(expenseCurrency)}
-                        </Text>
-                        <TextInput
-                          testID={`item-amount-input-${item.id}`}
-                          style={{ fontSize: 14, color: colors.text.primary, minWidth: 56, textAlign: 'right', paddingVertical: 2 }}
-                          keyboardType="decimal-pad"
-                          placeholder="0.00"
-                          placeholderTextColor={colors.text.tertiary}
-                          value={itemRaw[item.id] ?? (item.amountCents > 0 ? fromMinorUnits(item.amountCents, expenseCurrency) : '')}
-                          onChangeText={v => {
-                            const cleaned = sanitizeAmountInput(v);
-                            setItemRaw(prev => ({ ...prev, [item.id]: cleaned }));
-                            split.updateLineItem(item.id, { amountCents: toMinorUnits(cleaned, expenseCurrency) });
-                          }}
-                        />
-                      </View>
-                      <Pressable testID={`item-remove-button-${item.id}`} onPress={() => split.removeLineItem(item.id)} hitSlop={8}>
-                        <Feather name="x" size={16} color={colors.text.tertiary} />
-                      </Pressable>
-                    </View>
-                    {convertedLabel(item.amountCents) && (
-                      <Text style={[addStyles.convertedAmount, { textAlign: 'right', marginTop: 2 }]}>
-                        {convertedLabel(item.amountCents)}
-                      </Text>
-                    )}
-                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                      {contextMembers.map(m => {
-                        const on = item.assignedUserIds.includes(m.userId);
-                        const palette = personColorFor(m.userId, contextMembers);
-                        return (
-                          <Pressable
-                            key={m.userId}
-                            onPress={() => split.toggleMemberInItem(item.id, m.userId)}
-                            style={{ opacity: on ? 1 : 0.4 }}
-                          >
-                            <View style={{
-                              borderWidth: on ? 2 : 1.5,
-                              borderColor: on ? colors.primary.default : colors.text.tertiary,
-                              borderRadius: 999,
-                              padding: on ? 1 : 1.5,
-                            }}>
-                              <Avatar initials={m.displayName} bg={palette.bg} url={m.avatarUrl} size="xs" />
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                </View>
-              ))}
-              {split.lineItems.length > 0 && (
-                <>
-                  <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ fontSize: 13, fontWeight: '500', color: colors.text.secondary }}>
-                      {t('expenses.form.unassigned_label')}
-                    </Text>
-                    <Text style={[addStyles.splitAmount, {
-                      color: unassignedItemsCents === 0 ? colors.success.default : colors.error.default,
-                    }]}>
-                      {formatCurrency(unassignedItemsCents, expenseCurrency)}
-                      {convertedLabel(unassignedItemsCents) && (
-                        <Text style={addStyles.convertedAmount}> {convertedLabel(unassignedItemsCents)}</Text>
-                      )}
-                    </Text>
-                  </View>
-                </>
               )}
-              <Pressable
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, marginTop: split.lineItems.length > 0 ? 8 : 0 }}
-                onPress={split.addLineItem}
-              >
-                <Feather name="plus" size={14} color={colors.primary.default} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary.default }}>{t('expenses.form.add_line_item')}</Text>
-              </Pressable>
-            </View>
+
+              {mode === 'add' && isItemized && (
+                <LineItemEntryList
+                  items={split.lineItems}
+                  currency={expenseCurrency}
+                  itemRaw={itemRaw}
+                  setItemRaw={setItemRaw}
+                  onUpdateItem={split.updateLineItem}
+                  onRemoveItem={split.removeLineItem}
+                  onAddItem={split.addLineItem}
+                  fromMinorUnits={fromMinorUnits}
+                  toMinorUnits={toMinorUnits}
+                  sanitizeAmountInput={sanitizeAmountInput}
+                />
+              )}
+            </>
           )}
 
-          <View style={{ height: 20 }} />
+          {showingSplitStep && (
+            <>
+              {mode === 'add' && (
+                <ExpenseSummaryHeader
+                  description={description}
+                  totalAmountCents={enteredTotal}
+                  currency={expenseCurrency}
+                  itemCount={split.lineItems.length}
+                  onPress={() => setStep('details')}
+                />
+              )}
 
-          {/* Save button */}
-          <Pressable
-            onPress={isValid ? handleSubmit : undefined}
-            disabled={!isValid || saving}
-            style={({ pressed }) => [
-              addStyles.saveBtn,
-              { opacity: (!isValid || saving) ? 0.5 : pressed ? 0.85 : 1 },
-            ]}
-          >
-            {saving ? (
-              <ActivityIndicator color={colors.text.inverse} />
-            ) : (
-              <>
-                <Feather name="check" size={18} color={colors.text.inverse} />
-                <Text style={{ color: colors.text.inverse, fontWeight: '600', fontSize: 16 }}>{t('expenses.form.save_button')}</Text>
-              </>
-            )}
-          </Pressable>
+              <PayerPicker
+                members={contextMembers}
+                paidByUserId={paidByUserId}
+                onSelect={setPaidByUserId}
+                labels={payerLabels}
+              />
+
+              <SplitModeSection
+                modes={splitModes}
+                split={split}
+                members={contextMembers}
+                totalAmountCents={totalAmountCents}
+                expenseCurrency={expenseCurrency}
+                convertedLabel={convertedLabel}
+                itemsEditable={mode === 'edit'}
+                exactRaw={exactRaw}
+                setExactRaw={setExactRaw}
+                itemRaw={itemRaw}
+                setItemRaw={setItemRaw}
+                fromMinorUnits={fromMinorUnits}
+                toMinorUnits={toMinorUnits}
+                sanitizeAmountInput={sanitizeAmountInput}
+                description={description}
+              />
+
+              <View style={{ height: 20 }} />
+
+              {/* Save button */}
+              <Pressable
+                onPress={isValid ? handleSubmit : undefined}
+                disabled={!isValid || saving}
+                style={({ pressed }) => [
+                  addStyles.saveBtn,
+                  { opacity: (!isValid || saving) ? 0.5 : pressed ? 0.85 : 1 },
+                ]}
+              >
+                {saving ? (
+                  <ActivityIndicator color={colors.text.inverse} />
+                ) : (
+                  <>
+                    <Feather name="check" size={18} color={colors.text.inverse} />
+                    <Text style={{ color: colors.text.inverse, fontWeight: '600', fontSize: 16 }}>{t('expenses.form.save_button')}</Text>
+                  </>
+                )}
+              </Pressable>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -816,22 +654,7 @@ export function ExpenseFormScreen() {
                   <View key={item.code}>
                     {index > 0 && <View style={{ height: 1, backgroundColor: colors.border }} />}
                     <Pressable
-                      onPress={() => {
-                        const newCode = item.code;
-                        if (newCode !== expenseCurrency) {
-                          const scale = getMinorUnitMultiplier(newCode) / getMinorUnitMultiplier(expenseCurrency);
-                          if (scale !== 1) {
-                            const newTotal = Math.round(totalAmountCents * scale);
-                            setTotalAmountCents(newTotal);
-                            if (rawAmount !== '') setRawAmount(fromMinorUnits(newTotal, newCode));
-                            setExactRaw({});
-                            setItemRaw({});
-                            split.rescaleForCurrency(scale);
-                          }
-                        }
-                        setEntryCurrency(newCode);
-                        setCurrencyDropVisible(false);
-                      }}
+                      onPress={() => handleCurrencySelect(item.code)}
                       accessibilityRole="menuitem"
                       accessibilityState={{ selected }}
                       style={({ pressed }) => [
@@ -881,78 +704,3 @@ export function ExpenseFormScreen() {
     </>
   );
 }
-const makeAddStyles = (colors: ColorPalette) => StyleSheet.create({
-  titleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 12,
-  },
-  screenTitle: { fontFamily: ledgerFonts.display, fontSize: 19, color: colors.text.primary },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: ledgerRadius.card,
-    padding: 16,
-    ...ledgerShadow.card,
-  },
-  // lineHeight is set explicitly (rather than left to the platform default)
-  // on every style below that renders the amount — SpaceGrotesk's line box at
-  // these sizes runs tight against its own glyph metrics, and device testing
-  // showed the hero amount getting its top/bottom pixels clipped without it.
-  currency: { fontFamily: ledgerFonts.displaySemibold, fontSize: 26, lineHeight: 32, color: colors.text.secondary },
-  amountInput: {
-    fontFamily: ledgerFonts.display,
-    fontSize: 44, lineHeight: 52, color: colors.text.primary,
-    minWidth: 140, paddingHorizontal: 4, textAlign: 'center',
-  },
-  titleInput: {
-    fontSize: 15, color: colors.text.primary, textAlign: 'center',
-    borderTopWidth: 1, borderColor: colors.border,
-    paddingTop: 12, marginTop: 8,
-  },
-  fieldLabel: {
-    fontSize: 12, fontWeight: '600', color: colors.text.secondary,
-    textTransform: 'uppercase', letterSpacing: 0.8,
-    marginTop: 20, marginBottom: 8,
-  },
-  rateText: { fontSize: 12, color: colors.text.secondary },
-  splitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  rowDivider: { height: 1, backgroundColor: colors.border },
-  splitName: { fontSize: 14.5, fontWeight: '500', color: colors.text.primary, flex: 1 },
-  splitAmount: { fontFamily: ledgerFonts.displaySemibold, fontSize: 14, lineHeight: 20, color: colors.text.primary, fontVariant: ['tabular-nums'] },
-  convertedAmount: { fontFamily: ledgerFonts.body, fontSize: 11, lineHeight: 16, fontWeight: '400', color: colors.text.tertiary, fontVariant: ['tabular-nums'] },
-  check: {
-    width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: colors.borderMuted,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  checkOn: { backgroundColor: colors.primary.default, borderColor: colors.primary.default },
-  exactBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 2,
-    backgroundColor: colors.background, borderRadius: ledgerRadius.sm, paddingHorizontal: 10, height: 38,
-  },
-  exactInput: { fontSize: 15, lineHeight: 22, fontWeight: '500', color: colors.text.primary, minWidth: 62, textAlign: 'right' },
-  saveBtn: {
-    flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 15, borderRadius: ledgerRadius.md,
-    backgroundColor: colors.primary.default,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  currencySheet: {
-    backgroundColor: colors.surface,
-    borderRadius: ledgerRadius.card,
-    overflow: 'hidden',
-    maxHeight: '70%',
-    ...ledgerShadow.card,
-  },
-  currencySheetHeader: {
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  currencyRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
-  },
-});

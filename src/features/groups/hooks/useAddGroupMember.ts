@@ -27,27 +27,35 @@ export function useAddGroupMember(groupId: string) {
     setLoading(true);
     setError(null);
 
-    const member: GroupMember = {
-      userId:      `guest_${generateId()}`,
-      groupId,
-      displayName: name,
-      isGuest:     true,
-      joinedAt:    new Date(),
-      email:       input.email?.trim() || undefined,
-      phone:       input.phone?.trim() || undefined,
-    };
+    try {
+      const member: GroupMember = {
+        userId:      `guest_${generateId()}`,
+        groupId,
+        displayName: name,
+        isGuest:     true,
+        joinedAt:    new Date(),
+        email:       input.email?.trim() || undefined,
+        phone:       input.phone?.trim() || undefined,
+      };
 
-    const result = await groupRepo.addMember(member);
+      const result = await groupRepo.addMember(member);
 
-    setLoading(false);
+      if (!result.ok) {
+        setError(result.error);
+        return null;
+      }
 
-    if (!result.ok) {
-      setError(result.error);
+      storeApi.getState().addMemberToGroupInStore(groupId, result.value);
+      return result.value;
+    } catch (e) {
+      // A thrown exception (a real network failure, distinct from the repo
+      // returning Result.err) used to propagate uncaught — loading never
+      // reset and the caller's post-save navigation never ran.
+      setError({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' });
       return null;
+    } finally {
+      setLoading(false);
     }
-
-    storeApi.getState().addMemberToGroupInStore(groupId, result.value);
-    return result.value;
   }, [groupRepo, storeApi, groupId]);
 
   return { addMember, loading, error };

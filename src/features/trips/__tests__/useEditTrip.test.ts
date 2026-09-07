@@ -7,6 +7,7 @@ import { EXPENSE_REPO, TRIP_REPO, TRIP_STORE } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Trip } from '../../../core/models/Trip';
 import { expenseFactory, tripFactory } from '../../../__testUtils__/factories';
+import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
 
 function makeWrapper(container: ServiceContainer) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
@@ -180,5 +181,27 @@ describe('useEditTrip — storage error', () => {
 
     expect(updated).toBeNull();
     expect(result.current.error).not.toBeNull();
+  });
+});
+
+// Regression coverage, same class of bug as useAddExpense/useEditExpense:
+// editTrip had no try/catch, so a thrown exception (a real network failure,
+// distinct from a repo returning Result.err) left `loading` stuck at true
+// forever and skipped the caller's post-save navigation entirely.
+describe('useEditTrip — exception safety', () => {
+  it('resets loading and sets a NetworkError when updateTrip throws, instead of hanging forever', async () => {
+    const tripRepo = new InMemoryTripRepository();
+    tripRepo.updateTrip = async () => { throw new Error('fetch failed'); };
+    const container = createTestContainer({ tripRepo });
+    const { result } = renderHook(() => useEditTrip(), { wrapper: makeWrapper(container) });
+
+    let updated: unknown = 'not-null';
+    await act(async () => {
+      updated = await result.current.editTrip(tripFactory(), 'New Name', 'EUR');
+    });
+
+    expect(updated).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error?.kind).toBe('NetworkError');
   });
 });

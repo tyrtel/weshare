@@ -458,7 +458,16 @@
       "currency_close_label": "Fermer le sélecteur de devise",
       "currency_sheet_title": "Devise de la dépense",
       "currency_sheet_group_currency": "Devise du groupe",
-      "currency_sheet_trip_currency": "Devise du voyage"
+      "currency_sheet_trip_currency": "Devise du voyage",
+      "step1_of_2": "Étape 1 sur 2",
+      "step2_of_2": "Étape 2 sur 2",
+      "continue_button_label": "Continuer vers la répartition",
+      "back_button_label": "Retour aux détails",
+      "break_into_items": "Détailler par articles",
+      "single_amount_instead": "Saisir un montant unique à la place",
+      "edit_details_label": "Modifier les détails de la dépense",
+      "summary_item_count_one": "{{count}} article",
+      "summary_item_count_other": "{{count}} articles"
     },
     "receipt": {
       "reading": "Lecture du reçu…",

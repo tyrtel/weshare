@@ -37,8 +37,10 @@ export interface TripSessionActions {
 
   /** Persist a new expense and append it to the cache (with optimistic write). */
   addExpense(expense: Expense): Promise<void>;
-  /** Delete an expense from storage and remove it from the cache. */
-  removeExpense(expenseId: string, tripId: string): Promise<void>;
+  /** Delete an expense from storage and remove it from the cache. Resolves
+   *  false (never rejects) on failure, so a caller can gate navigation on it
+   *  instead of always proceeding as if the delete had succeeded. */
+  removeExpense(expenseId: string, tripId: string): Promise<boolean>;
   /** Mark a split as fully paid, persist it, and update the nested split in the cache. */
   markSettled(split: Split): Promise<Result<Split, AppError>>;
   /** Save a new split request to storage and append it to the cache — trip- or group-scoped, per req.tripId/req.groupId. */
@@ -76,8 +78,9 @@ export interface TripSessionActions {
   loadGroupDetail(groupId: string): Promise<void>;
   /** Persist a new group expense optimistically and append to the cache. */
   addGroupExpense(expense: Expense): Promise<void>;
-  /** Delete a group expense from storage and remove it from the cache. */
-  removeGroupExpense(expenseId: string, groupId: string): Promise<void>;
+  /** Delete a group expense from storage and remove it from the cache.
+   *  Resolves false (never rejects) on failure — see removeExpense. */
+  removeGroupExpense(expenseId: string, groupId: string): Promise<boolean>;
   /** Mark a group expense closed (settledAt set) or reopen it (settledAt null) in the cache — after repo call. */
   settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date | null): void;
   /** Append a saved group expense to the cache (no repo call — expense already persisted by hook). */

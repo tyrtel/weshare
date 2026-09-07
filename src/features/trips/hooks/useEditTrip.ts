@@ -22,31 +22,39 @@ export function useEditTrip() {
       }
 
       setLoading(true);
-      const result = await tripRepo.updateTrip({ ...trip, name: name.trim(), currency });
+      try {
+        const result = await tripRepo.updateTrip({ ...trip, name: name.trim(), currency });
 
-      if (!isOk(result)) {
-        setLoading(false);
-        setError(result.error);
+        if (!isOk(result)) {
+          setError(result.error);
+          return null;
+        }
+
+        storeApi.getState().replaceTrip(result.value);
+
+        if (currency !== trip.currency) {
+          const expenses = storeApi.getState().expenses[trip.id] ?? [];
+          await Promise.all(
+            expenses
+              .filter(e => e.currency === trip.currency)
+              .map(async e => {
+                const updated = { ...e, currency };
+                const r = await expenseRepo.updateExpense(updated);
+                if (isOk(r)) storeApi.getState().replaceExpense(r.value);
+              }),
+          );
+        }
+
+        return result.value;
+      } catch (e) {
+        // A thrown exception (a real network failure, distinct from a repo
+        // returning Result.err) used to propagate uncaught — loading never
+        // reset and the caller's post-save navigation never ran.
+        setError({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' });
         return null;
+      } finally {
+        setLoading(false);
       }
-
-      storeApi.getState().replaceTrip(result.value);
-
-      if (currency !== trip.currency) {
-        const expenses = storeApi.getState().expenses[trip.id] ?? [];
-        await Promise.all(
-          expenses
-            .filter(e => e.currency === trip.currency)
-            .map(async e => {
-              const updated = { ...e, currency };
-              const r = await expenseRepo.updateExpense(updated);
-              if (isOk(r)) storeApi.getState().replaceExpense(r.value);
-            }),
-        );
-      }
-
-      setLoading(false);
-      return result.value;
     },
     [tripRepo, expenseRepo, storeApi],
   );

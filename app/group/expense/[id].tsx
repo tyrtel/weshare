@@ -86,8 +86,8 @@ export default function GroupExpenseDetailScreen() {
   const handleDelete = () => {
     void confirm(t('expenses.detail.delete_alert_title'), t('common.cannot_be_undone'), t('expenses.detail.delete_alert_confirm')).then(async confirmed => {
       if (!confirmed) return;
-      await storeApi.getState().removeGroupExpense(expense.id, groupId);
-      router.back();
+      const removed = await storeApi.getState().removeGroupExpense(expense.id, groupId);
+      if (removed) router.back();
     });
   };
 

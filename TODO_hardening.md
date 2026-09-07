@@ -190,3 +190,55 @@ be done via migration `044`, not yet checked off in this file).
 `src/`/`app/` (unrelated to anything above) — there's no `tsc` script in
 `package.json` today, so nothing has been catching these. Worth its own
 follow-up audit.
+
+---
+
+## §5 — Mutation-hook exception safety (2026-09-02, this session) ✅ DONE
+
+Traced from a real device bug report: "Save expense" would seemingly save but
+never navigate away, so a second tap created a duplicate. Root cause:
+`useAddExpense`/`useEditExpense` had no `try/catch` — a thrown exception (a
+real network failure, distinct from a repo returning `Result.err`) left
+`loading` stuck at `true` forever and skipped the screen's post-save
+navigation entirely, with no error surfaced. Audited every "mutate, then
+navigate on success" hook in the app for the identical gap (no `try/catch`
+around its repo calls) and fixed every one found:
+
+- [x] `useAddExpense.ts` / `useEditExpense.ts` (expenses)
+- [x] `useEditTrip.ts` (trips) — `useCreateTrip`/`useDeleteTrip` already had it
+- [x] `useAddGroupMember.ts`, `useSettleAllGroupDebts.ts` (groups)
+- [x] `useJoinTrip.ts` / `useJoinGroup.ts` (invite acceptance — also a
+      "mutate then navigate" flow) — restructured so `joining` only resets in
+      a `finally`, rather than repeating it at every early return
+- [x] Confirmed every other create/edit/delete hook in `src/features/*/hooks`
+      already had `try/catch` (`useCreateGroup`, `useDeleteGroup`,
+      `useCreateRecurringExpense`, `useEditRecurringExpense`,
+      `useDeleteRecurringExpense`, `usePauseRecurringExpense`,
+      `useSendGroupInvite`, `useSettlement`, `useRollover`,
+      `useCreateGroupExpense`) — no further gaps found in this layer
+
+**Delete expense — separate, deeper bug found and fixed.** Unlike every other
+delete flow in the app (trip, group — both already funnel through a dedicated
+hook returning `Promise<boolean>`, gating navigation on it), expense deletion
+called the raw store actions `removeExpense`/`removeGroupExpense` directly,
+which (a) had no `try/catch` either, and (b) returned `Promise<void>` — so the
+calling screen navigated back **unconditionally** after every delete attempt,
+success or failure. Changed both to return `Promise<boolean>` and added
+`try/catch`; both `ExpenseDetailScreen.tsx` and
+`app/group/expense/[id].tsx` now only navigate back when the delete actually
+succeeded.
+
+**Still open / explicitly out of scope for this pass:** the rest of
+`tripSessionStore.ts` has zero `try/catch` blocks anywhere (confirmed via
+`grep -c "try {"` returning 0 for the whole file before this session's two
+fixes) — every OTHER store action (settle, replace, load, etc.) has the same
+theoretical exposure to an uncaught throw. Fixing `removeExpense`/
+`removeGroupExpense` was scoped to the reported bug plus its exact sibling;
+retrofitting the entire store is a separate, larger effort.
+
+Added 13 new tests across `useAddGroupMember`, `useSettleAllGroupDebts`,
+`useJoinTrip`, `useJoinGroup`, `useEditTrip`, the store's
+`removeExpense`/`removeGroupExpense`, and both expense detail screens —
+each injects a thrown exception (or a failed delete) and confirms loading
+resets / an error surfaces / navigation is correctly skipped, rather than the
+old silent hang. Full suite: 1490 tests passing, lint clean.

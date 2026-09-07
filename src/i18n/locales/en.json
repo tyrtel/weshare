@@ -458,7 +458,16 @@
       "currency_close_label": "Close currency picker",
       "currency_sheet_title": "Expense currency",
       "currency_sheet_group_currency": "Group currency",
-      "currency_sheet_trip_currency": "Trip currency"
+      "currency_sheet_trip_currency": "Trip currency",
+      "step1_of_2": "Step 1 of 2",
+      "step2_of_2": "Step 2 of 2",
+      "continue_button_label": "Continue to split",
+      "back_button_label": "Back to details",
+      "break_into_items": "Break into items",
+      "single_amount_instead": "Enter as a single amount instead",
+      "edit_details_label": "Edit expense details",
+      "summary_item_count_one": "{{count}} item",
+      "summary_item_count_other": "{{count}} items"
     },
     "receipt": {
       "reading": "Reading receipt…",

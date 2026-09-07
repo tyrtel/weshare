@@ -92,53 +92,62 @@ export function useAddExpense(tripId: string) {
       }
 
       setLoading(true);
+      try {
+        const expense: Expense = {
+          id: generateId(),
+          tripId,
+          description: input.description.trim(),
+          totalAmountCents: input.totalAmountCents,
+          currency: input.currency,
+          paidByUserId: input.paidByUserId,
+          createdAt: new Date(),
+          settledAt: null,
+          splits: [],
+          metadata: { category: input.category, receiptUrl: input.receiptUrl, lineItems: input.lineItems, originalAmount: input.originalAmount },
+        };
 
-      const expense: Expense = {
-        id: generateId(),
-        tripId,
-        description: input.description.trim(),
-        totalAmountCents: input.totalAmountCents,
-        currency: input.currency,
-        paidByUserId: input.paidByUserId,
-        createdAt: new Date(),
-        splits: [],
-        metadata: { category: input.category, receiptUrl: input.receiptUrl, lineItems: input.lineItems, originalAmount: input.originalAmount },
-      };
+        const expResult = await expenseRepo.saveExpense(expense);
+        if (!isOk(expResult)) {
+          setError(expResult.error);
+          return null;
+        }
 
-      const expResult = await expenseRepo.saveExpense(expense);
-      if (!isOk(expResult)) {
-        setError(expResult.error);
-        setLoading(false);
+        // Save all splits in parallel.
+        const splitResults = await Promise.all(
+          input.splits.map(s =>
+            splitRepo.saveSplit({
+              id: generateId(),
+              expenseId: expResult.value.id,
+              userId: s.userId,
+              amountOwedCents: s.amountOwedCents,
+              amountPaidCents: 0,
+            }),
+          ),
+        );
+
+        const firstSplitError = splitResults.find(r => !isOk(r));
+        if (firstSplitError && !isOk(firstSplitError)) {
+          setError(firstSplitError.error);
+          return null;
+        }
+
+        const savedExpense = {
+          ...expResult.value,
+          splits: splitResults.filter(isOk).map(r => r.value),
+        };
+        storeApi.getState().appendExpense(savedExpense);
+        return savedExpense;
+      } catch (e) {
+        // A thrown exception here (e.g. a real network failure, as opposed to
+        // an API error the repo maps to Result.err) used to propagate all the
+        // way up through the screen's handleSubmit uncaught — loading never
+        // reset, the screen never navigated away, and the caller had no way
+        // to tell the save had actually failed (or partially succeeded).
+        setError({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' });
         return null;
-      }
-
-      // Save all splits in parallel.
-      const splitResults = await Promise.all(
-        input.splits.map(s =>
-          splitRepo.saveSplit({
-            id: generateId(),
-            expenseId: expResult.value.id,
-            userId: s.userId,
-            amountOwedCents: s.amountOwedCents,
-            amountPaidCents: 0,
-          }),
-        ),
-      );
-
-      const firstSplitError = splitResults.find(r => !isOk(r));
-      if (firstSplitError && !isOk(firstSplitError)) {
-        setError(firstSplitError.error);
+      } finally {
         setLoading(false);
-        return null;
       }
-
-      const savedExpense = {
-        ...expResult.value,
-        splits: splitResults.filter(isOk).map(r => r.value),
-      };
-      storeApi.getState().appendExpense(savedExpense);
-      setLoading(false);
-      return savedExpense;
     },
     [expenseRepo, splitRepo, storeApi, tripId],
   );

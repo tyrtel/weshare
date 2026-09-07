@@ -16,7 +16,7 @@ jest.mock('../hooks/useExpenseDetail', () => ({ useExpenseDetail: jest.fn() }));
 import { ExpenseFormScreen } from '../screens/ExpenseFormScreen';
 import { useTripDetail } from '../../trips/hooks/useTripDetail';
 import { useExpenseDetail } from '../hooks/useExpenseDetail';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { renderScreen } from '../../../__testUtils__/renderScreen';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { EXCHANGE_RATE, EXPENSE_REPO, TRIP_STORE } from '../../../core/di/tokens';
@@ -92,6 +92,12 @@ async function fillDescription(value: string) {
   fireEvent.changeText(screen.getByTestId('expense-description-input'), value);
 }
 
+// Add mode only: step 1 (details) -> step 2 (split). Assumes description +
+// amount/items are already filled in, so the Continue button is enabled.
+async function goToSplitStep() {
+  fireEvent.press(screen.getByTestId('expense-continue-button'));
+}
+
 // ── Amount sanitization ─────────────────────────────────────────────────────
 
 describe('ExpenseFormScreen — amount sanitization', () => {
@@ -114,6 +120,7 @@ describe('ExpenseFormScreen — amount sanitization', () => {
     const { container } = renderForm();
     await fillAmount('3555');
     await fillDescription('Sushi');
+    await goToSplitStep();
 
     fireEvent.press(screen.getByText('Save expense'));
 
@@ -138,6 +145,7 @@ describe('ExpenseFormScreen — currency conversion', () => {
 
     await fillDescription('Dinner');
     await fillAmount('3555');
+    await goToSplitStep();
 
     fireEvent.press(screen.getByText('Save expense'));
     await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
@@ -178,6 +186,7 @@ describe('ExpenseFormScreen — currency conversion', () => {
 
     // The displayed amount must still read the user's original number.
     expect(screen.getByTestId('expense-amount-input').props.value).toBe('50');
+    await goToSplitStep();
 
     fireEvent.press(screen.getByText('Save expense'));
     await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
@@ -211,6 +220,7 @@ describe('ExpenseFormScreen — currency conversion', () => {
     // The displayed amount must reflect 5000 (formatted to 2 decimals now
     // that the currency has them), not 50.
     expect(screen.getByTestId('expense-amount-input').props.value).toBe('5000.00');
+    await goToSplitStep();
 
     fireEvent.press(screen.getByText('Save expense'));
     await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
@@ -249,6 +259,7 @@ describe('ExpenseFormScreen — currency conversion', () => {
 
     await fillDescription('Sushi run');
     await fillAmount('3555');
+    await goToSplitStep();
     fireEvent.press(screen.getByText('Save expense'));
     await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
 
@@ -273,6 +284,7 @@ describe('ExpenseFormScreen — Exact mode', () => {
     renderForm();
     await fillDescription('Groceries');
     await fillAmount('30');
+    await goToSplitStep();
     fireEvent.press(screen.getByText('Exact'));
 
     const field = screen.getByTestId('exact-amount-input-u1');
@@ -288,6 +300,7 @@ describe('ExpenseFormScreen — Exact mode', () => {
     renderForm();
     await fillDescription('Groceries');
     await fillAmount('30');
+    await goToSplitStep();
     fireEvent.press(screen.getByText('Exact'));
 
     fireEvent.changeText(screen.getByTestId('exact-amount-input-u1'), '10');
@@ -298,6 +311,7 @@ describe('ExpenseFormScreen — Exact mode', () => {
     renderForm();
     await fillDescription('Groceries');
     await fillAmount('30');
+    await goToSplitStep();
     fireEvent.press(screen.getByText('Exact'));
 
     fireEvent.changeText(screen.getByTestId('exact-amount-input-u1'), '25');
@@ -307,6 +321,8 @@ describe('ExpenseFormScreen — Exact mode', () => {
 });
 
 // ── Itemized mode ─────────────────────────────────────────────────────────
+// Step 1 (add mode) only: item entry itself. Assigning items to members is a
+// step-2 concern now — see "Two-step flow (add mode)" below.
 
 describe('ExpenseFormScreen — Itemized mode', () => {
   beforeEach(() => setupTripMode());
@@ -314,7 +330,7 @@ describe('ExpenseFormScreen — Itemized mode', () => {
   it('item description and amount fields are editable', async () => {
     renderForm();
     await fillDescription('Receipt');
-    fireEvent.press(screen.getByText('Items'));
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
     fireEvent.press(screen.getByText('Add item'));
 
     const itemField = screen.getByTestId(/^item-description-input-/);
@@ -325,7 +341,7 @@ describe('ExpenseFormScreen — Itemized mode', () => {
   it('item amount field does not lose focus mid-keystroke', async () => {
     renderForm();
     await fillDescription('Receipt');
-    fireEvent.press(screen.getByText('Items'));
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
     fireEvent.press(screen.getByText('Add item'));
 
     const itemAmount = screen.getByTestId(/^item-amount-input-/);
@@ -335,42 +351,152 @@ describe('ExpenseFormScreen — Itemized mode', () => {
     expect(itemAmount.props.value).toBe('4.5');
   });
 
-  it('"Unassigned" = top amount minus sum of item prices, live', async () => {
+  it('the running total (shown where the amount field was) updates live as items are added', async () => {
     renderForm();
     await fillDescription('Receipt');
-    await fillAmount('50');
-    fireEvent.press(screen.getByText('Items'));
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
     fireEvent.press(screen.getByText('Add item'));
 
     fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '20');
-    expect(screen.getByText('€30.00')).toBeTruthy();
+    expect(screen.getByTestId('expense-itemized-total')).toHaveTextContent('€20.00');
   });
 
-  it('removing an item drops it and recomputes "Unassigned"', async () => {
+  it('removing an item drops it and recomputes the running total', async () => {
     renderForm();
     await fillDescription('Receipt');
-    await fillAmount('50');
-    fireEvent.press(screen.getByText('Items'));
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByText('Add item'));
     fireEvent.press(screen.getByText('Add item'));
 
+    const amounts = screen.getAllByTestId(/^item-amount-input-/);
+    fireEvent.changeText(amounts[0], '20');
+    fireEvent.changeText(amounts[1], '15');
+    expect(screen.getByTestId('expense-itemized-total')).toHaveTextContent('€35.00');
+
+    fireEvent.press(screen.getAllByTestId(/^item-remove-button-/)[1]);
+
+    expect(screen.getAllByTestId(/^item-amount-input-/)).toHaveLength(1);
+    expect(screen.getByTestId('expense-itemized-total')).toHaveTextContent('€20.00');
+  });
+
+  it('"Break into items" swaps back to a single amount field, and back again', async () => {
+    renderForm();
+    await fillAmount('12');
+    expect(screen.getByTestId('expense-amount-input')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    expect(screen.queryByTestId('expense-amount-input')).toBeNull();
+    expect(screen.getByTestId('expense-itemized-total')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    expect(screen.getByTestId('expense-amount-input')).toBeTruthy();
+    expect(screen.queryByTestId('expense-itemized-total')).toBeNull();
+  });
+});
+
+// ── Two-step flow (add mode) ─────────────────────────────────────────────
+
+describe('ExpenseFormScreen — Two-step flow (add mode)', () => {
+  beforeEach(() => setupTripMode());
+
+  it('Continue is disabled until description and a positive amount are present', () => {
+    renderForm();
+    const continueBtn = screen.getByTestId('expense-continue-button');
+    expect(continueBtn).toBeDisabled();
+
+    fireEvent.press(continueBtn);
+    // A disabled press should not advance — step 1 fields are still there.
+    expect(screen.getByTestId('expense-amount-input')).toBeTruthy();
+    expect(screen.queryByTestId('payer-select-u1')).toBeNull();
+  });
+
+  it('items entered on step 1 carry into step 2 pre-assigned to everyone, and "Itemized" only appears when items exist', async () => {
+    renderForm();
+    await fillDescription('Receipt');
+    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByText('Add item'));
+    fireEvent.changeText(screen.getByTestId(/^item-description-input-/), 'Bread');
     fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '20');
-    expect(screen.getByText('€30.00')).toBeTruthy();
+    await goToSplitStep();
 
-    fireEvent.press(screen.getByTestId(/^item-remove-button-/));
+    // Itemized is available and already showing (pre-selected from step 1),
+    // with the item assigned to every member by default.
+    expect(screen.getByText('Items')).toBeTruthy();
+    expect(screen.getByText('Bread')).toBeTruthy();
+    expect(screen.getAllByTestId(/^item-member-toggle-/)).toHaveLength(DEFAULT_MEMBERS.length);
+  });
 
-    expect(screen.queryByTestId(/^item-amount-input-/)).toBeNull();
-    // The "Unassigned" footer only shows once there's at least one item —
-    // with none left, it should disappear entirely rather than show a stale value.
-    expect(screen.queryByText('Unassigned')).toBeNull();
+  it('"Itemized" is not offered in step 2 when no items were entered', async () => {
+    renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('30');
+    await goToSplitStep();
+    expect(screen.queryByText('Items')).toBeNull();
+  });
+
+  it('back-chevron from step 2 returns to step 1 without losing entered data', async () => {
+    renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('30');
+    await goToSplitStep();
+
+    fireEvent.press(screen.getByTestId('expense-back-button'));
+
+    expect(screen.getByTestId('expense-description-input').props.value).toBe('Dinner');
+    expect(screen.getByTestId('expense-amount-input').props.value).toBe('30');
+  });
+
+  it('tapping the step-2 summary header also returns to step 1', async () => {
+    renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('30');
+    await goToSplitStep();
+
+    fireEvent.press(screen.getByTestId('expense-summary-header'));
+
+    expect(screen.getByTestId('expense-amount-input')).toBeTruthy();
+  });
+
+  it('editing the amount on step 1, then continuing again, updates the split results on step 2', async () => {
+    renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('90');
+    await goToSplitStep();
+    expect(screen.getAllByText('€30.00')).toHaveLength(3); // 90 / 3 members
+
+    fireEvent.press(screen.getByTestId('expense-back-button'));
+    await fillAmount('60');
+    await goToSplitStep();
+    expect(screen.getAllByText('€20.00')).toHaveLength(3); // 60 / 3 members
+  });
+
+  it('paid-by and split-method selections survive a trip back to step 1 and forward again', async () => {
+    renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('30');
+    await goToSplitStep();
+
+    fireEvent.press(screen.getByTestId('payer-select-u2'));
+    fireEvent.press(screen.getByText('Exact'));
+
+    fireEvent.press(screen.getByTestId('expense-back-button'));
+    await goToSplitStep();
+
+    expect(screen.getByTestId('payer-select-u2').props.accessibilityState.selected).toBe(true);
+    // Still on the Exact tab — its per-member inputs render without re-selecting it.
+    expect(screen.getByTestId('exact-amount-input-u1')).toBeTruthy();
   });
 });
 
 // ── Shares tab removed ────────────────────────────────────────────────────
 
 describe('ExpenseFormScreen — Shares tab removed', () => {
-  it('never renders a "Shares" segmented option', () => {
+  it('never renders a "Shares" segmented option', async () => {
     setupTripMode();
     renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('30');
+    await goToSplitStep();
     expect(screen.queryByText('Shares')).toBeNull();
   });
 });
@@ -378,20 +504,12 @@ describe('ExpenseFormScreen — Shares tab removed', () => {
 // ── Save ──────────────────────────────────────────────────────────────────
 
 describe('ExpenseFormScreen — Save', () => {
-  it('is disabled until description, amount, and a valid split are present', () => {
-    setupTripMode();
-    renderForm();
-    // Save renders but should not be actionable — description/amount are empty,
-    // which fails isValid; pressing it should not throw or navigate.
-    fireEvent.press(screen.getByText('Save expense'));
-    expect(screen.getByText('Save expense')).toBeTruthy();
-  });
-
   it('saves an Evenly split expense with splits summing exactly to the total', async () => {
     setupTripMode();
     const { container } = renderForm();
     await fillDescription('Dinner');
     await fillAmount('100');
+    await goToSplitStep();
 
     fireEvent.press(screen.getByText('Save expense'));
     await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
@@ -406,6 +524,48 @@ describe('ExpenseFormScreen — Save', () => {
     }
   });
 
+  // Regression coverage for a reported bug: on device, "Save expense" would
+  // seemingly save but never navigate away, so pressing it again created a
+  // duplicate. Every other Save test up to now only checked the repo state —
+  // none of them ever asserted the screen actually navigates back afterward.
+  it('navigates back exactly once after a successful save', async () => {
+    setupTripMode();
+    renderForm();
+    const router = useRouter();
+    // The router mock is a single object shared across every test in this
+    // file (see mockExpoRouterModule's own doc comment) — clear it so an
+    // earlier test's save doesn't inflate this count.
+    (router.back as jest.Mock).mockClear();
+    (router.replace as jest.Mock).mockClear();
+    await fillDescription('Dinner');
+    await fillAmount('100');
+    await goToSplitStep();
+
+    fireEvent.press(screen.getByText('Save expense'));
+    await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
+
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('does not create a duplicate expense when Save is tapped twice in quick succession', async () => {
+    setupTripMode();
+    const { container } = renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('100');
+    await goToSplitStep();
+
+    const saveButton = screen.getByText('Save expense');
+    fireEvent.press(saveButton);
+    fireEvent.press(saveButton); // a second tap landing before the first save settles
+
+    await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
+
+    const repo  = container.resolve(EXPENSE_REPO);
+    const saved = await repo.getExpensesForTrip('t1');
+    expect(saved.ok && saved.value).toHaveLength(1);
+  });
+
   // Regression coverage for a reported bug: pick someone other than the
   // default first member as payer, save, then check what actually landed in
   // the repo — not just what the still-mounted form believes.
@@ -414,6 +574,7 @@ describe('ExpenseFormScreen — Save', () => {
     const { container } = renderForm();
     await fillDescription('Dinner');
     await fillAmount('100');
+    await goToSplitStep();
 
     fireEvent.press(screen.getByTestId('payer-select-u2')); // Bob
     fireEvent.press(screen.getByText('Save expense'));
@@ -432,7 +593,9 @@ describe('ExpenseFormScreen — Evenly mode', () => {
   it('toggling a member off recomputes the remaining members\' shares', async () => {
     setupTripMode();
     renderForm();
+    await fillDescription('Party');
     await fillAmount('90');
+    await goToSplitStep();
 
     // Alice, Bob, Cleo — 90/3 = 30 each initially.
     expect(screen.getAllByText('€30.00')).toHaveLength(3);
@@ -466,6 +629,7 @@ describe('ExpenseFormScreen — group mode', () => {
 
     await fillDescription('Pizza night');
     await fillAmount('40');
+    await goToSplitStep();
     fireEvent.press(screen.getByText('Save expense'));
     await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
 
@@ -668,13 +832,16 @@ describe('ExpenseFormScreen — Receipt scan', () => {
 });
 
 describe('ExpenseFormScreen — Paid by collision labels', () => {
-  it('shows a disambiguating first-name label only for members sharing a first initial', () => {
+  it('shows a disambiguating first-name label only for members sharing a first initial', async () => {
     setupTripMode({ members: [
       memberFactory({ userId: 'u1', displayName: 'Alice Smith' }),
       memberFactory({ userId: 'u2', displayName: 'Aaron Lee' }),
       memberFactory({ userId: 'u3', displayName: 'Bob Dylan' }),
     ] });
     renderForm();
+    await fillDescription('Dinner');
+    await fillAmount('30');
+    await goToSplitStep();
 
     // Alice and Aaron collide on "A" — both get a short disambiguating label.
     expect(screen.getByText('Alice')).toBeTruthy();

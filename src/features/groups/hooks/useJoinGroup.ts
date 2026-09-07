@@ -33,7 +33,6 @@ export function useJoinGroup(token: string) {
 
   useEffect(() => {
     if (!token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState(s => ({ ...s, loading: false, error: { kind: 'ValidationError', field: 'token', message: 'Invite token is missing.' } }));
       return;
     }
@@ -62,52 +61,59 @@ export function useJoinGroup(token: string) {
 
     setState(s => ({ ...s, joining: true, joinError: null }));
 
-    // Idempotency: skip if already a member. Re-fetch rather than trusting the
-    // hook's own (possibly stale) `group` snapshot, since a prior join in the
-    // same session doesn't update it.
-    const currentResult = await groupRepo.getGroup(group.id);
-    if (isOk(currentResult) && currentResult.value.members.some(m => m.userId === user.id)) {
-      setState(s => ({ ...s, joining: false }));
-      return group;
-    }
-
-    // Email-based matching: merge into a placeholder row if email matches.
-    if (user.email) {
-      const matchResult = await groupRepo.findMemberByEmail(group.id, user.email);
-      if (isOk(matchResult) && matchResult.value) {
-        const claimResult = await groupRepo.claimGroupMemberSlot(
-          group.id,
-          matchResult.value.userId,
-          user.id,
-          user.name,
-        );
-        if (!isOk(claimResult)) {
-          setState(s => ({ ...s, joining: false, joinError: claimResult.error }));
-          return null;
-        }
-        storeApi.getState().addMemberToGroupInStore(group.id, claimResult.value);
-        setState(s => ({ ...s, joining: false }));
+    try {
+      // Idempotency: skip if already a member. Re-fetch rather than trusting
+      // the hook's own (possibly stale) `group` snapshot, since a prior join
+      // in the same session doesn't update it.
+      const currentResult = await groupRepo.getGroup(group.id);
+      if (isOk(currentResult) && currentResult.value.members.some(m => m.userId === user.id)) {
         return group;
       }
-    }
 
-    const addResult = await groupRepo.addMember({
-      userId:      user.id,
-      groupId:     group.id,
-      displayName: user.name,
-      isGuest:     false,
-      joinedAt:    new Date(),
-      avatarUrl:   user.avatarUrl,
-    });
+      // Email-based matching: merge into a placeholder row if email matches.
+      if (user.email) {
+        const matchResult = await groupRepo.findMemberByEmail(group.id, user.email);
+        if (isOk(matchResult) && matchResult.value) {
+          const claimResult = await groupRepo.claimGroupMemberSlot(
+            group.id,
+            matchResult.value.userId,
+            user.id,
+            user.name,
+          );
+          if (!isOk(claimResult)) {
+            setState(s => ({ ...s, joinError: claimResult.error }));
+            return null;
+          }
+          storeApi.getState().addMemberToGroupInStore(group.id, claimResult.value);
+          return group;
+        }
+      }
 
-    if (!isOk(addResult)) {
-      setState(s => ({ ...s, joining: false, joinError: addResult.error }));
+      const addResult = await groupRepo.addMember({
+        userId:      user.id,
+        groupId:     group.id,
+        displayName: user.name,
+        isGuest:     false,
+        joinedAt:    new Date(),
+        avatarUrl:   user.avatarUrl,
+      });
+
+      if (!isOk(addResult)) {
+        setState(s => ({ ...s, joinError: addResult.error }));
+        return null;
+      }
+
+      storeApi.getState().addMemberToGroupInStore(group.id, addResult.value);
+      return group;
+    } catch (e) {
+      // A thrown exception (a real network failure, distinct from a repo
+      // returning Result.err) used to propagate uncaught — `joining` never
+      // reset and the caller's post-join navigation never ran.
+      setState(s => ({ ...s, joinError: { kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' } }));
       return null;
+    } finally {
+      setState(s => ({ ...s, joining: false }));
     }
-
-    storeApi.getState().addMemberToGroupInStore(group.id, addResult.value);
-    setState(s => ({ ...s, joining: false }));
-    return group;
   }, [state, auth, groupRepo, storeApi, token]);
 
   return {

@@ -92,4 +92,21 @@ describe('useSettleAllGroupDebts', () => {
     expect(ok).toBe(false);
     expect(result.current.error).toMatchObject({ kind: 'NetworkError' });
   });
+
+  // Regression coverage, same class of bug as useAddExpense/useEditExpense:
+  // settleAll had no try/catch, so a thrown exception (distinct from a repo
+  // returning Result.err) left `loading` stuck at true forever.
+  it('resets loading and sets a NetworkError when the repo call throws, instead of hanging forever', async () => {
+    const repo = container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository;
+    repo.saveSplitRequest = async () => { throw new Error('connection reset'); };
+
+    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
+
+    let ok = true;
+    await act(async () => { ok = await result.current.settleAll(); });
+
+    expect(ok).toBe(false);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error?.kind).toBe('NetworkError');
+  });
 });

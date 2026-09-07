@@ -299,22 +299,91 @@ before relying on it.
   `supabase.auth.onAuthStateChange` inside the service itself (`Purchases.logIn`/`logOut`),
   so no screen needs to call an explicit "identify" step.
 
-**What you need to do manually** (none of this is scriptable from here):
-1. Create a RevenueCat account/project, add iOS + Android apps to it.
-2. In Play Console and App Store Connect, create the two products from the Product Catalog
-   table above (`trip_pass_single` as a non-subscription/one-time product, `premium_monthly`
-   as an auto-renewing subscription) and attach them to RevenueCat.
-3. In RevenueCat, create entitlements `trip_pass` and `premium` and attach the matching product
-   to each.
-4. Copy the iOS and Android **public** SDK keys into EAS secrets:
-   `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
-5. RevenueCat Dashboard → Project → Integrations → Webhooks: add an endpoint pointing at
-   `https://<your-project-ref>.supabase.co/functions/v1/revenuecat-webhook`, set an
-   "Authorization header value" (any string you choose), and save that same string as the
-   Supabase secret `REVENUECAT_WEBHOOK_AUTH_HEADER`
-   (`supabase secrets set REVENUECAT_WEBHOOK_AUTH_HEADER=...`). Unlike Stripe/Tink, RevenueCat
-   does not sign webhooks — this shared-secret header is the only verification.
-6. Deploy the new function: `supabase functions deploy revenuecat-webhook`.
+**What you need to do manually** (none of this is scriptable from here). Expanded to exact
+clicks on 2026-09-04, Android-first per the release plan — iOS deferred to Step 12:
+
+- [ ] **Step 1 — Create your RevenueCat account.** https://app.revenuecat.com/signup, sign up
+      with email or Google, verify your email. If the onboarding wizard asks what you're
+      building, pick the mobile app option.
+- [ ] **Step 2 — Create a Project.** Dashboard → Create new project → name it `ouiShare`. This
+      Project is the container both platform apps (Android now, iOS later) live under.
+- [ ] **Step 3 — Add the Android app.** Inside the project → Apps → + New app → Google Play
+      Store. App name `ouiShare Android`; package name `com.ouishare.app` (must match
+      `app.config.ts`'s `android.package` exactly). Save — RevenueCat immediately asks for the
+      service account credentials from Step 4 before it can validate any purchase.
+- [ ] **Step 4 — Google Play service account** (required — this is how RevenueCat verifies
+      Android purchases are real):
+  1. https://console.cloud.google.com → create a new project (or reuse one for this app) —
+     e.g. `ouishare-revenuecat`.
+  2. In that Cloud project: APIs & Services → Library → enable **Google Play Android
+     Developer API**.
+  3. IAM & Admin → Service Accounts → Create Service Account → name it
+     `revenuecat-play-integration`. No Cloud-project roles needed — permissions are granted
+     from the Play Console side instead.
+  4. Open the service account → Keys tab → Add key → Create new key → JSON. Downloads a
+     `.json` file — keep it safe, you won't see it again.
+  5. Play Console → Users and permissions → Invite new users → paste the service account's
+     email (`revenuecat-play-integration@<cloud-project-id>.iam.gserviceaccount.com`, copy
+     it from the Cloud Console service account list).
+  6. Grant it **View financial data** and **Manage orders and subscriptions** — RevenueCat's
+     docs call these two out specifically; without "financial data" it can't reconcile
+     purchase/refund status.
+  7. RevenueCat → the Android app's settings → Service Account Credentials → upload the
+     `.json` file from step 4. A green "Verified" status appears once RevenueCat can call the
+     Play Developer API — if it fails at first, the Play Console permission grant can take a
+     few minutes to propagate.
+- [ ] **Step 5 — Real-time developer notifications** (recommended, can defer past initial
+      launch — RevenueCat polls Google Play periodically without it, just with more lag before
+      a renewal/cancellation/refund reaches `subscription_windows.expires_at`):
+  1. Same Cloud project as Step 4 → Pub/Sub → Topics → Create topic → name it `play-rtdn`.
+  2. On that topic → Permissions → Add principal →
+     `google-play-developer-notifications@system.gserviceaccount.com`, role **Pub/Sub
+     Publisher**.
+  3. Play Console → Monetize setup → Real-time developer notifications → paste the topic's
+     full resource name (`projects/<cloud-project-id>/topics/play-rtdn`).
+  4. RevenueCat → Android app settings → paste the same topic name so RevenueCat subscribes.
+- [ ] **Step 6 — Create the two products in Play Console** (must match the Product Catalog
+      table above exactly — both IDs are hardcoded in `RevenueCatEntitlementService.ts` and
+      `revenuecat-webhook/index.ts`):
+  1. Monetize → Products → In-app products → Create product. Product ID `trip_pass_single`,
+     name "Trip Pass", price €1.99.
+  2. Monetize → Products → Subscriptions → Create subscription. Product ID `premium_monthly`,
+     base plan monthly auto-renewing, €2.99.
+  3. Both must be **Active** (not draft) before RevenueCat can fetch them via `getProducts()`.
+- [ ] **Step 7 — Attach the products in RevenueCat.** Product catalog → Products → + New. Add
+      `trip_pass_single` (select the Android app; RevenueCat auto-detects it from the store once
+      Active), then repeat for `premium_monthly`.
+- [ ] **Step 8 — Create entitlements** `trip_pass` (→ `trip_pass_single`) and `premium`
+      (→ `premium_monthly`) under Product catalog → Entitlements. RevenueCat's onboarding wizard
+      requires at least one to finish setup — but **this codebase never actually reads
+      RevenueCat's entitlement concept**: both the app and the webhook route purely by comparing
+      `product_id` strings directly (`revenuecat-webhook/index.ts`'s
+      `event.product_id === TRIP_PASS_PRODUCT_ID`). So this step exists to satisfy the
+      dashboard, not a real code dependency. You can skip creating an **Offering** entirely —
+      offerings/packages only matter if the app calls `getOfferings()`, but
+      `RevenueCatEntitlementService.ts` calls `Purchases.getProducts(['trip_pass_single'])` by
+      exact hardcoded ID instead.
+- [ ] **Step 9 — Get the public API keys.** Project settings → API keys → copy the Android
+      app's Public app-specific API key (starts with `goog_`). Set it as an EAS secret:
+      `eas secret:create --name EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY --value goog_xxxxx`.
+      Leave `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` unset for now — `app.config.ts` reads it as
+      `?? ''`, so an empty value is safe until the iOS phase.
+- [ ] **Step 10 — Configure the webhook.** Project settings → Integrations → Webhooks → + New.
+      URL `https://<your-project-ref>.supabase.co/functions/v1/revenuecat-webhook`. Under
+      "Authorization header value," type any secret string (e.g. `openssl rand -hex 32`) —
+      unlike Stripe/Tink, RevenueCat does not cryptographically sign webhooks, so this shared
+      header is the only verification. Save the exact same string as a Supabase secret:
+      `supabase secrets set REVENUECAT_WEBHOOK_AUTH_HEADER=<the string you typed>`.
+- [ ] **Step 11 — Deploy the webhook function.** `supabase functions deploy revenuecat-webhook`.
+- [ ] **Step 12 — iOS** (defer until the iOS phase). Will need: an App Store Connect app
+      record, an In-App Purchase Shared Secret (or an App Store Connect API key for the newer
+      Server Notifications V2 path) added to RevenueCat's iOS app config, and the equivalent
+      products created in App Store Connect.
+
+Once Steps 1–11 are done, the next thing worth doing is a sandbox purchase test — Play Console →
+your app → Setup → License testing → add yourself as a License Tester, then a debug/preview
+build gets real purchase flows with no real charge. That's Chunk C's still-open "genuinely needs
+a real device" item, not a new one.
 
 **Not yet verified** (can't be, from this environment): the `react-native-purchases` SDK calls
 in `RevenueCatEntitlementService.ts` (`configure`, `logIn`/`logOut`, `getProducts`,

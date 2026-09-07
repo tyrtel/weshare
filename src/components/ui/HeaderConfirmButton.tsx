@@ -9,16 +9,20 @@ interface HeaderConfirmButtonProps {
   disabled: boolean;
   loading: boolean;
   accessibilityLabel: string;
+  /** Defaults to a checkmark (save/confirm). Pass e.g. "arrow-forward" for a "Continue" step. */
+  icon?: keyof typeof Ionicons.glyphMap;
+  testID?: string;
 }
 
 // The small circular checkmark button used as `Stack.Screen`'s `headerRight`
 // on every create/edit form — extracted from three identical copies in
 // CreateTripScreen, app/group/create.tsx, and app/group/edit.tsx.
-export function HeaderConfirmButton({ onPress, disabled, loading, accessibilityLabel }: HeaderConfirmButtonProps) {
+export function HeaderConfirmButton({ onPress, disabled, loading, accessibilityLabel, icon = 'checkmark', testID }: HeaderConfirmButtonProps) {
   const colors = useColors();
 
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
@@ -32,7 +36,7 @@ export function HeaderConfirmButton({ onPress, disabled, loading, accessibilityL
     >
       {loading
         ? <ActivityIndicator color={colors.text.inverse} size="small" />
-        : <Ionicons name="checkmark" size={20} color={colors.text.inverse} />}
+        : <Ionicons name={icon} size={20} color={colors.text.inverse} />}
     </Pressable>
   );
 }

@@ -256,6 +256,32 @@ describe('GroupExpenseDetailScreen', () => {
       expect(remaining?.find(e => e.id === 'e1')).toBeUndefined();
     });
 
+    // Regression coverage, same class of bug as create/edit: the screen used
+    // to navigate back unconditionally after awaiting removeGroupExpense,
+    // regardless of whether the delete actually succeeded.
+    it('does not navigate away when the delete fails', async () => {
+      const { InMemoryExpenseRepository } = require('../../../../src/__mocks__/InMemoryExpenseRepository');
+      const failingExpenseRepo = new InMemoryExpenseRepository();
+      failingExpenseRepo.deleteExpense = jest.fn(async () => ({
+        ok: false, error: { kind: 'NotFoundError', resource: 'Expense', id: 'e1' },
+      }));
+      const container = createTestContainer({ expenseRepo: failingExpenseRepo });
+      await seed(container);
+
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+        buttons?.[0]?.onPress?.();
+      });
+
+      render(container);
+      fireEvent.press(screen.getByText('Delete expense'));
+
+      await waitFor(() => expect(failingExpenseRepo.deleteExpense).toHaveBeenCalled());
+
+      expect(mockBack).not.toHaveBeenCalled();
+      const remaining = container.resolve(TRIP_STORE).getState().groupExpenses['g1'];
+      expect(remaining?.find((e: { id: string }) => e.id === 'e1')).toBeTruthy();
+    });
+
     it('does not delete when the confirmation is cancelled', async () => {
       const container = createTestContainer();
       await seed(container);

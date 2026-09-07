@@ -209,19 +209,29 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       }));
     },
 
-    async removeExpense(expenseId: string, tripId: string): Promise<void> {
-      const result = await repos.expenses.deleteExpense(expenseId);
-      if (isErr(result)) {
-        set({ hydrationError: result.error });
-        return;
+    async removeExpense(expenseId: string, tripId: string): Promise<boolean> {
+      try {
+        const result = await repos.expenses.deleteExpense(expenseId);
+        if (isErr(result)) {
+          set({ hydrationError: result.error });
+          return false;
+        }
+        set((state) => ({
+          expenses: {
+            ...state.expenses,
+            [tripId]: (state.expenses[tripId] ?? []).filter((e) => e.id !== expenseId),
+          },
+          hydrationError: null,
+        }));
+        return true;
+      } catch (e) {
+        // A thrown exception (a real network failure, distinct from the repo
+        // returning Result.err) used to propagate uncaught — the caller's
+        // await never resolved, so its own post-delete navigation never ran
+        // and the screen was left stuck with no error shown.
+        set({ hydrationError: { kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' } });
+        return false;
       }
-      set((state) => ({
-        expenses: {
-          ...state.expenses,
-          [tripId]: (state.expenses[tripId] ?? []).filter((e) => e.id !== expenseId),
-        },
-        hydrationError: null,
-      }));
     },
 
     // ── Splits / settlement ──────────────────────────────────────────────────
@@ -524,19 +534,26 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       }));
     },
 
-    async removeGroupExpense(expenseId: string, groupId: string): Promise<void> {
-      const result = await repos.expenses.deleteExpense(expenseId);
-      if (isErr(result)) {
-        set({ hydrationError: result.error });
-        return;
+    async removeGroupExpense(expenseId: string, groupId: string): Promise<boolean> {
+      try {
+        const result = await repos.expenses.deleteExpense(expenseId);
+        if (isErr(result)) {
+          set({ hydrationError: result.error });
+          return false;
+        }
+        set((state) => ({
+          groupExpenses: {
+            ...state.groupExpenses,
+            [groupId]: (state.groupExpenses[groupId] ?? []).filter((e) => e.id !== expenseId),
+          },
+          hydrationError: null,
+        }));
+        return true;
+      } catch (e) {
+        // See removeExpense's identical guard.
+        set({ hydrationError: { kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' } });
+        return false;
       }
-      set((state) => ({
-        groupExpenses: {
-          ...state.groupExpenses,
-          [groupId]: (state.groupExpenses[groupId] ?? []).filter((e) => e.id !== expenseId),
-        },
-        hydrationError: null,
-      }));
     },
 
     settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date | null): void {

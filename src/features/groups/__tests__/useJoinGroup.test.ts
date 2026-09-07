@@ -7,6 +7,7 @@ import { GROUP_REPO, AUTH } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Group } from '../../../core/models/Group';
 import { groupFactory } from '../../../__testUtils__/factories';
+import { InMemoryGroupRepository } from '../../../__mocks__/InMemoryGroupRepository';
 
 function makeWrapper(container: ServiceContainer) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
@@ -123,5 +124,30 @@ describe('useJoinGroup — already a member', () => {
       const jayCount = group.value.members.filter(m => m.displayName === 'Jay').length;
       expect(jayCount).toBe(1);
     }
+  });
+});
+
+// Regression coverage, same class of bug as useAddExpense/useEditExpense:
+// joinAuthenticated had no try/catch, so a thrown exception (a real network
+// failure, distinct from a repo returning Result.err) left `joining` stuck at
+// true forever and skipped the caller's post-join navigation entirely.
+describe('useJoinGroup — exception safety', () => {
+  it('resets joining and sets a NetworkError when addMember throws, instead of hanging forever', async () => {
+    const groupRepo = new InMemoryGroupRepository();
+    await groupRepo.saveGroup(groupFactory({ inviteToken: 'TESTTOKEN' }));
+    groupRepo.addMember = async () => { throw new Error('fetch failed'); };
+    const container = createTestContainer({ groupRepo });
+    const auth = container.resolve(AUTH);
+    await auth.signIn('jay@example.com', 'password');
+
+    const { result } = renderHook(() => useJoinGroup('TESTTOKEN'), { wrapper: makeWrapper(container) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let joined: unknown = 'not-null';
+    await act(async () => { joined = await result.current.joinAuthenticated(); });
+
+    expect(joined).toBeNull();
+    expect(result.current.joining).toBe(false);
+    expect(result.current.joinError?.kind).toBe('NetworkError');
   });
 });

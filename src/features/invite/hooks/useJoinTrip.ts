@@ -29,7 +29,6 @@ export function useJoinTrip(token: string) {
 
   useEffect(() => {
     if (!token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState(s => ({ ...s, loading: false, error: { kind: 'ValidationError', field: 'token', message: 'Invite token is missing.' } }));
       return;
     }
@@ -58,50 +57,57 @@ export function useJoinTrip(token: string) {
 
     setState(s => ({ ...s, joining: true, joinError: null }));
 
-    // Idempotency: skip if already a member.
-    const membersResult = await memberRepo.getMembersForTrip(trip.id);
-    if (isOk(membersResult) && membersResult.value.some(m => m.userId === user.id)) {
-      setState(s => ({ ...s, joining: false }));
-      return trip;
-    }
-
-    // Email-based matching: merge into a placeholder row if email matches.
-    if (user.email) {
-      const matchResult = await memberRepo.findMemberByEmail(trip.id, user.email);
-      if (isOk(matchResult) && matchResult.value) {
-        const claimResult = await memberRepo.claimMemberSlot(
-          trip.id,
-          matchResult.value.userId,
-          user.id,
-          user.name,
-        );
-        if (!isOk(claimResult)) {
-          setState(s => ({ ...s, joining: false, joinError: claimResult.error }));
-          return null;
-        }
-        storeApi.getState().appendMember(claimResult.value);
-        setState(s => ({ ...s, joining: false }));
+    try {
+      // Idempotency: skip if already a member.
+      const membersResult = await memberRepo.getMembersForTrip(trip.id);
+      if (isOk(membersResult) && membersResult.value.some(m => m.userId === user.id)) {
         return trip;
       }
-    }
 
-    const addResult = await memberRepo.addMember({
-      userId:      user.id,
-      tripId:      trip.id,
-      displayName: user.name,
-      isGuest:     false,
-      joinedAt:    new Date(),
-      avatarUrl:   user.avatarUrl,
-    });
+      // Email-based matching: merge into a placeholder row if email matches.
+      if (user.email) {
+        const matchResult = await memberRepo.findMemberByEmail(trip.id, user.email);
+        if (isOk(matchResult) && matchResult.value) {
+          const claimResult = await memberRepo.claimMemberSlot(
+            trip.id,
+            matchResult.value.userId,
+            user.id,
+            user.name,
+          );
+          if (!isOk(claimResult)) {
+            setState(s => ({ ...s, joinError: claimResult.error }));
+            return null;
+          }
+          storeApi.getState().appendMember(claimResult.value);
+          return trip;
+        }
+      }
 
-    if (!isOk(addResult)) {
-      setState(s => ({ ...s, joining: false, joinError: addResult.error }));
+      const addResult = await memberRepo.addMember({
+        userId:      user.id,
+        tripId:      trip.id,
+        displayName: user.name,
+        isGuest:     false,
+        joinedAt:    new Date(),
+        avatarUrl:   user.avatarUrl,
+      });
+
+      if (!isOk(addResult)) {
+        setState(s => ({ ...s, joinError: addResult.error }));
+        return null;
+      }
+
+      storeApi.getState().appendMember(addResult.value);
+      return trip;
+    } catch (e) {
+      // A thrown exception (a real network failure, distinct from a repo
+      // returning Result.err) used to propagate uncaught — `joining` never
+      // reset and the caller's post-join navigation never ran.
+      setState(s => ({ ...s, joinError: { kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' } }));
       return null;
+    } finally {
+      setState(s => ({ ...s, joining: false }));
     }
-
-    storeApi.getState().appendMember(addResult.value);
-    setState(s => ({ ...s, joining: false }));
-    return trip;
   }, [state, auth, memberRepo, storeApi, token]);
 
   return {

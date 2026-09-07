@@ -286,6 +286,84 @@ describe('removeExpense', () => {
     await store.getState().removeExpense('e1', 't1');
     expect(store.getState().hydrationError).not.toBeNull();
   });
+
+  // Regression coverage, same class of bug as create/edit: callers gate
+  // post-delete navigation on this return value (see ExpenseDetailScreen's
+  // handleDelete) — it must actually report success/failure, not just resolve.
+  it('resolves true on success', async () => {
+    const { store } = seededStore();
+    await store.getState().loadTripDetail('t1');
+    const result = await store.getState().removeExpense('e1', 't1');
+    expect(result).toBe(true);
+  });
+
+  it('resolves false, and leaves the cache untouched, when storage returns an error', async () => {
+    const expenses = new InMemoryExpenseRepository();
+    expenses.deleteExpense = async () => err({ kind: 'NotFoundError', resource: 'Expense', id: 'e1' });
+    const store = makeStore({ expenses });
+    store.setState({ expenses: { t1: [expense] } });
+
+    const result = await store.getState().removeExpense('e1', 't1');
+
+    expect(result).toBe(false);
+    expect(store.getState().expenses['t1']?.some((e) => e.id === 'e1')).toBe(true);
+  });
+
+  it('resolves false, without throwing, when the repo call itself throws', async () => {
+    const expenses = new InMemoryExpenseRepository();
+    expenses.deleteExpense = async () => { throw new Error('network down'); };
+    const store = makeStore({ expenses });
+
+    const result = await store.getState().removeExpense('e1', 't1');
+
+    expect(result).toBe(false);
+    expect(store.getState().hydrationError).toEqual({ kind: 'NetworkError', message: 'network down' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// removeGroupExpense
+// ---------------------------------------------------------------------------
+
+describe('removeGroupExpense', () => {
+  it('removes the expense from the group cache and resolves true', async () => {
+    const groupExpense: Expense = { ...expense, tripId: undefined, groupId: 'g1' };
+    const expenses = new InMemoryExpenseRepository().seed([groupExpense]);
+    const store = makeStore({ expenses });
+    store.getState().appendGroupExpense(groupExpense);
+
+    const result = await store.getState().removeGroupExpense('e1', 'g1');
+
+    expect(result).toBe(true);
+    expect(store.getState().groupExpenses['g1']?.some((e) => e.id === 'e1')).toBe(false);
+  });
+
+  it('resolves false and leaves the group cache untouched when storage returns an error', async () => {
+    const expenses = new InMemoryExpenseRepository();
+    expenses.deleteExpense = async () => err({ kind: 'NotFoundError', resource: 'Expense', id: 'e1' });
+    const store = makeStore({ expenses });
+    const groupExpense: Expense = { ...expense, tripId: undefined, groupId: 'g1' };
+    store.getState().appendGroupExpense(groupExpense);
+
+    const result = await store.getState().removeGroupExpense('e1', 'g1');
+
+    expect(result).toBe(false);
+    expect(store.getState().groupExpenses['g1']?.some((e) => e.id === 'e1')).toBe(true);
+  });
+
+  it('resolves false, without throwing, when the repo call itself throws', async () => {
+    const expenses = new InMemoryExpenseRepository();
+    expenses.deleteExpense = async () => { throw new Error('network down'); };
+    const store = makeStore({ expenses });
+    const groupExpense: Expense = { ...expense, tripId: undefined, groupId: 'g1' };
+    store.getState().appendGroupExpense(groupExpense);
+
+    const result = await store.getState().removeGroupExpense('e1', 'g1');
+
+    expect(result).toBe(false);
+    expect(store.getState().hydrationError).toEqual({ kind: 'NetworkError', message: 'network down' });
+    expect(store.getState().groupExpenses['g1']?.some((e) => e.id === 'e1')).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

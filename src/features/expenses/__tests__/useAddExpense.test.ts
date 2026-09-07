@@ -4,6 +4,8 @@ import { useAddExpense, equalSplit } from '../hooks/useAddExpense';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { EXPENSE_REPO } from '../../../core/di/tokens';
+import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
+import { InMemorySplitRepository } from '../../../__mocks__/InMemorySplitRepository';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { AddExpenseInput } from '../hooks/useAddExpense';
 
@@ -255,5 +257,45 @@ describe('useAddExpense — validation errors', () => {
 
     expect(expense).toBeNull();
     expect(result.current.error?.kind).toBe('ValidationError');
+  });
+});
+
+// ── Exception safety ──────────────────────────────────────────────────────────
+// Regression coverage for a reported bug: on device, tapping "Save expense"
+// would seemingly save but never navigate away, letting a second tap create a
+// duplicate. Root cause — addExpense had no try/catch, so a thrown exception
+// (a real network failure, distinct from a repo returning Result.err) left
+// `loading` stuck at true forever and skipped the screen's post-save
+// navigation entirely, with no error surfaced to explain why.
+
+describe('useAddExpense — exception safety', () => {
+  it('resets loading and sets a NetworkError when saveExpense throws, instead of hanging forever', async () => {
+    const expenseRepo = new InMemoryExpenseRepository();
+    expenseRepo.saveExpense = async () => { throw new Error('fetch failed'); };
+    const container = createTestContainer({ expenseRepo });
+
+    const { result } = renderHook(() => useAddExpense(TRIP_ID), { wrapper: makeWrapper(container) });
+
+    let expense: unknown = 'not-null';
+    await act(async () => { expense = await result.current.addExpense(makeInput()); });
+
+    expect(expense).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error?.kind).toBe('NetworkError');
+  });
+
+  it('resets loading and sets a NetworkError when a split save throws after the expense already saved', async () => {
+    const splitRepo = new InMemorySplitRepository();
+    splitRepo.saveSplit = async () => { throw new Error('connection reset'); };
+    const container = createTestContainer({ splitRepo });
+
+    const { result } = renderHook(() => useAddExpense(TRIP_ID), { wrapper: makeWrapper(container) });
+
+    let expense: unknown = 'not-null';
+    await act(async () => { expense = await result.current.addExpense(makeInput()); });
+
+    expect(expense).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error?.kind).toBe('NetworkError');
   });
 });
