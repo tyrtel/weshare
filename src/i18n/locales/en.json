@@ -395,10 +395,6 @@
       "member_count_one": "{{count}} member",
       "member_count_other": "{{count}} members"
     },
-    "balance_bubbles": {
-      "title": "Current standings",
-      "even": "even"
-    },
     "spend_chart": {
       "title": "Spend Breakdown",
       "accessibility_label": "Spend breakdown chart"
@@ -661,8 +657,7 @@
 
   "balance_view": {
     "bars_label": "Bar view",
-    "list_label": "List view",
-    "bubbles_label": "Bubble view"
+    "list_label": "List view"
   },
 
   "reports": {

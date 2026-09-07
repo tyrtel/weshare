@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
-export type BalanceViewMode = 'bars' | 'list' | 'bubbles';
+export type BalanceViewMode = 'bars' | 'list';
 
-const VALID_MODES = new Set<string>(['bars', 'list', 'bubbles']);
+const VALID_MODES = new Set<string>(['bars', 'list']);
 const DEFAULT: BalanceViewMode = 'bars';
 const guard = (m: string): BalanceViewMode => (VALID_MODES.has(m) ? (m as BalanceViewMode) : DEFAULT);
 

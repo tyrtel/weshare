@@ -395,10 +395,6 @@
       "member_count_one": "{{count}} participant",
       "member_count_other": "{{count}} participants"
     },
-    "balance_bubbles": {
-      "title": "Situation actuelle",
-      "even": "équilibré"
-    },
     "spend_chart": {
       "title": "Répartition des dépenses",
       "accessibility_label": "Graphique de répartition des dépenses"
@@ -661,8 +657,7 @@
 
   "balance_view": {
     "bars_label": "Vue barres",
-    "list_label": "Vue liste",
-    "bubbles_label": "Vue bulles"
+    "list_label": "Vue liste"
   },
 
   "reports": {
