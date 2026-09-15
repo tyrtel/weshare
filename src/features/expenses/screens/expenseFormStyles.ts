@@ -3,7 +3,7 @@ import type { ColorPalette } from '../../../theme/colors';
 import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../../theme/tokens';
 
 // Shared by ExpenseFormScreen and the components it composes (ExpenseAmountCard,
-// PayerPicker, SplitModeSection, LineItemEntryList, ExpenseSummaryHeader) so
+// PayerPicker, SplitModeSection, the itemization/ editors, ExpenseSummaryHeader) so
 // the add-mode two-step flow and the edit-mode single screen render pixel-identical
 // cards, rows, and text from one style source.
 export const makeExpenseFormStyles = (colors: ColorPalette) => StyleSheet.create({

@@ -11,12 +11,8 @@ import type { UseCurrencyRateReturn } from '../hooks/useCurrencyRate';
 
 interface ExpenseAmountCardProps {
   currency: string;
-  // Editable single-amount entry (default add-step-1/edit), or a read-only
-  // running total (add-step-1 while broken into items — the total is derived
-  // from the line items, not typed directly).
-  amount:
-    | { editable: true; rawAmount: string; onChangeAmount: (raw: string) => void }
-    | { editable: false; totalCents: number };
+  rawAmount: string;
+  onChangeAmount: (raw: string) => void;
   onPressCurrency: () => void;
   description: string;
   onChangeDescription: (v: string) => void;
@@ -29,7 +25,7 @@ interface ExpenseAmountCardProps {
 }
 
 export function ExpenseAmountCard({
-  currency, amount, onPressCurrency, description, onChangeDescription,
+  currency, rawAmount, onChangeAmount, onPressCurrency, description, onChangeDescription,
   isForeign, rate, entryCurrency, contextCurrency, convertedCents, styles,
 }: ExpenseAmountCardProps) {
   const { t } = useTranslation();
@@ -46,21 +42,15 @@ export function ExpenseAmountCard({
           <Text style={styles.currency}>{currencySymbol(currency)}</Text>
           <Feather name="chevron-down" size={14} color={colors.text.tertiary} />
         </Pressable>
-        {amount.editable ? (
-          <TextInput
-            testID="expense-amount-input"
-            style={styles.amountInput}
-            value={amount.rawAmount}
-            onChangeText={amount.onChangeAmount}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-            placeholderTextColor={colors.text.tertiary}
-          />
-        ) : (
-          <Text testID="expense-itemized-total" style={styles.amountInput}>
-            {formatCurrency(amount.totalCents, currency)}
-          </Text>
-        )}
+        <TextInput
+          testID="expense-amount-input"
+          style={styles.amountInput}
+          value={rawAmount}
+          onChangeText={onChangeAmount}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+          placeholderTextColor={colors.text.tertiary}
+        />
       </View>
       {isForeign && (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 6 }}>

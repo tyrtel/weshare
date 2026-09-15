@@ -115,12 +115,16 @@ export function useSplitForm({
     );
   }, [splitMode, lineItems, splitEntries, weights, totalAmountCents]);
 
-  const remainder = splitMode === 'itemized'
-    ? 0
-    : totalAmountCents - computedSplits.reduce((s, e) => s + e.amountOwedCents, 0);
+  // Unified across modes: how far the computed splits are from the typed
+  // total. For itemized mode this doubles as the item-entry vs. total-amount
+  // reconciliation the amount field no longer auto-syncs to live — it only
+  // equals totalAmountCents - itemizedTotal once every item is assigned
+  // (unassigned items contribute 0 to computedSplits), which is exactly the
+  // case the "every item assigned" check below gates on.
+  const remainder = totalAmountCents - computedSplits.reduce((s, e) => s + e.amountOwedCents, 0);
 
   const splitIsValid = splitMode === 'itemized'
-    ? lineItems.length > 0 && lineItems.every(item => item.assignedUserIds.length > 0)
+    ? lineItems.length > 0 && lineItems.every(item => item.assignedUserIds.length > 0) && remainder === 0
     : computedSplits.length > 0 && remainder === 0;
 
   const handleSetMode = (mode: SplitMode) => {

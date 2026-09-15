@@ -181,6 +181,51 @@ describe('useSplitForm — remainder and splitIsValid', () => {
   });
 });
 
+// Itemized mode's amount field is independently typed now (see
+// ExpenseFormScreen), so item totals must reconcile with totalAmountCents at
+// save time via this same remainder/splitIsValid gate — not via a live sync.
+describe('useSplitForm — itemized remainder and splitIsValid', () => {
+  it('splitIsValid is false when the item total does not reconcile with totalAmountCents, even with every item assigned', () => {
+    const { result } = renderHook(() =>
+      useSplitForm({ members: MEMBERS_2, totalAmountCents: 1000 }),
+    );
+    act(() => { result.current.handleSetMode('itemized'); });
+    act(() => { result.current.addLineItem(); });
+    const itemId = result.current.lineItems[0].id;
+    act(() => { result.current.updateLineItem(itemId, { amountCents: 700 }); }); // 700, not 1000
+
+    expect(result.current.remainder).toBe(300);
+    expect(result.current.splitIsValid).toBe(false);
+  });
+
+  it('splitIsValid is true once the item total reconciles with totalAmountCents and every item is assigned', () => {
+    const { result } = renderHook(() =>
+      useSplitForm({ members: MEMBERS_2, totalAmountCents: 1000 }),
+    );
+    act(() => { result.current.handleSetMode('itemized'); });
+    act(() => { result.current.addLineItem(); });
+    const itemId = result.current.lineItems[0].id;
+    act(() => { result.current.updateLineItem(itemId, { amountCents: 1000 }); });
+
+    expect(result.current.remainder).toBe(0);
+    expect(result.current.splitIsValid).toBe(true);
+  });
+
+  it('splitIsValid is false when an item has no members assigned, even if amounts reconcile', () => {
+    const { result } = renderHook(() =>
+      useSplitForm({ members: MEMBERS_2, totalAmountCents: 1000 }),
+    );
+    act(() => { result.current.handleSetMode('itemized'); });
+    act(() => { result.current.addLineItem(); });
+    const itemId = result.current.lineItems[0].id;
+    act(() => { result.current.updateLineItem(itemId, { amountCents: 1000 }); });
+    act(() => { result.current.toggleMemberInItem(itemId, 'jay'); });
+    act(() => { result.current.toggleMemberInItem(itemId, 'marie'); }); // now unassigned
+
+    expect(result.current.splitIsValid).toBe(false);
+  });
+});
+
 // ── handleSetMode ─────────────────────────────────────────────────────────────
 
 describe('useSplitForm — handleSetMode', () => {

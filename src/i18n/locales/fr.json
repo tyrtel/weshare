@@ -460,7 +460,12 @@
       "continue_button_label": "Continuer vers la répartition",
       "back_button_label": "Retour aux détails",
       "break_into_items": "Détailler par articles",
-      "single_amount_instead": "Saisir un montant unique à la place",
+      "edit_items_button_one": "Modifier {{count}} article",
+      "edit_items_button_other": "Modifier {{count}} articles",
+      "edit_items_label": "Modifier les articles",
+      "itemized_sheet_title": "Articles",
+      "itemized_sheet_done": "Terminé",
+      "clear_items": "Effacer les articles",
       "edit_details_label": "Modifier les détails de la dépense",
       "summary_item_count_one": "{{count}} article",
       "summary_item_count_other": "{{count}} articles"

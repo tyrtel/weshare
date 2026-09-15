@@ -27,15 +27,13 @@ interface SplitModeSectionProps {
   totalAmountCents: number;
   expenseCurrency: string;
   convertedLabel: (amountMinor: number) => string | null;
-  // Edit mode keeps items fully editable (desc/amount inputs, add/remove) with
-  // a top total to reconcile against, exactly as before. The add-flow's split
-  // step gets a read-only recap instead — items were finalized in step 1, so
-  // this step is purely about assigning them, not editing them.
-  itemsEditable: boolean;
+  // Itemized items are entered/assigned exclusively in ItemizedSplitSheet now
+  // (opened from the amount/description card) — this section only ever shows
+  // a read-only recap of the result, with a tap-to-edit affordance back into
+  // that sheet.
+  onEditItems: () => void;
   exactRaw: Record<string, string>;
   setExactRaw: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  itemRaw: Record<string, string>;
-  setItemRaw: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   fromMinorUnits: (minorUnits: number, currency: string) => string;
   toMinorUnits: (majorValue: string, currency: string) => number;
   sanitizeAmountInput: (v: string) => string;
@@ -44,8 +42,8 @@ interface SplitModeSectionProps {
 }
 
 export function SplitModeSection({
-  modes, split, members, totalAmountCents, expenseCurrency, convertedLabel, itemsEditable,
-  exactRaw, setExactRaw, itemRaw, setItemRaw, fromMinorUnits, toMinorUnits, sanitizeAmountInput, description, styles,
+  modes, split, members, totalAmountCents, expenseCurrency, convertedLabel, onEditItems,
+  exactRaw, setExactRaw, fromMinorUnits, toMinorUnits, sanitizeAmountInput, description, styles,
 }: SplitModeSectionProps) {
   const { t } = useTranslation();
   const colors = useColors();
@@ -64,7 +62,6 @@ export function SplitModeSection({
         onChange={k => {
           split.handleSetMode(k as SplitMode);
           setExactRaw({});
-          setItemRaw({});
         }}
         options={modes.map(m => ({ key: m, label: t(SEGMENTED_LABEL_KEYS[m]) }))}
       />
@@ -174,66 +171,35 @@ export function SplitModeSection({
       )}
 
       {split.splitMode === 'itemized' && (
-        <View style={[styles.card, { padding: 20 }]}>
-          <Text style={[styles.fieldLabel, { textAlign: 'center', marginTop: 0, marginBottom: 4 }]}>
-            {description.toUpperCase() || t('expenses.form.receipt_fallback')}
-          </Text>
-          <Text style={{ fontSize: 11.5, color: colors.text.tertiary, textAlign: 'center', marginBottom: 8 }}>
-            {t('expenses.form.itemized_hint')}
-          </Text>
+        <Pressable
+          testID="itemized-recap-card"
+          onPress={onEditItems}
+          accessibilityRole="button"
+          accessibilityLabel={t('expenses.form.edit_items_label')}
+          style={[styles.card, { padding: 20 }]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8 }}>
+            <Text style={[styles.fieldLabel, { textAlign: 'center', marginTop: 0, marginBottom: 0 }]}>
+              {description.toUpperCase() || t('expenses.form.receipt_fallback')}
+            </Text>
+            <Feather name="edit-2" size={12} color={colors.text.tertiary} />
+          </View>
           <View style={{ borderBottomWidth: 1, borderStyle: 'dashed', borderColor: colors.borderMuted, marginBottom: 12 }} />
           {split.lineItems.map((item, i) => (
             <View key={item.id}>
               {i > 0 && <View style={[styles.rowDivider, { marginBottom: 12 }]} />}
               <View style={{ marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  {itemsEditable ? (
-                    <TextInput
-                      testID={`item-description-input-${item.id}`}
-                      style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.text.primary, paddingVertical: 2 }}
-                      value={item.description}
-                      onChangeText={v => split.updateLineItem(item.id, { description: v })}
-                      placeholder={t('expenses.line_item.placeholder')}
-                      placeholderTextColor={colors.text.tertiary}
-                    />
-                  ) : (
-                    <Text
-                      testID={`item-description-${item.id}`}
-                      style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.text.primary }}
-                      numberOfLines={1}
-                    >
-                      {item.description || t('expenses.line_item.placeholder')}
-                    </Text>
-                  )}
-                  {itemsEditable ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                      <Text style={{ fontSize: 14, color: colors.text.secondary }}>
-                        {currencySymbol(expenseCurrency)}
-                      </Text>
-                      <TextInput
-                        testID={`item-amount-input-${item.id}`}
-                        style={{ fontSize: 14, color: colors.text.primary, minWidth: 56, textAlign: 'right', paddingVertical: 2 }}
-                        keyboardType="decimal-pad"
-                        placeholder="0.00"
-                        placeholderTextColor={colors.text.tertiary}
-                        value={itemRaw[item.id] ?? (item.amountCents > 0 ? fromMinorUnits(item.amountCents, expenseCurrency) : '')}
-                        onChangeText={v => {
-                          const cleaned = sanitizeAmountInput(v);
-                          setItemRaw(prev => ({ ...prev, [item.id]: cleaned }));
-                          split.updateLineItem(item.id, { amountCents: toMinorUnits(cleaned, expenseCurrency) });
-                        }}
-                      />
-                    </View>
-                  ) : (
-                    <Text testID={`item-amount-${item.id}`} style={styles.splitAmount}>
-                      {formatCurrency(item.amountCents, expenseCurrency)}
-                    </Text>
-                  )}
-                  {itemsEditable && (
-                    <Pressable testID={`item-remove-button-${item.id}`} onPress={() => split.removeLineItem(item.id)} hitSlop={8}>
-                      <Feather name="x" size={16} color={colors.text.tertiary} />
-                    </Pressable>
-                  )}
+                  <Text
+                    testID={`item-description-${item.id}`}
+                    style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.text.primary }}
+                    numberOfLines={1}
+                  >
+                    {item.description || t('expenses.line_item.placeholder')}
+                  </Text>
+                  <Text testID={`item-amount-${item.id}`} style={styles.splitAmount}>
+                    {formatCurrency(item.amountCents, expenseCurrency)}
+                  </Text>
                 </View>
                 {convertedLabel(item.amountCents) && (
                   <Text style={[styles.convertedAmount, { textAlign: 'right', marginTop: 2 }]}>
@@ -245,10 +211,9 @@ export function SplitModeSection({
                     const on = item.assignedUserIds.includes(m.userId);
                     const palette = personColorFor(m.userId, members);
                     return (
-                      <Pressable
+                      <View
                         key={m.userId}
-                        testID={`item-member-toggle-${item.id}-${m.userId}`}
-                        onPress={() => split.toggleMemberInItem(item.id, m.userId)}
+                        testID={`item-member-${item.id}-${m.userId}`}
                         style={{ opacity: on ? 1 : 0.4 }}
                       >
                         <View style={{
@@ -259,41 +224,28 @@ export function SplitModeSection({
                         }}>
                           <Avatar initials={m.displayName} bg={palette.bg} url={m.avatarUrl} size="xs" />
                         </View>
-                      </Pressable>
+                      </View>
                     );
                   })}
                 </View>
               </View>
             </View>
           ))}
-          {itemsEditable && split.lineItems.length > 0 && (
-            <>
-              <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 13, fontWeight: '500', color: colors.text.secondary }}>
-                  {t('expenses.form.unassigned_label')}
-                </Text>
-                <Text style={[styles.splitAmount, {
-                  color: unassignedItemsCents === 0 ? colors.success.default : colors.error.default,
-                }]}>
-                  {formatCurrency(unassignedItemsCents, expenseCurrency)}
-                  {convertedLabel(unassignedItemsCents) && (
-                    <Text style={styles.convertedAmount}> {convertedLabel(unassignedItemsCents)}</Text>
-                  )}
-                </Text>
-              </View>
-            </>
-          )}
-          {itemsEditable && (
-            <Pressable
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, marginTop: split.lineItems.length > 0 ? 8 : 0 }}
-              onPress={split.addLineItem}
-            >
-              <Feather name="plus" size={14} color={colors.primary.default} />
-              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary.default }}>{t('expenses.form.add_line_item')}</Text>
-            </Pressable>
-          )}
-        </View>
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 13, fontWeight: '500', color: colors.text.secondary }}>
+              {t('expenses.form.unassigned_label')}
+            </Text>
+            <Text style={[styles.splitAmount, {
+              color: unassignedItemsCents === 0 ? colors.success.default : colors.error.default,
+            }]}>
+              {formatCurrency(unassignedItemsCents, expenseCurrency)}
+              {convertedLabel(unassignedItemsCents) && (
+                <Text style={styles.convertedAmount}> {convertedLabel(unassignedItemsCents)}</Text>
+              )}
+            </Text>
+          </View>
+        </Pressable>
       )}
     </>
   );

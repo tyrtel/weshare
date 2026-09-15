@@ -460,7 +460,12 @@
       "continue_button_label": "Continue to split",
       "back_button_label": "Back to details",
       "break_into_items": "Break into items",
-      "single_amount_instead": "Enter as a single amount instead",
+      "edit_items_button_one": "Edit {{count}} item",
+      "edit_items_button_other": "Edit {{count}} items",
+      "edit_items_label": "Edit items",
+      "itemized_sheet_title": "Items",
+      "itemized_sheet_done": "Done",
+      "clear_items": "Clear items",
       "edit_details_label": "Edit expense details",
       "summary_item_count_one": "{{count}} item",
       "summary_item_count_other": "{{count}} items"

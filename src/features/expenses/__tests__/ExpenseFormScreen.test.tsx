@@ -321,16 +321,28 @@ describe('ExpenseFormScreen — Exact mode', () => {
 });
 
 // ── Itemized mode ─────────────────────────────────────────────────────────
-// Step 1 (add mode) only: item entry itself. Assigning items to members is a
-// step-2 concern now — see "Two-step flow (add mode)" below.
+// Item entry and per-item member assignment both happen inside
+// ItemizedSplitSheet now, opened via the "Break into items" / "Edit N items"
+// button next to the amount/description card — in both add and edit mode.
+// The amount field is independently typed and no longer driven by the
+// running item total; reconciling the two is a save-time validation
+// (splitIsValid), not a live sync — see "Unassigned" tests below.
 
 describe('ExpenseFormScreen — Itemized mode', () => {
   beforeEach(() => setupTripMode());
 
+  it('opening the items sheet leaves the independently-typed amount untouched', async () => {
+    renderForm();
+    await fillDescription('Receipt');
+    await fillAmount('12');
+    fireEvent.press(screen.getByTestId('expense-items-button'));
+    expect(screen.getByTestId('expense-amount-input').props.value).toBe('12');
+  });
+
   it('item description and amount fields are editable', async () => {
     renderForm();
     await fillDescription('Receipt');
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     fireEvent.press(screen.getByText('Add item'));
 
     const itemField = screen.getByTestId(/^item-description-input-/);
@@ -341,7 +353,7 @@ describe('ExpenseFormScreen — Itemized mode', () => {
   it('item amount field does not lose focus mid-keystroke', async () => {
     renderForm();
     await fillDescription('Receipt');
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     fireEvent.press(screen.getByText('Add item'));
 
     const itemAmount = screen.getByTestId(/^item-amount-input-/);
@@ -351,62 +363,47 @@ describe('ExpenseFormScreen — Itemized mode', () => {
     expect(itemAmount.props.value).toBe('4.5');
   });
 
-  it('the running total (shown where the amount field was) updates live as items are added', async () => {
+  it('removing an item drops its input fields', async () => {
     renderForm();
     await fillDescription('Receipt');
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
-    fireEvent.press(screen.getByText('Add item'));
-
-    fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '20');
-    expect(screen.getByTestId('expense-itemized-total')).toHaveTextContent('€20.00');
-  });
-
-  it('removing an item drops it and recomputes the running total', async () => {
-    renderForm();
-    await fillDescription('Receipt');
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     fireEvent.press(screen.getByText('Add item'));
     fireEvent.press(screen.getByText('Add item'));
 
     const amounts = screen.getAllByTestId(/^item-amount-input-/);
     fireEvent.changeText(amounts[0], '20');
     fireEvent.changeText(amounts[1], '15');
-    expect(screen.getByTestId('expense-itemized-total')).toHaveTextContent('€35.00');
+    expect(screen.getAllByTestId(/^item-amount-input-/)).toHaveLength(2);
 
     fireEvent.press(screen.getAllByTestId(/^item-remove-button-/)[1]);
-
     expect(screen.getAllByTestId(/^item-amount-input-/)).toHaveLength(1);
-    expect(screen.getByTestId('expense-itemized-total')).toHaveTextContent('€20.00');
   });
 
-  it('"Break into items" swaps back to a single amount field, and back again', async () => {
-    renderForm();
-    await fillAmount('12');
-    expect(screen.getByTestId('expense-amount-input')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
-    expect(screen.queryByTestId('expense-amount-input')).toBeNull();
-    expect(screen.getByTestId('expense-itemized-total')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
-    expect(screen.getByTestId('expense-amount-input')).toBeTruthy();
-    expect(screen.queryByTestId('expense-itemized-total')).toBeNull();
-  });
-
-  // Regression: reverting to a single amount reset totalAmountCents but left
-  // the old line items in place, so "Items" stayed offered in step 2 with
-  // stale data, and re-selecting it silently overrode the freshly typed total.
-  it('reverting to a single amount clears the previously entered items', async () => {
+  it('the "Unassigned" reconciliation reflects the gap between the typed amount and the item total', async () => {
     renderForm();
     await fillDescription('Receipt');
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    await fillAmount('30');
+    fireEvent.press(screen.getByTestId('expense-items-button'));
+    fireEvent.press(screen.getByText('Add item'));
+    fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '20');
+
+    expect(screen.getByText('€10.00')).toBeTruthy(); // 30 typed - 20 itemized
+  });
+
+  it('"Clear items" empties the item list without touching the typed amount, and drops "Items" as an option', async () => {
+    renderForm();
+    await fillDescription('Receipt');
+    await fillAmount('50');
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     fireEvent.press(screen.getByText('Add item'));
     fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '15');
 
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
-    await fillAmount('50');
-    await goToSplitStep();
+    fireEvent.press(screen.getByTestId('itemized-sheet-clear'));
+    expect(screen.queryByTestId(/^item-amount-input-/)).toBeNull();
 
+    fireEvent.press(screen.getByTestId('itemized-sheet-done-button'));
+    expect(screen.getByTestId('expense-amount-input').props.value).toBe('50');
+    await goToSplitStep();
     expect(screen.queryByText('Items')).toBeNull();
   });
 });
@@ -427,20 +424,22 @@ describe('ExpenseFormScreen — Two-step flow (add mode)', () => {
     expect(screen.queryByTestId('payer-select-u1')).toBeNull();
   });
 
-  it('items entered on step 1 carry into step 2 pre-assigned to everyone, and "Itemized" only appears when items exist', async () => {
+  it('items entered via the items sheet carry into step 2 pre-assigned to everyone, and "Itemized" only appears when items exist', async () => {
     renderForm();
     await fillDescription('Receipt');
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     fireEvent.press(screen.getByText('Add item'));
     fireEvent.changeText(screen.getByTestId(/^item-description-input-/), 'Bread');
     fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '20');
+    fireEvent.press(screen.getByTestId('itemized-sheet-done-button'));
+    await fillAmount('20');
     await goToSplitStep();
 
-    // Itemized is available and already showing (pre-selected from step 1),
-    // with the item assigned to every member by default.
+    // Opening the items sheet already committed to itemized splitting, so
+    // it's showing here without re-selecting the "Items" tab.
     expect(screen.getByText('Items')).toBeTruthy();
     expect(screen.getByText('Bread')).toBeTruthy();
-    expect(screen.getAllByTestId(/^item-member-toggle-/)).toHaveLength(DEFAULT_MEMBERS.length);
+    expect(screen.getAllByTestId(/^item-member-/)).toHaveLength(DEFAULT_MEMBERS.length);
   });
 
   it('"Itemized" is not offered in step 2 when no items were entered', async () => {
@@ -487,16 +486,30 @@ describe('ExpenseFormScreen — Two-step flow (add mode)', () => {
     expect(screen.getAllByText('€20.00')).toHaveLength(3); // 60 / 3 members
   });
 
-  // Regression: going straight to "Break into items" without ever typing a
-  // top amount left totalAmountCents at 0. Switching the step-2 tab away from
-  // "Itemized" then divided that stale 0 among members instead of the real
-  // itemized total, so Save looked enabled but silently failed validation.
-  it('switching from Itemized to Evenly after skipping the typed amount computes real shares, not zero', async () => {
+  // Regression coverage for the decoupled amount field: entering items alone
+  // must not be mistaken for a typed amount — Continue stays disabled until
+  // the amount is entered independently, even with items already assigned.
+  it('entering items alone does not enable Continue — the amount is typed independently', async () => {
     renderForm();
     await fillDescription('Receipt');
-    fireEvent.press(screen.getByTestId('expense-itemize-toggle'));
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     fireEvent.press(screen.getByText('Add item'));
     fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '30');
+    fireEvent.press(screen.getByTestId('itemized-sheet-done-button'));
+
+    expect(screen.getByTestId('expense-continue-button')).toBeDisabled();
+    await fillAmount('30');
+    expect(screen.getByTestId('expense-continue-button')).not.toBeDisabled();
+  });
+
+  it('switching from Itemized to Evenly on step 2 computes real shares from the typed amount', async () => {
+    renderForm();
+    await fillDescription('Receipt');
+    fireEvent.press(screen.getByTestId('expense-items-button'));
+    fireEvent.press(screen.getByText('Add item'));
+    fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '30');
+    fireEvent.press(screen.getByTestId('itemized-sheet-done-button'));
+    await fillAmount('30');
     await goToSplitStep();
 
     fireEvent.press(screen.getByText('Evenly'));
@@ -555,6 +568,50 @@ describe('ExpenseFormScreen — Save', () => {
       const sum = expense.splits.reduce((s, sp) => s + sp.amountOwedCents, 0);
       expect(sum).toBe(10000);
     }
+  });
+
+  it('saves an itemized expense once its items reconcile with the typed amount, with items assigned to only one member', async () => {
+    setupTripMode(); // members: Alice (u1), Bob (u2), Cleo (u3)
+    const { container } = renderForm();
+    await fillDescription('Receipt');
+    fireEvent.press(screen.getByTestId('expense-items-button'));
+    fireEvent.press(screen.getByText('Add item'));
+    fireEvent.changeText(screen.getByTestId(/^item-description-input-/), 'Bread');
+    fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '20');
+    // Unassign everyone but Bob for this item.
+    fireEvent.press(screen.getByTestId(/^item-member-toggle-.*-u1$/));
+    fireEvent.press(screen.getByTestId(/^item-member-toggle-.*-u3$/));
+    fireEvent.press(screen.getByTestId('itemized-sheet-done-button'));
+    await fillAmount('20');
+    await goToSplitStep();
+
+    fireEvent.press(screen.getByText('Save expense'));
+    await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
+
+    const repo  = container.resolve(EXPENSE_REPO);
+    const saved = await repo.getExpensesForTrip('t1');
+    expect(saved.ok).toBe(true);
+    if (saved.ok) {
+      const expense = saved.value[0];
+      expect(expense.splits).toHaveLength(1);
+      expect(expense.splits[0]).toMatchObject({ userId: 'u2', amountOwedCents: 2000 });
+      expect(expense.metadata.lineItems?.[0]).toMatchObject({ description: 'Bread', amountCents: 2000 });
+    }
+  });
+
+  it('Save stays disabled while the item total has not been reconciled with the typed amount', async () => {
+    setupTripMode();
+    renderForm();
+    await fillDescription('Receipt');
+    fireEvent.press(screen.getByTestId('expense-items-button'));
+    fireEvent.press(screen.getByText('Add item'));
+    fireEvent.changeText(screen.getByTestId(/^item-amount-input-/), '15'); // items sum to 15
+    fireEvent.press(screen.getByTestId('itemized-sheet-done-button'));
+    await fillAmount('20'); // but the typed amount is 20 — a €5 gap
+    await goToSplitStep();
+
+    expect(screen.getByText('€5.00')).toBeTruthy(); // Unassigned
+    expect(screen.getByLabelText('Confirm expense')).toBeDisabled();
   });
 
   // Regression coverage for a reported bug: on device, "Save expense" would
@@ -751,7 +808,12 @@ describe('ExpenseFormScreen — group mode edit', () => {
     rate.delay = 0;
     renderScreen(<ExpenseFormScreen />, container);
 
-    await waitFor(() => expect(screen.getByTestId('item-description-input-li1')).toBeTruthy());
+    // Read-only recap shows the saved item immediately, no sheet needed.
+    await waitFor(() => expect(screen.getByTestId('item-description-li1')).toBeTruthy());
+    expect(screen.getByTestId('item-description-li1')).toHaveTextContent('Snacks');
+
+    // Opening the items sheet pre-fills the editable field with the same item.
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     expect(screen.getByTestId('item-description-input-li1').props.value).toBe('Snacks');
   });
 });
@@ -795,7 +857,7 @@ describe('ExpenseFormScreen — edit mode currency reconstruction', () => {
 // initialLineItems was never passed to useSplitForm at all.
 
 describe('ExpenseFormScreen — edit mode itemized restoration', () => {
-  it('re-opens directly on the Items tab with every saved item pre-filled', async () => {
+  it('re-opens directly on the Items tab with every saved item pre-filled in the read-only recap', async () => {
     setupEditMode({
       totalAmountCents: 5000,
       currency: 'EUR',
@@ -813,7 +875,14 @@ describe('ExpenseFormScreen — edit mode itemized restoration', () => {
     renderForm();
 
     // No tap on "Items" needed — it should already be the active tab.
-    await waitFor(() => expect(screen.getByTestId('item-description-input-li1')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('item-description-li1')).toBeTruthy());
+    expect(screen.getByTestId('item-description-li1')).toHaveTextContent('Pizza');
+    expect(screen.getByTestId('item-amount-li1')).toHaveTextContent('€30.00');
+    expect(screen.getByTestId('item-description-li2')).toHaveTextContent('Drinks');
+    expect(screen.getByTestId('item-amount-li2')).toHaveTextContent('€20.00');
+
+    // Opening the sheet shows the same two items, now editable and pre-filled.
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     expect(screen.getByTestId('item-description-input-li1').props.value).toBe('Pizza');
     expect(screen.getByTestId('item-amount-input-li1').props.value).toBe('30.00');
     expect(screen.getByTestId('item-description-input-li2').props.value).toBe('Drinks');
@@ -828,7 +897,8 @@ describe('ExpenseFormScreen — edit mode itemized restoration', () => {
     renderForm();
 
     await waitFor(() => expect(screen.getByTestId('exact-amount-input-u1')).toBeTruthy());
-    expect(screen.queryByTestId(/^item-description-input-/)).toBeNull();
+    expect(screen.queryByTestId(/^item-description-/)).toBeNull();
+    expect(screen.queryByText('Items')).toBeNull();
   });
 
   it('reconstructs item amounts in the original entry currency, not trip currency', async () => {
@@ -847,7 +917,8 @@ describe('ExpenseFormScreen — edit mode itemized restoration', () => {
     });
     renderForm();
 
-    await waitFor(() => expect(screen.getByTestId('item-amount-input-li1').props.value).not.toBe(''));
+    await waitFor(() => expect(screen.getByTestId('item-description-li1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('expense-items-button'));
     const shownValue = Number(screen.getByTestId('item-amount-input-li1').props.value);
     expect(shownValue).toBeGreaterThan(1000); // ~2000 JPY, not the ~12-cent EUR figure
   });
@@ -868,7 +939,8 @@ describe('ExpenseFormScreen — edit mode itemized restoration', () => {
 
     await waitFor(() => expect(screen.getByTestId('expense-amount-input')).toBeTruthy());
     expect(screen.getByTestId('expense-amount-input').props.value).toBe('50.00');
-    expect(screen.queryByTestId('expense-itemized-total')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('expense-amount-input'), '60');
+    expect(screen.getByTestId('expense-amount-input').props.value).toBe('60');
   });
 });
 

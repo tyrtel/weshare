@@ -21,7 +21,7 @@ import { ReceiptCapture } from '../components/ReceiptCapture';
 import { ExpenseAmountCard } from '../components/ExpenseAmountCard';
 import { PayerPicker } from '../components/PayerPicker';
 import { SplitModeSection } from '../components/SplitModeSection';
-import { LineItemEntryList } from '../components/LineItemEntryList';
+import { ItemizedSplitSheet } from '../components/itemization/ItemizedSplitSheet';
 import { ExpenseSummaryHeader } from '../components/ExpenseSummaryHeader';
 import { useTripSessionStore, useService } from '../../../core/di/ServiceContext';
 import { AUTH } from '../../../core/di/tokens';
@@ -303,11 +303,15 @@ export function ExpenseFormScreen() {
     ready:            mode === 'edit' ? (!!expense && (isGroupMode ? !!group : !!trip)) : undefined,
   });
 
-  const isItemized        = split.splitMode === 'itemized';
-  const enteredTotal   = isItemized ? split.itemizedTotal : totalAmountCents;
+  const isItemized      = split.splitMode === 'itemized';
+  const [itemSheetOpen, setItemSheetOpen] = useState(false);
+  // The amount field is the sole source of truth for the total now, in every
+  // split mode including itemized — items are literal dollar splits that
+  // must reconcile with it (split.splitIsValid enforces this at save time),
+  // but they no longer drive the field itself.
   const effectiveTotal = !isForeign || !rate.result
-    ? enteredTotal
-    : Math.round(enteredTotal * currencyConversionRate(rate.result.rate, entryCurrency, contextCurrency));
+    ? totalAmountCents
+    : Math.round(totalAmountCents * currencyConversionRate(rate.result.rate, entryCurrency, contextCurrency));
 
   const hasValidRate = !isForeign || rate.result !== null;
 
@@ -336,33 +340,20 @@ export function ExpenseFormScreen() {
     if (path) setReceiptPath(path);
     if (parsedLineItems.length > 0 && contextMembers.length > 0) {
       split.initFromParsed(parsedLineItems, contextMembers);
-    } else if (amountCents > 0) {
-      setTotalAmountCents(amountCents);
+    }
+    // The amount field no longer inherits the itemized total live, so a
+    // receipt scan must still populate it directly here — falling back to
+    // the parsed items' own sum when the receipt's total wasn't OCR'd.
+    const scannedTotal = amountCents > 0
+      ? amountCents
+      : parsedLineItems.reduce((sum, item) => sum + item.amountCents, 0);
+    if (scannedTotal > 0) {
+      setTotalAmountCents(scannedTotal);
+      setRawAmount(fromMinorUnits(scannedTotal, expenseCurrency));
     }
   };
 
-  // Step 1's "enter as one amount" / "break into items" toggle. Reuses
-  // split.splitMode itself rather than a second piece of state — see the
-  // plan doc's "Design" section.
-  const handleToggleItemized = () => {
-    if (isItemized) {
-      split.handleSetMode('custom');
-      split.clearLineItems();
-      setRawAmount('');
-      setTotalAmountCents(0);
-    } else {
-      split.handleSetMode('itemized');
-    }
-  };
-
-  // Step 1 -> step 2: items are read-only recap from here on (add mode), so
-  // this is the last moment totalAmountCents can pick up an itemized total —
-  // without it, switching the split-mode tab away from "Itemized" in step 2
-  // would divide a stale/zero totalAmountCents instead of what was entered.
-  const handleContinue = () => {
-    if (isItemized) setTotalAmountCents(split.itemizedTotal);
-    setStep('split');
-  };
+  const handleContinue = () => setStep('split');
 
   const handleSubmit = async () => {
     // The split form always works in entry-currency terms (see the
@@ -380,7 +371,7 @@ export function ExpenseFormScreen() {
       : undefined;
 
     const originalAmount = isForeign && rate.result
-      ? { amountCents: enteredTotal, currency: entryCurrency, exchangeRate: rate.result.rate, source: rate.result.source }
+      ? { amountCents: totalAmountCents, currency: entryCurrency, exchangeRate: rate.result.rate, source: rate.result.source }
       : undefined;
 
     const input = {
@@ -431,6 +422,23 @@ export function ExpenseFormScreen() {
     return `(${formatCurrency(converted, contextCurrency)})`;
   };
 
+  // Opening the sheet commits to itemized splitting immediately (same as the
+  // old "break into items" toggle did) — it's the one action that means "use
+  // items to split this expense," for both add and edit mode alike.
+  const handleOpenItemSheet = () => {
+    split.handleSetMode('itemized');
+    setItemSheetOpen(true);
+  };
+
+  // Leaving the sheet with no items left (every item removed, or "Clear
+  // items") means there's nothing for "Itemized" to show — fall back to
+  // Equal rather than leaving splitMode pointed at a tab splitModes no
+  // longer offers.
+  const handleCloseItemSheet = () => {
+    if (split.lineItems.length === 0) split.handleSetMode('equal');
+    setItemSheetOpen(false);
+  };
+
   const handleAmountChange = (v: string) => {
     const cleaned = sanitizeAmountInput(v);
     setRawAmount(cleaned);
@@ -476,9 +484,12 @@ export function ExpenseFormScreen() {
 
   const showingDetailsStep = mode === 'edit' || step === 'details';
   const showingSplitStep   = mode === 'edit' || step === 'split';
-  const splitModes: SplitMode[] = mode === 'edit'
+  // 'itemized' is only offered once there's something to itemize — items are
+  // now created via the sheet in both add and edit mode alike, so this gate
+  // no longer needs to differ by mode.
+  const splitModes: SplitMode[] = split.lineItems.length > 0
     ? ['equal', 'custom', 'itemized']
-    : split.lineItems.length > 0 ? ['equal', 'custom', 'itemized'] : ['equal', 'custom'];
+    : ['equal', 'custom'];
 
   return (
     <>
@@ -543,9 +554,8 @@ export function ExpenseFormScreen() {
 
               <ExpenseAmountCard
                 currency={expenseCurrency}
-                amount={isItemized && mode === 'add'
-                  ? { editable: false, totalCents: split.itemizedTotal }
-                  : { editable: true, rawAmount, onChangeAmount: handleAmountChange }}
+                rawAmount={rawAmount}
+                onChangeAmount={handleAmountChange}
                 onPressCurrency={() => setCurrencyDropVisible(true)}
                 description={description}
                 onChangeDescription={setDescription}
@@ -557,34 +567,18 @@ export function ExpenseFormScreen() {
                 styles={addStyles}
               />
 
-              {mode === 'add' && (
-                <Pressable
-                  testID="expense-itemize-toggle"
-                  onPress={handleToggleItemized}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, alignSelf: 'center' }}
-                >
-                  <Feather name={isItemized ? 'hash' : 'list'} size={13} color={colors.primary.default} />
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary.default }}>
-                    {isItemized ? t('expenses.form.single_amount_instead') : t('expenses.form.break_into_items')}
-                  </Text>
-                </Pressable>
-              )}
-
-              {mode === 'add' && isItemized && (
-                <LineItemEntryList
-                  items={split.lineItems}
-                  currency={expenseCurrency}
-                  itemRaw={itemRaw}
-                  setItemRaw={setItemRaw}
-                  onUpdateItem={split.updateLineItem}
-                  onRemoveItem={split.removeLineItem}
-                  onAddItem={split.addLineItem}
-                  fromMinorUnits={fromMinorUnits}
-                  toMinorUnits={toMinorUnits}
-                  sanitizeAmountInput={sanitizeAmountInput}
-                  styles={addStyles}
-                />
-              )}
+              <Pressable
+                testID="expense-items-button"
+                onPress={handleOpenItemSheet}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, alignSelf: 'center' }}
+              >
+                <Feather name={split.lineItems.length > 0 ? 'edit-2' : 'list'} size={13} color={colors.primary.default} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary.default }}>
+                  {split.lineItems.length > 0
+                    ? t('expenses.form.edit_items_button', { count: split.lineItems.length })
+                    : t('expenses.form.break_into_items')}
+                </Text>
+              </Pressable>
             </>
           )}
 
@@ -593,7 +587,7 @@ export function ExpenseFormScreen() {
               {mode === 'add' && (
                 <ExpenseSummaryHeader
                   description={description}
-                  totalAmountCents={enteredTotal}
+                  totalAmountCents={totalAmountCents}
                   currency={expenseCurrency}
                   itemCount={split.lineItems.length}
                   onPress={() => setStep('details')}
@@ -616,11 +610,9 @@ export function ExpenseFormScreen() {
                 totalAmountCents={totalAmountCents}
                 expenseCurrency={expenseCurrency}
                 convertedLabel={convertedLabel}
-                itemsEditable={mode === 'edit'}
+                onEditItems={handleOpenItemSheet}
                 exactRaw={exactRaw}
                 setExactRaw={setExactRaw}
-                itemRaw={itemRaw}
-                setItemRaw={setItemRaw}
                 fromMinorUnits={fromMinorUnits}
                 toMinorUnits={toMinorUnits}
                 sanitizeAmountInput={sanitizeAmountInput}
@@ -654,6 +646,29 @@ export function ExpenseFormScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ItemizedSplitSheet
+        visible={itemSheetOpen}
+        onClose={handleCloseItemSheet}
+        onClearItems={split.clearLineItems}
+        editorProps={{
+          items:               split.lineItems,
+          members:             contextMembers,
+          currency:            expenseCurrency,
+          totalAmountCents,
+          itemRaw,
+          setItemRaw,
+          onUpdateItem:        split.updateLineItem,
+          onRemoveItem:        split.removeLineItem,
+          onAddItem:           split.addLineItem,
+          onToggleMember:      split.toggleMemberInItem,
+          fromMinorUnits,
+          toMinorUnits,
+          sanitizeAmountInput,
+          convertedLabel,
+          styles: addStyles,
+        }}
+      />
 
       {currencyDropVisible && (
         <Pressable
