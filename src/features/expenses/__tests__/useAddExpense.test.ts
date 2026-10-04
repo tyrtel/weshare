@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useAddExpense, equalSplit } from '../hooks/useAddExpense';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { EXPENSE_REPO } from '../../../core/di/tokens';
+import { EXPENSE_REPO, ACTIVITY_LOG } from '../../../core/di/tokens';
 import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
 import { InMemorySplitRepository } from '../../../__mocks__/InMemorySplitRepository';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
@@ -114,6 +114,21 @@ describe('useAddExpense — equal split', () => {
     expect(result.current.loading).toBe(false);
     await act(async () => { await result.current.addExpense(makeInput()); });
     expect(result.current.loading).toBe(false);
+  });
+
+  it('appends an expense.created activity event scoped to the trip', async () => {
+    const { result } = renderHook(() => useAddExpense(TRIP_ID), { wrapper: makeWrapper(container) });
+    const activityLog = container.resolve(ACTIVITY_LOG);
+
+    let expense: import('../../../core/models/Expense').Expense | null = null;
+    await act(async () => { expense = await result.current.addExpense(makeInput()); });
+
+    const page = await activityLog.getEventsForTrip(TRIP_ID);
+    expect(page.ok).toBe(true);
+    if (!page.ok) return;
+    expect(page.value.events).toHaveLength(1);
+    expect(page.value.events[0].eventType).toBe('expense.created');
+    expect(page.value.events[0].expenseId).toBe(expense!.id);
   });
 });
 

@@ -10,7 +10,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT, ACTIVITY_LOG,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import { InMemoryTripRepository } from '../../__mocks__/InMemoryTripRepository';
@@ -25,6 +25,7 @@ import { MockStripeService } from '../../__mocks__/MockStripeService';
 import { MockOpenBankingService } from '../../__mocks__/MockOpenBankingService';
 import { MockPaymentMethodRegistry } from '../../__mocks__/MockPaymentMethodRegistry';
 import { InMemoryAuditLogRepository } from '../../__mocks__/InMemoryAuditLogRepository';
+import { InMemoryActivityLogRepository } from '../../__mocks__/InMemoryActivityLogRepository';
 import { MockBankListService } from '../../__mocks__/MockBankListService';
 import { MockReceiptParserService } from '../../__mocks__/MockReceiptParserService';
 import { MockReceiptStorage } from '../../__mocks__/MockReceiptStorage';
@@ -105,6 +106,8 @@ async function _create(): Promise<ServiceContainer> {
   container.register(NOTIFICATION_SERVICE,    new MockNotificationService());
   container.register(REPORT_SERVICE,          new MockReportService());
   container.register(ENTITLEMENT,             new MockEntitlementService());
-  container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }));
+  const activityLogRepo = new InMemoryActivityLogRepository();
+  container.register(ACTIVITY_LOG,            activityLogRepo);
+  container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo, auth, activityLog: activityLogRepo }));
   return container;
 }

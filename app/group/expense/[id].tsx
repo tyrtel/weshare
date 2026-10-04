@@ -9,6 +9,7 @@ import { Text } from '../../../src/components/ui/Text';
 import { Avatar } from '../../../src/components/ui/Avatar';
 import { Divider } from '../../../src/components/ui/Divider';
 import { ExpensePaidByCard } from '../../../src/components/ui/ExpensePaidByCard';
+import { ViewHistoryLink } from '../../../src/features/history/components/ViewHistoryLink';
 import { ExpenseReceiptSection } from '../../../src/components/ui/ExpenseReceiptSection';
 import { MakeRecurringSheet } from '../../../src/features/groups/components/MakeRecurringSheet';
 import { useService, useTripSessionStore } from '../../../src/core/di/ServiceContext';
@@ -138,6 +139,10 @@ export default function GroupExpenseDetailScreen() {
           label={t('expenses.detail.paid_by_label')}
           style={{ marginBottom: tokens.spacing.md }}
         />
+
+        <View style={{ marginBottom: tokens.spacing.md }}>
+          <ViewHistoryLink onPress={() => router.push(`/history/expense/${expense.id}` as Parameters<typeof router.push>[0])} />
+        </View>
 
         {/* Items — only shown for an itemized expense */}
         {lineItems.length > 0 && (

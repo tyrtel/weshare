@@ -63,4 +63,27 @@ describe('UniversalTabBar', () => {
     fireEvent.press(getByLabelText('Balance'));
     expect(mockPush).toHaveBeenCalledWith('/balance');
   });
+
+  it('History tab is active on /history', () => {
+    const { getByLabelText } = renderBar('/history');
+    expect(getByLabelText('History').props.accessibilityState).toEqual({ selected: true });
+    expect(getByLabelText('Home').props.accessibilityState).toEqual({ selected: false });
+  });
+
+  it('History tab is active on a scoped history route', () => {
+    const { getByLabelText } = renderBar('/history/group/g1');
+    expect(getByLabelText('History').props.accessibilityState).toEqual({ selected: true });
+    expect(getByLabelText('Home').props.accessibilityState).toEqual({ selected: false });
+  });
+
+  it('Home tab is not active on /history', () => {
+    const { getByLabelText } = renderBar('/history');
+    expect(getByLabelText('Home').props.accessibilityState).toEqual({ selected: false });
+  });
+
+  it('pressing History tab calls router.push("/history")', () => {
+    const { getByLabelText } = renderBar('/');
+    fireEvent.press(getByLabelText('History'));
+    expect(mockPush).toHaveBeenCalledWith('/history');
+  });
 });

@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useCreateGroupExpense } from '../hooks/useCreateGroupExpense';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE, ACTIVITY_LOG } from '../../../core/di/tokens';
 import { groupFactory, groupMemberFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Expense } from '../../../core/models/Expense';
@@ -125,5 +125,20 @@ describe('useCreateGroupExpense', () => {
   it('loading is false initially', () => {
     const { result } = renderHook(() => useCreateGroupExpense(GROUP_ID), { wrapper: makeWrapper(container) });
     expect(result.current.loading).toBe(false);
+  });
+
+  it('appends an expense.created activity event scoped to the group', async () => {
+    const { result } = renderHook(() => useCreateGroupExpense(GROUP_ID), { wrapper: makeWrapper(container) });
+    const activityLog = container.resolve(ACTIVITY_LOG);
+
+    let expense: Expense | null = null;
+    await act(async () => { expense = await result.current.createGroupExpense(validInput); });
+
+    const page = await activityLog.getEventsForGroup(GROUP_ID);
+    expect(page.ok).toBe(true);
+    if (!page.ok) return;
+    expect(page.value.events).toHaveLength(1);
+    expect(page.value.events[0].eventType).toBe('expense.created');
+    expect(page.value.events[0].expenseId).toBe(expense!.id);
   });
 });

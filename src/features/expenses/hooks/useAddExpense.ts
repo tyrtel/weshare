@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
-import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE, AUTH, ACTIVITY_LOG } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
 import { generateId } from '../../../core/utils/generateId';
+import { newActivityEvent } from '../../../core/utils/activityEvents';
 import type { Expense, ExpenseLineItem, OriginalAmount } from '../../../core/models/Expense';
 import type { AppError } from '../../../core/types/AppError';
 
@@ -78,6 +79,8 @@ export function useAddExpense(tripId: string) {
   const expenseRepo = useService(EXPENSE_REPO);
   const splitRepo   = useService(SPLIT_REPO);
   const storeApi    = useService(TRIP_STORE);
+  const auth        = useService(AUTH);
+  const activityLog = useService(ACTIVITY_LOG);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
 
@@ -136,6 +139,23 @@ export function useAddExpense(tripId: string) {
           splits: splitResults.filter(isOk).map(r => r.value),
         };
         storeApi.getState().appendExpense(savedExpense);
+
+        // Fire-and-forget: activity feed logging must never block or fail
+        // expense creation.
+        activityLog.appendEvent(newActivityEvent({
+          eventType:   'expense.created',
+          entityType:  'expense',
+          entityId:    savedExpense.id,
+          tripId:      savedExpense.tripId,
+          expenseId:   savedExpense.id,
+          actorUserId: auth.currentUser()?.id ?? '',
+          payload: {
+            description:      savedExpense.description,
+            totalAmountCents: savedExpense.totalAmountCents,
+            currency:         savedExpense.currency,
+          },
+        })).catch(() => {});
+
         return savedExpense;
       } catch (e) {
         // A thrown exception here (e.g. a real network failure, as opposed to
@@ -149,7 +169,7 @@ export function useAddExpense(tripId: string) {
         setLoading(false);
       }
     },
-    [expenseRepo, splitRepo, storeApi, tripId],
+    [expenseRepo, splitRepo, storeApi, auth, activityLog, tripId],
   );
 
   return { addExpense, loading, error };

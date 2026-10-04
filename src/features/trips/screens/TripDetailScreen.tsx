@@ -10,6 +10,7 @@ import { DetailHeaderBar } from '../../../components/ui/DetailHeaderBar';
 import { DetailExpenseRow } from '../../../components/ui/DetailExpenseRow';
 import { Feather } from '@expo/vector-icons';
 import { TripFAB } from '../components/TripFAB';
+import { ViewHistoryLink } from '../../history/components/ViewHistoryLink';
 import { BalanceViewSelector } from '../../../components/ui/BalanceViewSelector';
 import { useBalanceView } from '../../../core/hooks/useBalanceView';
 import { useTripDetail } from '../hooks/useTripDetail';
@@ -167,6 +168,10 @@ export function TripDetailScreen() {
                   <Text style={{ color: colors.text.inverse, fontWeight: '600', fontSize: 15 }}>{t('trips.detail.settle_trip_button')}</Text>
                 </Pressable>
               )}
+            </View>
+
+            <View style={{ marginBottom: 20 }}>
+              <ViewHistoryLink onPress={() => router.push(`/history/trip/${trip.id}` as Parameters<typeof router.push>[0])} />
             </View>
 
             {/* Participants row */}

@@ -12,6 +12,7 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { Divider } from '../../../components/ui/Divider';
 import { ExpensePaidByCard } from '../../../components/ui/ExpensePaidByCard';
 import { ExpenseReceiptSection } from '../../../components/ui/ExpenseReceiptSection';
+import { ViewHistoryLink } from '../../history/components/ViewHistoryLink';
 import { useExpenseDetail } from '../hooks/useExpenseDetail';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { MEMBER_REPO, TRIP_STORE } from '../../../core/di/tokens';
@@ -167,6 +168,10 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
           label={t('expenses.detail.paid_by_label')}
           style={{ marginBottom: 16 }}
         />
+
+        <View style={{ marginBottom: 16 }}>
+          <ViewHistoryLink onPress={() => router.push(`/history/expense/${expense.id}` as Parameters<typeof router.push>[0])} />
+        </View>
 
         {/* Items — only shown for an itemized expense */}
         {lineItems.length > 0 && (

@@ -769,5 +769,18 @@
       "error_generic": "Something went wrong. Please try again.",
       "confirming": "Confirming your purchase…"
     }
+  },
+  "history": {
+    "title": "History",
+    "view_history_link": "View history",
+    "empty": "No activity yet.",
+    "load_error": "Couldn't load activity.",
+    "unknown_expense": "an expense",
+    "event": {
+      "expense_created": "Added \"{{description}}\"",
+      "expense_updated": "Updated \"{{description}}\"",
+      "expense_deleted": "Deleted \"{{description}}\"",
+      "unknown": "Activity"
+    }
   }
 }

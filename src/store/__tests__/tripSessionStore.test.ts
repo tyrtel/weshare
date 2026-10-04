@@ -4,6 +4,8 @@ import { InMemoryExpenseRepository } from '../../__mocks__/InMemoryExpenseReposi
 import { InMemorySplitRepository } from '../../__mocks__/InMemorySplitRepository';
 import { InMemorySplitRequestRepository } from '../../__mocks__/InMemorySplitRequestRepository';
 import { InMemoryGroupRepository } from '../../__mocks__/InMemoryGroupRepository';
+import { MockAuthService } from '../../__mocks__/MockAuthService';
+import { InMemoryActivityLogRepository } from '../../__mocks__/InMemoryActivityLogRepository';
 import { createTripSessionStore } from '../tripSessionStore';
 import type { TripSessionStoreApi, TripStoreRepos } from '../tripSessionStore';
 import { ok, err } from '../../core/types/Result';
@@ -71,17 +73,21 @@ function makeStore(overrides?: Partial<TripStoreRepos>): TripSessionStoreApi {
     splits:        overrides?.splits        ?? new InMemorySplitRepository(),
     splitRequests: overrides?.splitRequests ?? new InMemorySplitRequestRepository(),
     groups:        overrides?.groups        ?? new InMemoryGroupRepository(),
+    auth:          overrides?.auth          ?? new MockAuthService(),
+    activityLog:   overrides?.activityLog   ?? new InMemoryActivityLogRepository(),
   });
 }
 
-function seededStore(): { repos: TripStoreRepos; store: TripSessionStoreApi } {
-  const trips         = new InMemoryTripRepository().seed([trip]);
-  const members       = new InMemoryMemberRepository().seed([member]);
-  const expenses      = new InMemoryExpenseRepository().seed([expense], [split]);
-  const splits        = new InMemorySplitRepository().seed([split]);
-  const splitRequests = new InMemorySplitRequestRepository();
-  const groups        = new InMemoryGroupRepository();
-  const repos: TripStoreRepos = { trips, expenses, members, splits, splitRequests, groups };
+function seededStore(overrides?: Partial<TripStoreRepos>): { repos: TripStoreRepos; store: TripSessionStoreApi } {
+  const trips         = overrides?.trips         ?? new InMemoryTripRepository().seed([trip]);
+  const members       = overrides?.members       ?? new InMemoryMemberRepository().seed([member]);
+  const expenses      = overrides?.expenses      ?? new InMemoryExpenseRepository().seed([expense], [split]);
+  const splits        = overrides?.splits        ?? new InMemorySplitRepository().seed([split]);
+  const splitRequests = overrides?.splitRequests ?? new InMemorySplitRequestRepository();
+  const groups        = overrides?.groups        ?? new InMemoryGroupRepository();
+  const auth          = overrides?.auth          ?? new MockAuthService();
+  const activityLog   = overrides?.activityLog   ?? new InMemoryActivityLogRepository();
+  const repos: TripStoreRepos = { trips, expenses, members, splits, splitRequests, groups, auth, activityLog };
   return { repos, store: createTripSessionStore(repos) };
 }
 
@@ -319,6 +325,21 @@ describe('removeExpense', () => {
     expect(result).toBe(false);
     expect(store.getState().hydrationError).toEqual({ kind: 'NetworkError', message: 'network down' });
   });
+
+  it('appends an expense.deleted activity event scoped to the trip', async () => {
+    const activityLog = new InMemoryActivityLogRepository();
+    const { store } = seededStore({ activityLog });
+    await store.getState().loadTripDetail('t1');
+    await store.getState().removeExpense('e1', 't1');
+
+    const page = await activityLog.getEventsForTrip('t1');
+    expect(page.ok).toBe(true);
+    if (!page.ok) return;
+    expect(page.value.events).toHaveLength(1);
+    expect(page.value.events[0].eventType).toBe('expense.deleted');
+    expect(page.value.events[0].expenseId).toBe('e1');
+    expect(page.value.events[0].payload).toEqual({ description: 'Hotel' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -363,6 +384,23 @@ describe('removeGroupExpense', () => {
     expect(result).toBe(false);
     expect(store.getState().hydrationError).toEqual({ kind: 'NetworkError', message: 'network down' });
     expect(store.getState().groupExpenses['g1']?.some((e) => e.id === 'e1')).toBe(true);
+  });
+
+  it('appends an expense.deleted activity event scoped to the group', async () => {
+    const activityLog = new InMemoryActivityLogRepository();
+    const groupExpense: Expense = { ...expense, tripId: undefined, groupId: 'g1' };
+    const expenses = new InMemoryExpenseRepository().seed([groupExpense]);
+    const store = makeStore({ expenses, activityLog });
+    store.getState().appendGroupExpense(groupExpense);
+
+    await store.getState().removeGroupExpense('e1', 'g1');
+
+    const page = await activityLog.getEventsForGroup('g1');
+    expect(page.ok).toBe(true);
+    if (!page.ok) return;
+    expect(page.value.events).toHaveLength(1);
+    expect(page.value.events[0].eventType).toBe('expense.deleted');
+    expect(page.value.events[0].expenseId).toBe('e1');
   });
 });
 

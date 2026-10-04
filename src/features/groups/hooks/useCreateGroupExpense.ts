@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
-import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE, NOTIFICATION_SERVICE } from '../../../core/di/tokens';
+import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE, NOTIFICATION_SERVICE, AUTH, ACTIVITY_LOG } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
 import { generateId } from '../../../core/utils/generateId';
+import { newActivityEvent } from '../../../core/utils/activityEvents';
 import type { Expense } from '../../../core/models/Expense';
 import type { AppError } from '../../../core/types/AppError';
 import type { AddExpenseInput } from '../../expenses/hooks/useAddExpense';
@@ -34,6 +35,8 @@ export function useCreateGroupExpense(groupId: string) {
   const splitRepo           = useService(SPLIT_REPO);
   const storeApi            = useService(TRIP_STORE);
   const notificationService = useService(NOTIFICATION_SERVICE);
+  const auth                = useService(AUTH);
+  const activityLog         = useService(ACTIVITY_LOG);
 
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<AppError | null>(null);
@@ -91,6 +94,22 @@ export function useCreateGroupExpense(groupId: string) {
 
         storeApi.getState().appendGroupExpense(saved);
 
+        // Fire-and-forget: activity feed logging must never block or fail
+        // expense creation.
+        activityLog.appendEvent(newActivityEvent({
+          eventType:   'expense.created',
+          entityType:  'expense',
+          entityId:    saved.id,
+          groupId:     saved.groupId,
+          expenseId:   saved.id,
+          actorUserId: auth.currentUser()?.id ?? '',
+          payload: {
+            description:      saved.description,
+            totalAmountCents: saved.totalAmountCents,
+            currency:         saved.currency,
+          },
+        })).catch(() => {});
+
         // Fire-and-forget: notify every group member except the payer.
         // Notification failures must never block or fail the expense creation.
         const group  = storeApi.getState().groups.find(g => g.id === groupId);
@@ -118,7 +137,7 @@ export function useCreateGroupExpense(groupId: string) {
         setLoading(false);
       }
     },
-    [expenseRepo, splitRepo, storeApi, notificationService, groupId],
+    [expenseRepo, splitRepo, storeApi, notificationService, auth, activityLog, groupId],
   );
 
   return { createGroupExpense, loading, error };

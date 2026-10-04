@@ -11,6 +11,7 @@ import type { IStripeService } from '../interfaces/IStripeService';
 import type { IOpenBankingService } from '../interfaces/IOpenBankingService';
 import type { IPaymentMethodRegistry } from '../interfaces/IPaymentMethod';
 import type { IAuditLogRepository } from '../interfaces/IAuditLogRepository';
+import type { IActivityLogRepository } from '../interfaces/IActivityLogRepository';
 import type { IBankListService } from '../interfaces/IBankListService';
 import type { IReceiptParser } from '../interfaces/IReceiptParser';
 import type { IReceiptStorage } from '../interfaces/IReceiptStorage';
@@ -44,3 +45,4 @@ export const RECURRING_EXPENSE_REPO  = createToken<IRecurringExpenseRepository>(
 export const NOTIFICATION_SERVICE    = createToken<INotificationService>('INotificationService');
 export const REPORT_SERVICE          = createToken<IReportService>('IReportService');
 export const ENTITLEMENT             = createToken<IEntitlementService>('IEntitlementService');
+export const ACTIVITY_LOG             = createToken<IActivityLogRepository>('IActivityLogRepository');

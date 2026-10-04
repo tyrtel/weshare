@@ -769,5 +769,18 @@
       "error_generic": "Une erreur s'est produite. Veuillez réessayer.",
       "confirming": "Confirmation de votre achat…"
     }
+  },
+  "history": {
+    "title": "Historique",
+    "view_history_link": "Voir l'historique",
+    "empty": "Aucune activité pour l'instant.",
+    "load_error": "Impossible de charger l'activité.",
+    "unknown_expense": "une dépense",
+    "event": {
+      "expense_created": "A ajouté « {{description}} »",
+      "expense_updated": "A modifié « {{description}} »",
+      "expense_deleted": "A supprimé « {{description}} »",
+      "unknown": "Activité"
+    }
   }
 }

@@ -7,6 +7,8 @@ import type { IMemberRepository } from '../core/interfaces/IMemberRepository';
 import type { ISplitRepository } from '../core/interfaces/ISplitRepository';
 import type { ISplitRequestRepository } from '../core/interfaces/ISplitRequestRepository';
 import type { IGroupRepository } from '../core/interfaces/IGroupRepository';
+import type { IAuthService } from '../core/interfaces/IAuthService';
+import type { IActivityLogRepository } from '../core/interfaces/IActivityLogRepository';
 import type { ITripSessionStore, TripSessionState } from '../core/interfaces/ITripSessionStore';
 import type { AppError } from '../core/types/AppError';
 import type { Trip } from '../core/models/Trip';
@@ -26,6 +28,7 @@ import {
   tripMemberSchema,
   splitSchema,
 } from '../core/schemas/billSessionSchema';
+import { newActivityEvent } from '../core/utils/activityEvents';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,6 +41,8 @@ export interface TripStoreRepos {
   splits:        ISplitRepository;
   splitRequests: ISplitRequestRepository;
   groups:        IGroupRepository;
+  auth:          IAuthService;
+  activityLog:   IActivityLogRepository;
 }
 
 export type TripSessionStoreApi = StoreApi<ITripSessionStore>;
@@ -211,6 +216,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
 
     async removeExpense(expenseId: string, tripId: string): Promise<boolean> {
       try {
+        const deleted = get().expenses[tripId]?.find((e) => e.id === expenseId);
         const result = await repos.expenses.deleteExpense(expenseId);
         if (isErr(result)) {
           set({ hydrationError: result.error });
@@ -223,6 +229,19 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
           },
           hydrationError: null,
         }));
+
+        // Fire-and-forget: activity feed logging must never block or fail
+        // expense deletion.
+        repos.activityLog.appendEvent(newActivityEvent({
+          eventType:   'expense.deleted',
+          entityType:  'expense',
+          entityId:    expenseId,
+          tripId,
+          expenseId,
+          actorUserId: repos.auth.currentUser()?.id ?? '',
+          payload: deleted ? { description: deleted.description } : null,
+        })).catch(() => {});
+
         return true;
       } catch (e) {
         // A thrown exception (a real network failure, distinct from the repo
@@ -536,6 +555,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
 
     async removeGroupExpense(expenseId: string, groupId: string): Promise<boolean> {
       try {
+        const deleted = get().groupExpenses[groupId]?.find((e) => e.id === expenseId);
         const result = await repos.expenses.deleteExpense(expenseId);
         if (isErr(result)) {
           set({ hydrationError: result.error });
@@ -548,6 +568,18 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
           },
           hydrationError: null,
         }));
+
+        // Fire-and-forget: see removeExpense's identical guard.
+        repos.activityLog.appendEvent(newActivityEvent({
+          eventType:   'expense.deleted',
+          entityType:  'expense',
+          entityId:    expenseId,
+          groupId,
+          expenseId,
+          actorUserId: repos.auth.currentUser()?.id ?? '',
+          payload: deleted ? { description: deleted.description } : null,
+        })).catch(() => {});
+
         return true;
       } catch (e) {
         // See removeExpense's identical guard.

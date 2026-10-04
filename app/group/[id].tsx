@@ -7,6 +7,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { Text } from '../../src/components/ui/Text';
 import { ParticipantsRow, DetailHeaderBar, DetailExpenseRow, BalancePill } from '../../src/components/ui';
 import { ClosedTripCard } from '../../src/features/trips/components/ClosedTripCard';
+import { ViewHistoryLink } from '../../src/features/history/components/ViewHistoryLink';
 import { GroupExpenseCard } from '../../src/features/groups/components/GroupExpenseCard';
 import { SendInviteSheet } from '../../src/features/groups/components/SendInviteSheet';
 import { useGroupDetail } from '../../src/features/groups/hooks/useGroupDetail';
@@ -216,6 +217,10 @@ export default function GroupDetailScreen() {
           <Text style={{ color: colors.text.tertiary, fontSize: 11.5, textAlign: 'center', marginTop: 8 }}>
             {t(settlements.length > 0 ? 'groups.detail.settle_up_hint' : 'groups.detail.view_settlement_hint')}
           </Text>
+        </View>
+
+        <View style={{ marginTop: tokens.spacing.md }}>
+          <ViewHistoryLink onPress={() => router.push(`/history/group/${group.id}` as Parameters<typeof router.push>[0])} />
         </View>
 
         {/* Recent payments */}

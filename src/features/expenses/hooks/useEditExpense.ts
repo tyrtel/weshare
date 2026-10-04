@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
-import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE } from '../../../core/di/tokens';
+import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE, AUTH, ACTIVITY_LOG } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
 import { generateId } from '../../../core/utils/generateId';
+import { newActivityEvent } from '../../../core/utils/activityEvents';
 import type { Expense } from '../../../core/models/Expense';
 import type { AppError } from '../../../core/types/AppError';
 import type { AddExpenseInput } from './useAddExpense';
@@ -11,6 +12,8 @@ export function useEditExpense() {
   const expenseRepo = useService(EXPENSE_REPO);
   const splitRepo   = useService(SPLIT_REPO);
   const storeApi    = useService(TRIP_STORE);
+  const auth        = useService(AUTH);
+  const activityLog = useService(ACTIVITY_LOG);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
 
@@ -78,6 +81,23 @@ export function useEditExpense() {
         // the DB echoes back.
         const savedExpense = { ...updated, splits: splitResults.filter(isOk).map(r => r.value) };
         storeApi.getState().replaceExpense(savedExpense);
+
+        // Fire-and-forget: see useAddExpense's identical guard.
+        activityLog.appendEvent(newActivityEvent({
+          eventType:   'expense.updated',
+          entityType:  'expense',
+          entityId:    savedExpense.id,
+          groupId:     savedExpense.groupId,
+          tripId:      savedExpense.tripId,
+          expenseId:   savedExpense.id,
+          actorUserId: auth.currentUser()?.id ?? '',
+          payload: {
+            description:      savedExpense.description,
+            totalAmountCents: savedExpense.totalAmountCents,
+            currency:         savedExpense.currency,
+          },
+        })).catch(() => {});
+
         return savedExpense;
       } catch (e) {
         // See useAddExpense's identical guard: an uncaught throw here (a real
@@ -90,7 +110,7 @@ export function useEditExpense() {
         setLoading(false);
       }
     },
-    [expenseRepo, splitRepo, storeApi],
+    [expenseRepo, splitRepo, storeApi, auth, activityLog],
   );
 
   return { editExpense, loading, error };

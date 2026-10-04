@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT, ACTIVITY_LOG,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import type { PaymentProvider } from '../interfaces/IPaymentService';
@@ -73,6 +73,9 @@ async function _create(): Promise<ServiceContainer> {
   const { SupabaseAuditLogRepository } = await import(
     '../../infrastructure/supabase/SupabaseAuditLogRepository'
   );
+  const { SupabaseActivityLogRepository } = await import(
+    '../../infrastructure/supabase/SupabaseActivityLogRepository'
+  );
   const { TinkBankListService } = await import(
     '../../infrastructure/services/TinkBankListService'
   );
@@ -100,6 +103,8 @@ async function _create(): Promise<ServiceContainer> {
   const expenseRepo      = new SupabaseExpenseRepository();
   const splitRepo        = new SupabaseSplitRepository();
   const splitRequestRepo = new SupabaseSplitRequestRepository();
+  const authService      = getAuthService();
+  const activityLogRepo  = new SupabaseActivityLogRepository();
 
   const paymentService = new DeepLinkPaymentService();
   const stripeService  = new StripeService();
@@ -117,7 +122,7 @@ async function _create(): Promise<ServiceContainer> {
   container.register(EXPENSE_REPO,       expenseRepo);
   container.register(SPLIT_REPO,         splitRepo);
   container.register(SPLIT_REQUEST_REPO, splitRequestRepo);
-  container.register(AUTH,             getAuthService());
+  container.register(AUTH,             authService);
   container.register(PAYMENT,          paymentService);
   container.register(SHARE,            new NativeShareService());
   container.register(STRIPE,           stripeService);
@@ -134,6 +139,7 @@ async function _create(): Promise<ServiceContainer> {
   container.register(NOTIFICATION_SERVICE,    new SupabaseNotificationService());
   container.register(REPORT_SERVICE,          new SupabaseReportService());
   container.register(ENTITLEMENT,             new RevenueCatEntitlementService());
-  container.register(TRIP_STORE,              createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo }));
+  container.register(ACTIVITY_LOG,            activityLogRepo);
+  container.register(TRIP_STORE,              createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo, auth: authService, activityLog: activityLogRepo }));
   return container;
 }

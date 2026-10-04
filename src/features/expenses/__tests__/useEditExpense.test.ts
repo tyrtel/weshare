@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useEditExpense } from '../hooks/useEditExpense';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { EXPENSE_REPO, SPLIT_REPO } from '../../../core/di/tokens';
+import { EXPENSE_REPO, SPLIT_REPO, ACTIVITY_LOG } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Expense } from '../../../core/models/Expense';
 import type { AddExpenseInput } from '../hooks/useAddExpense';
@@ -160,6 +160,22 @@ describe('useEditExpense — success', () => {
     });
 
     expect(result.current.loading).toBe(false);
+  });
+
+  it('appends an expense.updated activity event scoped to the trip', async () => {
+    const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
+    const activityLog = container.resolve(ACTIVITY_LOG);
+
+    await act(async () => {
+      await result.current.editExpense(expenseFactory(), makeInput());
+    });
+
+    const page = await activityLog.getEventsForTrip('t1');
+    expect(page.ok).toBe(true);
+    if (!page.ok) return;
+    expect(page.value.events).toHaveLength(1);
+    expect(page.value.events[0].eventType).toBe('expense.updated');
+    expect(page.value.events[0].expenseId).toBe('e1');
   });
 });
 
