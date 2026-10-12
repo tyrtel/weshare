@@ -1,8 +1,10 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT, ACTIVITY_LOG,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT, ACTIVITY_LOG, CACHE_STORAGE, REALTIME,
 } from './tokens';
+import type { ICacheStorage } from '../interfaces/ICacheStorage';
+import type { IRealtimeService } from '../interfaces/IRealtimeService';
 import type { ITripRepository } from '../interfaces/ITripRepository';
 import type { IMemberRepository } from '../interfaces/IMemberRepository';
 import type { IExpenseRepository } from '../interfaces/IExpenseRepository';
@@ -28,6 +30,8 @@ import type { IReportService } from '../interfaces/IReportService';
 import type { IEntitlementService } from '../interfaces/IEntitlementService';
 
 export interface ContainerOverrides {
+  cacheStorage?:     ICacheStorage;
+  realtime?:         IRealtimeService;
   tripRepo?:         ITripRepository;
   memberRepo?:       IMemberRepository;
   expenseRepo?:      IExpenseRepository;
@@ -120,7 +124,8 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   const { InMemoryRecurringExpenseRepository } = require('../../__mocks__/InMemoryRecurringExpenseRepository');
   const groupRepo = overrides.groupRepo ?? new InMemoryGroupRepository();
   container.register(GROUP_REPO,             groupRepo);
-  container.register(RECURRING_EXPENSE_REPO, overrides.recurringExpenseRepo ?? new InMemoryRecurringExpenseRepository());
+  const recurringExpenseRepo = overrides.recurringExpenseRepo ?? new InMemoryRecurringExpenseRepository();
+  container.register(RECURRING_EXPENSE_REPO, recurringExpenseRepo);
   const { MockNotificationService } = require('../../__mocks__/MockNotificationService');
   container.register(NOTIFICATION_SERVICE,   overrides.notificationService  ?? new MockNotificationService());
   const { MockReportService } = require('../../__mocks__/MockReportService');
@@ -128,9 +133,13 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   const { MockEntitlementService } = require('../../__mocks__/MockEntitlementService');
   container.register(ENTITLEMENT,            overrides.entitlementService   ?? new MockEntitlementService());
   container.register(ACTIVITY_LOG,           activityLogRepo);
+  const { InMemoryCacheStorage } = require('../../__mocks__/InMemoryCacheStorage');
+  container.register(CACHE_STORAGE,          overrides.cacheStorage ?? new InMemoryCacheStorage());
+  const { MockRealtimeService } = require('../../__mocks__/MockRealtimeService');
+  container.register(REALTIME,               overrides.realtime ?? new MockRealtimeService());
   container.register(
     TRIP_STORE,
-    overrides.tripStore ?? createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo, auth: authService, activityLog: activityLogRepo }),
+    overrides.tripStore ?? createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo, auth: authService, activityLog: activityLogRepo, recurringExpenses: recurringExpenseRepo }),
   );
   return container;
 }

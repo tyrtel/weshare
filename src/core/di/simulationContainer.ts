@@ -10,7 +10,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT, ACTIVITY_LOG,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT, ACTIVITY_LOG, CACHE_STORAGE, REALTIME,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import { InMemoryTripRepository } from '../../__mocks__/InMemoryTripRepository';
@@ -35,6 +35,8 @@ import { InMemoryRecurringExpenseRepository } from '../../__mocks__/InMemoryRecu
 import { MockNotificationService } from '../../__mocks__/MockNotificationService';
 import { MockReportService } from '../../__mocks__/MockReportService';
 import { MockEntitlementService } from '../../__mocks__/MockEntitlementService';
+import { InMemoryCacheStorage } from '../../__mocks__/InMemoryCacheStorage';
+import { MockRealtimeService } from '../../__mocks__/MockRealtimeService';
 
 import { restaurantScenario, RESTAURANT_CURRENT_USER, RESTAURANT_CURRENT_USER_EMAIL } from '../../__mocks__/fixtures/restaurantScenario';
 import { twoPersonScenario } from '../../__mocks__/fixtures/twoPersonScenario';
@@ -102,12 +104,15 @@ async function _create(): Promise<ServiceContainer> {
   container.register(EXCHANGE_RATE,    new MockExchangeRateService());
   const groupRepo = new InMemoryGroupRepository().seed(merged.groups ?? []);
   container.register(GROUP_REPO,             groupRepo);
-  container.register(RECURRING_EXPENSE_REPO,  new InMemoryRecurringExpenseRepository());
+  const recurringExpenseRepo = new InMemoryRecurringExpenseRepository();
+  container.register(RECURRING_EXPENSE_REPO,  recurringExpenseRepo);
   container.register(NOTIFICATION_SERVICE,    new MockNotificationService());
   container.register(REPORT_SERVICE,          new MockReportService());
   container.register(ENTITLEMENT,             new MockEntitlementService());
   const activityLogRepo = new InMemoryActivityLogRepository();
   container.register(ACTIVITY_LOG,            activityLogRepo);
-  container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo, auth, activityLog: activityLogRepo }));
+  container.register(CACHE_STORAGE,           new InMemoryCacheStorage());
+  container.register(REALTIME,                new MockRealtimeService());
+  container.register(TRIP_STORE,   createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo, auth, activityLog: activityLogRepo, recurringExpenses: recurringExpenseRepo }));
   return container;
 }

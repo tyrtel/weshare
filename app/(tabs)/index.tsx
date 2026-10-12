@@ -21,6 +21,9 @@ import { ledgerRadius, ledgerShadow, ledgerFonts } from '../../src/theme/tokens'
 import { formatCurrency } from '../../src/core/utils/formatCurrency';
 import type { Trip } from '../../src/core/models/Trip';
 import type { Group } from '../../src/core/models/Group';
+import { SyncBanner } from '../../src/shared/components/SyncBanner';
+
+const HOME_SYNC_BUCKETS = ['trips', 'groups'] as const;
 
 export default function HomeScreen() {
   const { t }  = useTranslation();
@@ -113,6 +116,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
+      <SyncBanner buckets={HOME_SYNC_BUCKETS} />
 
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>

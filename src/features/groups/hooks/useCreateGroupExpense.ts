@@ -123,6 +123,7 @@ export function useCreateGroupExpense(groupId: string) {
             eventType: 'expense_added',
             payload: {
               userId: member.userId,
+              groupId,
               title:  group?.name ?? 'WeShare',
               body:   `${payer?.displayName ?? 'Someone'} added "${saved.description}" (${saved.currency} ${amount})`,
             },

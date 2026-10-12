@@ -1,9 +1,17 @@
+// Replace useFocusEffect with useEffect so the hook fires without navigation context.
+jest.mock('expo-router', () => ({
+  useFocusEffect: (cb: Parameters<typeof import('react').useEffect>[0]) => {
+    const { useEffect } = require('react');
+    useEffect(cb, [cb]);
+  },
+}));
+
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useGroupLedgerHistory } from '../hooks/useGroupLedgerHistory';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { TRIP_STORE, SPLIT_REQUEST_REPO } from '../../../core/di/tokens';
+import { TRIP_STORE, SPLIT_REQUEST_REPO, EXPENSE_REPO } from '../../../core/di/tokens';
 import { InMemorySplitRequestRepository } from '../../../__mocks__/InMemorySplitRequestRepository';
 import { groupFactory, groupMemberFactory, tripFactory, expenseFactory, splitFactory, splitRequestFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
@@ -15,7 +23,7 @@ function makeWrapper(container: ServiceContainer) {
 }
 
 // Jay pays €40 directly in the group, Marie owes €20.
-function seedBasic(container: ServiceContainer) {
+async function seedBasic(container: ServiceContainer) {
   const members = [
     groupMemberFactory({ userId: 'jay', groupId: 'g1', displayName: 'jay' }),
     groupMemberFactory({ userId: 'marie', groupId: 'g1', displayName: 'marie' }),
@@ -31,13 +39,14 @@ function seedBasic(container: ServiceContainer) {
   });
   const store = container.resolve(TRIP_STORE);
   store.getState().appendGroup(group);
-  store.getState().appendGroupExpense(expense);
+  // The group bucket revalidates from the repo on mount, so the expense lives there.
+  await container.resolve(EXPENSE_REPO).saveExpense(expense);
 }
 
 describe('useGroupLedgerHistory', () => {
   it('mixes a direct group expense debit with a trip-scoped completed payment credit', async () => {
     const container = createTestContainer();
-    seedBasic(container);
+    await seedBasic(container);
     const trip = tripFactory({ id: 't1', groupId: 'g1', status: 'active' });
     container.resolve(TRIP_STORE).getState().appendTrip(trip);
     (container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository).seed([
@@ -53,7 +62,7 @@ describe('useGroupLedgerHistory', () => {
 
   it('recordPayment appends a completed group-scoped SplitRequest and the ledger reflects it', async () => {
     const container = createTestContainer();
-    seedBasic(container);
+    await seedBasic(container);
 
     const { result } = renderHook(() => useGroupLedgerHistory('g1', 'marie', 'jay'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -69,7 +78,7 @@ describe('useGroupLedgerHistory', () => {
 
   it('an overpayment produces a negative balance (a credit) rather than an error', async () => {
     const container = createTestContainer();
-    seedBasic(container);
+    await seedBasic(container);
 
     const { result } = renderHook(() => useGroupLedgerHistory('g1', 'marie', 'jay'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));

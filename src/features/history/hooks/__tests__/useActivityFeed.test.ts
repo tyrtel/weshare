@@ -10,7 +10,8 @@ import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { useActivityFeed } from '../useActivityFeed';
 import { ServiceContext } from '../../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../../core/di/testContainer';
-import { AUTH, TRIP_REPO, ACTIVITY_LOG, TRIP_STORE } from '../../../../core/di/tokens';
+import { AUTH, TRIP_REPO, ACTIVITY_LOG, GROUP_REPO } from '../../../../core/di/tokens';
+import type { InMemoryGroupRepository } from '../../../../__mocks__/InMemoryGroupRepository';
 import { tripFactory, groupFactory, groupMemberFactory } from '../../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../../core/di/ServiceContainer';
 import type { ActivityEvent } from '../../../../core/models/ActivityEvent';
@@ -37,8 +38,8 @@ describe('useActivityFeed', () => {
     const userId = res.ok ? res.value.id : '';
 
     await container.resolve(TRIP_REPO).saveTrip(tripFactory({ id: 't1', ownerId: userId, closedAt: null }));
-    const group = groupFactory({ id: 'g1', members: [groupMemberFactory()] });
-    container.resolve(TRIP_STORE).getState().appendGroup(group);
+    const group = groupFactory({ id: 'g1', members: [groupMemberFactory({ userId })] });
+    (container.resolve(GROUP_REPO) as InMemoryGroupRepository).seed([group]);
 
     const activityLog = container.resolve(ACTIVITY_LOG);
     await activityLog.appendEvent(makeEvent('older', { tripId: 't1' }, new Date('2026-09-01T09:00:00Z')));

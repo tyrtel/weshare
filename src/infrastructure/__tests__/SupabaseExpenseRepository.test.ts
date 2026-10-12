@@ -258,3 +258,44 @@ describe('SupabaseExpenseRepository — settleExpense', () => {
     if (!result.ok) expect(result.error.kind).toBe('NetworkError');
   });
 });
+
+describe('SupabaseExpenseRepository — getExpensesForTrips', () => {
+  it('groups rows by trip and returns an empty list for trips with none', async () => {
+    supabase.from.mockReturnValue(mockChain({
+      data: [expenseRow({ id: 'e1', trip_id: 't1' }), expenseRow({ id: 'e2', trip_id: 't1' })],
+      error: null,
+    }));
+
+    const result = await new SupabaseExpenseRepository().getExpensesForTrips(['t1', 't2']);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value['t1'].map(e => e.id)).toEqual(['e1', 'e2']);
+      expect(result.value['t2']).toEqual([]);
+    }
+  });
+
+  it('keeps paging while a page comes back full', async () => {
+    const fullPage = Array.from({ length: 1000 }, (_, i) => expenseRow({ id: `a${i}`, splits: [] }));
+    supabase.from
+      .mockReturnValueOnce(mockChain({ data: fullPage, error: null }))
+      .mockReturnValueOnce(mockChain({ data: [expenseRow({ id: 'last', splits: [] })], error: null }));
+
+    const result = await new SupabaseExpenseRepository().getExpensesForTrips(['t1']);
+
+    expect(supabase.from).toHaveBeenCalledTimes(2);
+    expect(result.ok && result.value['t1']).toHaveLength(1001);
+  });
+
+  it('makes no request for an empty id list', async () => {
+    const result = await new SupabaseExpenseRepository().getExpensesForTrips([]);
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, value: {} });
+  });
+
+  it('returns the error when a page fails', async () => {
+    supabase.from.mockReturnValue(mockChain({ data: null, error: { message: 'boom' } }));
+    const result = await new SupabaseExpenseRepository().getExpensesForTrips(['t1']);
+    expect(result.ok).toBe(false);
+  });
+});

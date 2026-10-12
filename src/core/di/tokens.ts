@@ -22,6 +22,8 @@ import type { IRecurringExpenseRepository } from '../interfaces/IRecurringExpens
 import type { INotificationService } from '../interfaces/INotificationService';
 import type { IReportService } from '../interfaces/IReportService';
 import type { IEntitlementService } from '../interfaces/IEntitlementService';
+import type { ICacheStorage } from '../interfaces/ICacheStorage';
+import type { IRealtimeService } from '../interfaces/IRealtimeService';
 
 export const TRIP_REPO          = createToken<ITripRepository>('ITripRepository');
 export const MEMBER_REPO        = createToken<IMemberRepository>('IMemberRepository');
@@ -46,3 +48,5 @@ export const NOTIFICATION_SERVICE    = createToken<INotificationService>('INotif
 export const REPORT_SERVICE          = createToken<IReportService>('IReportService');
 export const ENTITLEMENT             = createToken<IEntitlementService>('IEntitlementService');
 export const ACTIVITY_LOG             = createToken<IActivityLogRepository>('IActivityLogRepository');
+export const CACHE_STORAGE            = createToken<ICacheStorage>('ICacheStorage');
+export const REALTIME                 = createToken<IRealtimeService>('IRealtimeService');

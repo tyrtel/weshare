@@ -189,9 +189,10 @@ export function ExpenseFormScreen() {
 
   const { addExpense,         loading: addLoading,   error: addError   } = useAddExpense(resolvedTripId);
   const { createGroupExpense, loading: groupLoading, error: groupError } = useCreateGroupExpense(groupId ?? '');
-  const { editExpense,        loading: editLoading,  error: editError  } = useEditExpense();
+  const { editExpense,        error: editError  } = useEditExpense();
 
-  const saving   = mode === 'edit' ? editLoading : isGroupMode ? groupLoading : addLoading;
+  // Edits are save-first and never block the form.
+  const saving   = mode !== 'edit' && (isGroupMode ? groupLoading : addLoading);
   const saveError = mode === 'edit' ? editError : isGroupMode ? groupError : addError;
 
   // ── Unified members + currency ────────────────────────────────────────────────
@@ -400,7 +401,7 @@ export function ExpenseFormScreen() {
       // editExpense is generic over trip vs group expenses — it just carries
       // existing.groupId/tripId through, and the store routes the update to
       // whichever cache bucket actually holds the expense.
-      saved = await editExpense(expense, input);
+      saved = editExpense(expense, input);
     }
 
     if (saved) {

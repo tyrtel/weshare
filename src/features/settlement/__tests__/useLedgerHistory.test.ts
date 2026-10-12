@@ -1,3 +1,11 @@
+// Replace useFocusEffect with useEffect so the hook fires without navigation context.
+jest.mock('expo-router', () => ({
+  useFocusEffect: (cb: Parameters<typeof import('react').useEffect>[0]) => {
+    const { useEffect } = require('react');
+    useEffect(cb, [cb]);
+  },
+}));
+
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useLedgerHistory } from '../hooks/useLedgerHistory';

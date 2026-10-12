@@ -146,13 +146,12 @@ interface LedgerViewProps extends ScopedLedgerViewProps {
   currency: string;
   loading: boolean;
   error: unknown;
-  settling: boolean;
-  recordPayment: (amountCents: number) => Promise<void>;
+  recordPayment: (amountCents: number) => void;
 }
 
 function LedgerView({
   fromUserId, toUserId, fromName, toName,
-  entries, balanceCents, currency, loading, error, settling, recordPayment,
+  entries, balanceCents, currency, loading, error, recordPayment,
 }: LedgerViewProps) {
   const { t } = useTranslation();
   const colors = useColors();
@@ -259,10 +258,10 @@ function LedgerView({
         toLabel={toLabel}
         defaultAmountCents={Math.max(balanceCents, 0)}
         currency={currency}
-        busy={settling}
         onClose={() => setRecording(false)}
         onConfirm={(amountCents) => {
-          void recordPayment(amountCents).then(() => setRecording(false));
+          recordPayment(amountCents);
+          setRecording(false);
         }}
       />
     </ScreenWrapper>

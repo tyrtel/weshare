@@ -188,3 +188,27 @@ describe('useTrips — closed trip filter', () => {
     expect(result.current.trips).toHaveLength(0);
   });
 });
+
+// ── Returning to the list ─────────────────────────────────────────────────────
+
+describe('useTrips — returning to the list', () => {
+  it('shows cached trips immediately with no spinner and no request while fresh', async () => {
+    const container = createTestContainer();
+    const auth = container.resolve(AUTH);
+    const res  = await auth.signIn('jay@example.com', 'password');
+    const uid  = res.ok ? res.value.id : '';
+    const tripRepo = container.resolve(TRIP_REPO);
+    await tripRepo.saveTrip(tripFactory({ id: 't1', ownerId: uid, closedAt: null }));
+
+    const first = renderHook(() => useTrips(), { wrapper: makeWrapper(container) });
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    first.unmount();
+
+    const spy = jest.spyOn(tripRepo, 'getTripsForUser');
+    const { result } = renderHook(() => useTrips(), { wrapper: makeWrapper(container) });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.trips).toHaveLength(1);
+    await act(async () => {});
+    expect(spy).not.toHaveBeenCalled();
+  });
+});

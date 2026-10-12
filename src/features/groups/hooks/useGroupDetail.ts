@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
-import { TRIP_STORE, EXPENSE_REPO } from '../../../core/di/tokens';
+import { TRIP_STORE } from '../../../core/di/tokens';
 import { computeGroupBalances, type MemberBalance } from '../utils/computeGroupBalances';
 import { computeArchivableItems } from '../utils/computeArchivableItems';
 import { computeCompletedGroupPayments } from '../utils/computeCompletedPayments';
 import type { LedgerPayment } from '../../../core/logic/settlement';
 import { selectGroupSplitRequests } from '../../../store/selectors';
+import { bucket } from '../../../core/logic/cacheFreshness';
+import { useCacheRevalidation } from '../../../hooks/useCacheRevalidation';
 import { createManualPaymentRequest } from '../../../core/models/SplitRequest';
 import { isOk } from '../../../core/types/Result';
 import type { Settlement } from '../../../core/models/Settlement';
@@ -14,22 +16,12 @@ import type { Trip } from '../../../core/models/Trip';
 
 export function useGroupDetail(groupId: string) {
   const storeApi      = useService(TRIP_STORE);
-  const expenseRepo   = useService(EXPENSE_REPO);
   const group         = useTripSessionStore(s => s.groups.find(g => g.id === groupId));
   const allTrips      = useTripSessionStore(s => s.trips);
   const rawExpenses   = useTripSessionStore(s => s.groupExpenses[groupId]);
   const tripExpenses  = useTripSessionStore(s => s.expenses);
   const groupSplitRequests = useTripSessionStore(s => selectGroupSplitRequests(s, groupId));
   const tripSplitRequests  = useTripSessionStore(s => s.splitRequests);
-  const [expensesLoading, setExpensesLoading] = useState(false);
-
-  useEffect(() => {
-    if (storeApi.getState().groupExpenses[groupId] !== undefined) return;
-    setExpensesLoading(true);
-    storeApi.getState().loadGroupDetail(groupId).finally(() => setExpensesLoading(false));
-  }, [groupId, storeApi]);
-
-  useEffect(() => { void storeApi.getState().loadSplitRequestsForGroup(groupId); }, [groupId, storeApi]);
 
   const groupExpenses = useMemo(() => rawExpenses ?? [], [rawExpenses]);
 
@@ -38,11 +30,14 @@ export function useGroupDetail(groupId: string) {
     [allTrips, groupId],
   );
 
+  const { loading } = useCacheRevalidation([bucket.group(groupId)]);
   // Ledger payments are trip-scoped or group-scoped, and a group's balance
-  // spans both — load each of its trips' split requests too.
-  useEffect(() => {
-    for (const trip of groupTrips) void storeApi.getState().loadSplitRequests(trip.id);
-  }, [groupTrips, storeApi]);
+  // spans both — keep each of its trips' split requests fresh too.
+  const paymentBuckets = useMemo(
+    () => [bucket.groupRequests(groupId), ...groupTrips.map(t => bucket.tripRequests(t.id))],
+    [groupId, groupTrips],
+  );
+  useCacheRevalidation(paymentBuckets);
 
   // Closing a trip or an expense is purely organizational — it doesn't hide
   // debt or touch the ledger, just moves the item out of the main list into
@@ -84,18 +79,11 @@ export function useGroupDetail(groupId: string) {
 
   // The group-scoped counterpart of useSettlement's recordPayment — same
   // ledger write primitive, just with groupId set instead of tripId.
-  const [recording, setRecording] = useState(false);
-
   const recordPayment = useCallback(
-    async (fromUserId: string, toUserId: string, amountCents: number, currency: string): Promise<void> => {
-      setRecording(true);
-      try {
-        await storeApi.getState().saveSplitRequest(
-          createManualPaymentRequest({ groupId, payerUserId: fromUserId, requesterUserId: toUserId, amountCents, currency }),
-        );
-      } finally {
-        setRecording(false);
-      }
+    (fromUserId: string, toUserId: string, amountCents: number, currency: string): void => {
+      void storeApi.getState().saveSplitRequest(
+        createManualPaymentRequest({ groupId, payerUserId: fromUserId, requesterUserId: toUserId, amountCents, currency }),
+      );
     },
     [groupId, storeApi],
   );
@@ -103,34 +91,14 @@ export function useGroupDetail(groupId: string) {
   // Quick-action archiving triggered from the "ready to archive" icon —
   // same organizational close primitives as the expense/trip detail screens,
   // just callable directly from the group list without navigating away.
-  const [closing, setClosing] = useState(false);
-
+  // Save-first: the item moves immediately; the store undoes it on failure.
   const closeExpense = useCallback(
-    async (expense: Expense): Promise<boolean> => {
-      setClosing(true);
-      try {
-        const settledAt = new Date();
-        const result = await expenseRepo.settleExpense(expense.id, settledAt);
-        if (!isOk(result)) return false;
-        storeApi.getState().settleGroupExpenseInStore(expense.id, groupId, settledAt);
-        return true;
-      } finally {
-        setClosing(false);
-      }
-    },
-    [expenseRepo, groupId, storeApi],
+    (expense: Expense) => storeApi.getState().settleGroupExpense(expense.id, groupId, new Date()),
+    [groupId, storeApi],
   );
 
   const closeTrip = useCallback(
-    async (trip: Trip): Promise<boolean> => {
-      setClosing(true);
-      try {
-        const result = await storeApi.getState().setTripStatus(trip.id, 'closed');
-        return isOk(result);
-      } finally {
-        setClosing(false);
-      }
-    },
+    async (trip: Trip): Promise<boolean> => isOk(await storeApi.getState().setTripStatus(trip.id, 'closed')),
     [storeApi],
   );
 
@@ -149,10 +117,8 @@ export function useGroupDetail(groupId: string) {
     archivableExpenseIds,
     archivableTripIds,
     recordPayment,
-    recording,
     closeExpense,
     closeTrip,
-    closing,
-    loading: expensesLoading,
+    loading,
   };
 }

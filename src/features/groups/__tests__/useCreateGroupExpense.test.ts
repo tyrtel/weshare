@@ -3,7 +3,8 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useCreateGroupExpense } from '../hooks/useCreateGroupExpense';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE, ACTIVITY_LOG } from '../../../core/di/tokens';
+import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE, ACTIVITY_LOG, NOTIFICATION_SERVICE } from '../../../core/di/tokens';
+import type { MockNotificationService } from '../../../__mocks__/MockNotificationService';
 import { groupFactory, groupMemberFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Expense } from '../../../core/models/Expense';
@@ -35,6 +36,15 @@ describe('useCreateGroupExpense', () => {
     const group = groupFactory({ id: GROUP_ID, members: [groupMemberFactory(), groupMemberFactory({ userId: 'u2', displayName: 'Sam' })] });
     container.resolve(TRIP_STORE).getState().appendGroup(group);
     container.resolve(TRIP_STORE).getState()._setGroupExpenses?.(GROUP_ID, []);
+  });
+
+  it('notifies the other members with the group id, so their apps can refresh that group', async () => {
+    const { result } = renderHook(() => useCreateGroupExpense(GROUP_ID), { wrapper: makeWrapper(container) });
+    await act(async () => { await result.current.createGroupExpense(validInput); });
+
+    const calls = (container.resolve(NOTIFICATION_SERVICE) as MockNotificationService).enqueueCalls;
+    expect(calls.map(c => c.userId)).toEqual(['u2']);
+    expect(calls[0].payload.groupId).toBe(GROUP_ID);
   });
 
   it('creates and returns an expense', async () => {

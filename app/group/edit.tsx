@@ -27,7 +27,7 @@ export default function EditGroupScreen() {
 
   const group = useTripSessionStore(s => s.groups.find(g => g.id === id));
 
-  const { editGroup,   loading: editLoading,   error: editError }   = useEditGroup();
+  const { editGroup,   error: editError }   = useEditGroup();
   const { deleteGroup, loading: deleteLoading, error: deleteError } = useDeleteGroup();
 
   const [name,           setName]           = useState(group?.name ?? '');
@@ -44,12 +44,12 @@ export default function EditGroupScreen() {
     if (saved) setNewMemberName('');
   };
 
-  const loading  = editLoading || deleteLoading;
+  const loading  = deleteLoading;
   const error    = editError ?? deleteError;
   const isValid  = !loading && !!name.trim();
 
-  const handleSubmit = async () => {
-    const updated = await editGroup(group, name, currency);
+  const handleSubmit = () => {
+    const updated = editGroup(group, name, currency);
     if (updated) router.back();
   };
 

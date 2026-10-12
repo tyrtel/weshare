@@ -4,6 +4,8 @@ import type { TripMember } from '../models/TripMember';
 
 export interface IMemberRepository {
   getMembersForTrip(tripId: string): Promise<Result<TripMember[], AppError>>;
+  /** Members for several trips in one round trip, keyed by tripId (every id present). */
+  getMembersForTrips(tripIds: string[]): Promise<Result<Record<string, TripMember[]>, AppError>>;
   addMember(member: TripMember): Promise<Result<TripMember, AppError>>;
   removeMember(tripId: string, userId: string): Promise<Result<void, AppError>>;
   // Returns the first member on a trip whose email matches, or null if none.

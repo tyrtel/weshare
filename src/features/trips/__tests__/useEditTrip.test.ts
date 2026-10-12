@@ -9,6 +9,11 @@ import type { Trip } from '../../../core/models/Trip';
 import { expenseFactory, tripFactory } from '../../../__testUtils__/factories';
 import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
 
+// editTrip returns at once (save-first); this lets the store's background save land.
+async function settle() {
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+}
+
 function makeWrapper(container: ServiceContainer) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return React.createElement(ServiceContext.Provider, { value: container }, children);
@@ -48,7 +53,7 @@ describe('useEditTrip — success', () => {
 
     let updated: Trip | null = null;
     await act(async () => {
-      updated = await result.current.editTrip(tripFactory(), 'Paris Trip', 'USD');
+      updated = result.current.editTrip(tripFactory(), 'Paris Trip', 'USD');
     });
 
     expect(updated).not.toBeNull();
@@ -61,7 +66,7 @@ describe('useEditTrip — success', () => {
 
     let updated: Trip | null = null;
     await act(async () => {
-      updated = await result.current.editTrip(tripFactory(), '  Road Trip  ', 'GBP');
+      updated = result.current.editTrip(tripFactory(), '  Road Trip  ', 'GBP');
     });
 
     expect(updated?.name).toBe('Road Trip');
@@ -72,23 +77,13 @@ describe('useEditTrip — success', () => {
     const tripRepo = container.resolve(TRIP_REPO);
 
     await act(async () => {
-      await result.current.editTrip(tripFactory(), 'Updated Name', 'EUR');
+      result.current.editTrip(tripFactory(), 'Updated Name', 'EUR');
     });
+    await settle();
 
     const fetched = await tripRepo.getTrip('t1');
     expect(fetched.ok).toBe(true);
     if (fetched.ok) expect(fetched.value.name).toBe('Updated Name');
-  });
-
-  it('loading is false before and after submission', async () => {
-    const { result } = renderHook(() => useEditTrip(), { wrapper: makeWrapper(container) });
-    expect(result.current.loading).toBe(false);
-
-    await act(async () => {
-      await result.current.editTrip(tripFactory(), 'New Name', 'EUR');
-    });
-
-    expect(result.current.loading).toBe(false);
   });
 });
 
@@ -116,8 +111,9 @@ describe('useEditTrip — expense currency recalculation', () => {
     const expenseRepo = container.resolve(EXPENSE_REPO);
 
     await act(async () => {
-      await result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Chez Paul', 'USD');
+      result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Chez Paul', 'USD');
     });
+    await settle();
 
     const e1 = await expenseRepo.getExpense('e1');
     const e2 = await expenseRepo.getExpense('e2');
@@ -130,8 +126,9 @@ describe('useEditTrip — expense currency recalculation', () => {
     const expenseRepo = container.resolve(EXPENSE_REPO);
 
     await act(async () => {
-      await result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Chez Paul', 'EUR');
+      result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Chez Paul', 'EUR');
     });
+    await settle();
 
     const e1 = await expenseRepo.getExpense('e1');
     expect(e1.ok && e1.value.currency).toBe('EUR');
@@ -148,8 +145,9 @@ describe('useEditTrip — expense currency recalculation', () => {
     const { result } = renderHook(() => useEditTrip(), { wrapper: makeWrapper(container) });
 
     await act(async () => {
-      await result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Chez Paul', 'GBP');
+      result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Chez Paul', 'GBP');
     });
+    await settle();
 
     const e3 = await expenseRepo.getExpense('e3');
     expect(e3.ok && e3.value.currency).toBe('USD');
@@ -160,8 +158,9 @@ describe('useEditTrip — expense currency recalculation', () => {
     const storeApi    = container.resolve(TRIP_STORE);
 
     await act(async () => {
-      await result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Chez Paul', 'GBP');
+      result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Chez Paul', 'GBP');
     });
+    await settle();
 
     const storedExpenses = storeApi.getState().expenses['t1'] ?? [];
     expect(storedExpenses.every(e => e.currency === 'GBP')).toBe(true);
@@ -169,39 +168,45 @@ describe('useEditTrip — expense currency recalculation', () => {
 });
 
 describe('useEditTrip — storage error', () => {
-  it('returns null and sets error when trip does not exist', async () => {
+  it('sets writeError, not the form error, when the trip does not exist on the server', async () => {
     const container = createTestContainer();
+    const store = container.resolve(TRIP_STORE);
     const { result } = renderHook(() => useEditTrip(), { wrapper: makeWrapper(container) });
 
     // Trip 't1' was never saved — updateTrip returns NotFoundError.
-    let updated: Trip | null = tripFactory();
-    await act(async () => {
-      updated = await result.current.editTrip(tripFactory(), 'New Name', 'EUR');
-    });
+    act(() => { result.current.editTrip(tripFactory(), 'New Name', 'EUR'); });
+    await settle();
 
-    expect(updated).toBeNull();
-    expect(result.current.error).not.toBeNull();
+    expect(store.getState().writeError).toMatchObject({ kind: 'NotFoundError' });
+    expect(result.current.error).toBeNull();
   });
-});
 
-// Regression coverage, same class of bug as useAddExpense/useEditExpense:
-// editTrip had no try/catch, so a thrown exception (a real network failure,
-// distinct from a repo returning Result.err) left `loading` stuck at true
-// forever and skipped the caller's post-save navigation entirely.
-describe('useEditTrip — exception safety', () => {
-  it('resets loading and sets a NetworkError when updateTrip throws, instead of hanging forever', async () => {
+  it('sets a NetworkError writeError when updateTrip throws', async () => {
     const tripRepo = new InMemoryTripRepository();
     tripRepo.updateTrip = async () => { throw new Error('fetch failed'); };
     const container = createTestContainer({ tripRepo });
     const { result } = renderHook(() => useEditTrip(), { wrapper: makeWrapper(container) });
 
-    let updated: unknown = 'not-null';
-    await act(async () => {
-      updated = await result.current.editTrip(tripFactory(), 'New Name', 'EUR');
-    });
+    act(() => { result.current.editTrip(tripFactory(), 'New Name', 'EUR'); });
+    await settle();
 
-    expect(updated).toBeNull();
-    expect(result.current.loading).toBe(false);
-    expect(result.current.error?.kind).toBe('NetworkError');
+    expect(container.resolve(TRIP_STORE).getState().writeError).toEqual({ kind: 'NetworkError', message: 'fetch failed' });
+  });
+
+  it('restores the old name and currencies in the cache when the save fails', async () => {
+    const tripRepo = new InMemoryTripRepository();
+    await tripRepo.saveTrip(tripFactory({ currency: 'EUR' }));
+    tripRepo.updateTrip = async () => ({ ok: false, error: { kind: 'NetworkError', message: 'down' } });
+    const container = createTestContainer({ tripRepo });
+    const store = container.resolve(TRIP_STORE);
+    store.setState({ trips: [tripFactory({ currency: 'EUR' })], expenses: { t1: [expenseFactory({ currency: 'EUR' })] } });
+    const { result } = renderHook(() => useEditTrip(), { wrapper: makeWrapper(container) });
+
+    act(() => { result.current.editTrip(tripFactory({ currency: 'EUR' }), 'Renamed', 'USD'); });
+    expect(store.getState().trips[0].name).toBe('Renamed');
+    expect(store.getState().expenses['t1'][0].currency).toBe('USD');
+
+    await settle();
+    expect(store.getState().trips[0].name).toBe(tripFactory().name);
   });
 });

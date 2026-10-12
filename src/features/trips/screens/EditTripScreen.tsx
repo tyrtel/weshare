@@ -27,7 +27,7 @@ export function EditTripScreen() {
   const colors  = useColors();
 
   const { trip, loading: tripLoading } = useTripDetail(id);
-  const { editTrip, loading: saving, error } = useEditTrip();
+  const { editTrip, error } = useEditTrip();
   const { deleteTrip, loading: deleting, error: deleteError } = useDeleteTrip();
 
   const [name,        setName]        = useState('');
@@ -40,9 +40,9 @@ export function EditTripScreen() {
     setInitialised(true);
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!trip) return;
-    const updated = await editTrip(trip, name, currency);
+    const updated = editTrip(trip, name, currency);
     if (updated) {
       if (router.canGoBack()) router.back();
       else router.replace('/(tabs)');
@@ -61,13 +61,13 @@ export function EditTripScreen() {
   if (tripLoading || !trip) return <ScreenWrapper />;
 
   const isOwner = auth.currentUser()?.id === trip.ownerId;
-  const isValid = !saving && !!name.trim();
+  const isValid = !!name.trim();
 
   const confirmButton = () => (
     <HeaderConfirmButton
       onPress={handleSubmit}
       disabled={!isValid}
-      loading={saving}
+      loading={false}
       accessibilityLabel={t('trips.edit.confirm_label')}
     />
   );
@@ -111,7 +111,7 @@ export function EditTripScreen() {
           <ErrorBanner error={error} fallback={t('trips.edit.error_fallback')} style={{ marginBottom: tokens.spacing.md }} />
 
           <Button
-            label={saving ? t('trips.edit.saving') : t('trips.edit.save_button')}
+            label={t('trips.edit.save_button')}
             onPress={handleSubmit}
             disabled={!isValid}
           />

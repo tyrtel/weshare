@@ -18,7 +18,6 @@ export function useGroupLedgerHistory(groupId: string, fromUserId: string, toUse
     groupExpenses,
     completedPayments,
     recordPayment: recordPaymentForGroup,
-    recording,
     loading,
   } = useGroupDetail(groupId);
 
@@ -43,5 +42,5 @@ export function useGroupLedgerHistory(groupId: string, fromUserId: string, toUse
 
   const balanceCents = entries[entries.length - 1]?.balanceCents ?? 0;
 
-  return { entries, balanceCents, currency, loading, error: null, settling: recording, recordPayment };
+  return { entries, balanceCents, currency, loading, error: null, recordPayment };
 }

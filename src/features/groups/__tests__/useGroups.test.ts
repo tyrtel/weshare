@@ -1,9 +1,19 @@
+// Replace useFocusEffect with useEffect so the hook fires without navigation context.
+jest.mock('expo-router', () => ({
+  useFocusEffect: (cb: Parameters<typeof import('react').useEffect>[0]) => {
+    const { useEffect } = require('react');
+    useEffect(cb, [cb]);
+  },
+}));
+
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { useGroups } from '../hooks/useGroups';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { AUTH, TRIP_STORE, EXPENSE_REPO, SPLIT_REQUEST_REPO } from '../../../core/di/tokens';
+import { AUTH, TRIP_STORE, EXPENSE_REPO, SPLIT_REQUEST_REPO, GROUP_REPO } from '../../../core/di/tokens';
+import type { InMemoryGroupRepository } from '../../../__mocks__/InMemoryGroupRepository';
+import type { Group } from '../../../core/models/Group';
 import { groupFactory, groupMemberFactory, tripFactory, expenseFactory, splitFactory, splitRequestFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 
@@ -11,6 +21,13 @@ function makeWrapper(container: ServiceContainer) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return React.createElement(ServiceContext.Provider, { value: container }, children);
   };
+}
+
+// Seeds the repo as well as the store: useGroups revalidates the groups list
+// from the repo, which would otherwise replace a store-only group.
+function seedGroup(container: ServiceContainer, group: Group) {
+  (container.resolve(GROUP_REPO) as InMemoryGroupRepository).seed([group]);
+  container.resolve(TRIP_STORE).getState().appendGroup(group);
 }
 
 describe('useGroups', () => {
@@ -30,7 +47,7 @@ describe('useGroups', () => {
     await auth.signIn('jay@example.com', 'password');
 
     const group = groupFactory({ members: [groupMemberFactory()] });
-    container.resolve(TRIP_STORE).getState().appendGroup(group);
+    seedGroup(container, group);
 
     const { result } = renderHook(() => useGroups(), { wrapper: makeWrapper(container) });
     expect(result.current.groups).toHaveLength(1);
@@ -47,7 +64,7 @@ describe('useGroups', () => {
     const trip3 = tripFactory({ id: 't3', groupId: 'g1', status: 'open' });
 
     const store = container.resolve(TRIP_STORE).getState();
-    store.appendGroup(group);
+    seedGroup(container, group);
     store.appendTrip(trip1);
     store.appendTrip(trip2);
     store.appendTrip(trip3);
@@ -64,7 +81,7 @@ describe('useGroups', () => {
     const trip  = tripFactory({ id: 't1', groupId: 'g2', status: 'open' });
 
     const store = container.resolve(TRIP_STORE).getState();
-    store.appendGroup(group);
+    seedGroup(container, group);
     store.appendTrip(trip);
 
     const { result } = renderHook(() => useGroups(), { wrapper: makeWrapper(container) });
@@ -85,7 +102,7 @@ describe('useGroups', () => {
       id: 'g1', currency: 'EUR',
       members: [groupMemberFactory({ userId, groupId: 'g1' }), groupMemberFactory({ userId: 'u2', groupId: 'g1' })],
     });
-    container.resolve(TRIP_STORE).getState().appendGroup(group);
+    seedGroup(container, group);
 
     const expense = expenseFactory({
       id: 'e1', tripId: undefined, groupId: 'g1', totalAmountCents: 4000, currency: 'EUR', paidByUserId: 'u2',
@@ -119,7 +136,7 @@ describe('useGroups', () => {
     });
     const trip = tripFactory({ id: 't1', groupId: 'g1', currency: 'EUR' });
     const store = container.resolve(TRIP_STORE).getState();
-    store.appendGroup(group);
+    seedGroup(container, group);
     store.appendTrip(trip);
 
     // Trip-level expenses aren't loaded by useGroups itself — in the real app
@@ -161,7 +178,7 @@ describe('useGroups', () => {
       id: 'g1', currency: 'EUR',
       members: [groupMemberFactory({ userId, groupId: 'g1' }), groupMemberFactory({ userId: 'u2', groupId: 'g1' })],
     });
-    container.resolve(TRIP_STORE).getState().appendGroup(group);
+    seedGroup(container, group);
 
     const { result } = renderHook(() => useGroups(), { wrapper: makeWrapper(container) });
 
@@ -187,7 +204,7 @@ describe('useGroups', () => {
         groupMemberFactory({ userId: 'u3', groupId: 'g1' }),
       ],
     });
-    container.resolve(TRIP_STORE).getState().appendGroup(group);
+    seedGroup(container, group);
 
     const expense = expenseFactory({
       id: 'e1', tripId: undefined, groupId: 'g1', totalAmountCents: 2000, currency: 'EUR', paidByUserId: 'u2',

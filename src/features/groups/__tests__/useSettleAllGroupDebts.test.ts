@@ -23,6 +23,11 @@ const SETTLEMENTS: Settlement[] = [
   { fromUserId: 'u3', toUserId: 'u1', amountCents: 500,  currency: 'EUR' },
 ];
 
+// settleAll returns at once (save-first); this lets the store's background saves land.
+async function settle() {
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+}
+
 describe('useSettleAllGroupDebts', () => {
   let container: ServiceContainer;
 
@@ -32,14 +37,11 @@ describe('useSettleAllGroupDebts', () => {
     store.appendGroup(groupFactory({ id: GROUP_ID, members: [] }));
   });
 
-  it('returns true and records a completed group-scoped payment for every settlement', async () => {
+  it('records a completed group-scoped payment for every settlement', async () => {
     const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
 
-    let ok = false;
-    await act(async () => { ok = await result.current.settleAll(); });
-
-    expect(ok).toBe(true);
-    expect(result.current.error).toBeNull();
+    act(() => { result.current.settleAll(); });
+    await settle();
 
     const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequestsForGroup(GROUP_ID);
     expect(stored.ok).toBe(true);
@@ -50,6 +52,14 @@ describe('useSettleAllGroupDebts', () => {
     expect(stored.value.find(r => r.payerUserId === 'u3')?.amountCents).toBe(500);
   });
 
+  it('shows the payments in the cache before the server answers', () => {
+    const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
+
+    act(() => { result.current.settleAll(); });
+
+    expect(container.resolve(TRIP_STORE).getState().groupSplitRequests[GROUP_ID]).toHaveLength(2);
+  });
+
   // Phase 4c: settling debts no longer touches expenses or trips at all —
   // those are independent, purely organizational actions now.
   it('does not settle any expense or close any trip', async () => {
@@ -57,24 +67,24 @@ describe('useSettleAllGroupDebts', () => {
     container.resolve(TRIP_STORE).getState().appendTrip(trip);
 
     const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
-    await act(async () => { await result.current.settleAll(); });
+    act(() => { result.current.settleAll(); });
+    await settle();
 
     const storeTrip = container.resolve(TRIP_STORE).getState().trips.find(t => t.id === 't1');
     expect(storeTrip?.status).toBe('active');
   });
 
-  it('records nothing and returns true when there are no outstanding settlements', async () => {
+  it('records nothing when there are no outstanding settlements', async () => {
     const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, []), { wrapper: makeWrapper(container) });
 
-    let ok = false;
-    await act(async () => { ok = await result.current.settleAll(); });
+    act(() => { result.current.settleAll(); });
+    await settle();
 
-    expect(ok).toBe(true);
     const stored = await container.resolve(SPLIT_REQUEST_REPO).getSplitRequestsForGroup(GROUP_ID);
     expect(stored.ok && stored.value).toHaveLength(0);
   });
 
-  it('surfaces a repo failure via error and returns false', async () => {
+  it('undoes only the payment the server refused, and sets writeError', async () => {
     const repo = container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository;
     const original = repo.saveSplitRequest;
     repo.saveSplitRequest = async (req) => {
@@ -85,28 +95,22 @@ describe('useSettleAllGroupDebts', () => {
     };
 
     const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
+    act(() => { result.current.settleAll(); });
+    await settle();
 
-    let ok = true;
-    await act(async () => { ok = await result.current.settleAll(); });
-
-    expect(ok).toBe(false);
-    expect(result.current.error).toMatchObject({ kind: 'NetworkError' });
+    const state = container.resolve(TRIP_STORE).getState();
+    expect(state.writeError).toMatchObject({ kind: 'NetworkError' });
+    expect(state.groupSplitRequests[GROUP_ID].map(r => r.payerUserId)).toEqual(['u3']);
   });
 
-  // Regression coverage, same class of bug as useAddExpense/useEditExpense:
-  // settleAll had no try/catch, so a thrown exception (distinct from a repo
-  // returning Result.err) left `loading` stuck at true forever.
-  it('resets loading and sets a NetworkError when the repo call throws, instead of hanging forever', async () => {
+  it('sets a NetworkError writeError when the repo call throws', async () => {
     const repo = container.resolve(SPLIT_REQUEST_REPO) as InMemorySplitRequestRepository;
     repo.saveSplitRequest = async () => { throw new Error('connection reset'); };
 
     const { result } = renderHook(() => useSettleAllGroupDebts(GROUP_ID, SETTLEMENTS), { wrapper: makeWrapper(container) });
+    act(() => { result.current.settleAll(); });
+    await settle();
 
-    let ok = true;
-    await act(async () => { ok = await result.current.settleAll(); });
-
-    expect(ok).toBe(false);
-    expect(result.current.loading).toBe(false);
-    expect(result.current.error?.kind).toBe('NetworkError');
+    expect(container.resolve(TRIP_STORE).getState().writeError).toEqual({ kind: 'NetworkError', message: 'connection reset' });
   });
 });

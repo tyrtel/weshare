@@ -23,6 +23,10 @@ function rowToMember(raw: unknown): Result<TripMember, AppError> {
   });
 }
 
+// Must not exceed the project's PostgREST max_rows (Supabase default 1000): a
+// short page is how getMembersForTrips knows it has reached the end.
+const PAGE_SIZE = 1000;
+
 export class SupabaseMemberRepository implements IMemberRepository {
   async getMembersForTrip(tripId: string): Promise<Result<TripMember[], AppError>> {
     const { data, error } = await supabase
@@ -31,6 +35,27 @@ export class SupabaseMemberRepository implements IMemberRepository {
       .eq('trip_id', tripId);
     if (error) return err(toAppError(error, 'TripMember'));
     return mapRows(data as unknown[], rowToMember);
+  }
+
+  async getMembersForTrips(tripIds: string[]): Promise<Result<Record<string, TripMember[]>, AppError>> {
+    const byTrip: Record<string, TripMember[]> = Object.fromEntries(tripIds.map(id => [id, []]));
+    if (tripIds.length === 0) return ok(byTrip);
+
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('trip_members')
+        .select()
+        .in('trip_id', tripIds)
+        .order('trip_id', { ascending: true })
+        .order('user_id', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) return err(toAppError(error, 'TripMember'));
+
+      const mapped = mapRows(data as unknown[], rowToMember);
+      if (!mapped.ok) return mapped;
+      for (const m of mapped.value) byTrip[m.tripId].push(m);
+      if (mapped.value.length < PAGE_SIZE) return ok(byTrip);
+    }
   }
 
   async addMember(member: TripMember): Promise<Result<TripMember, AppError>> {

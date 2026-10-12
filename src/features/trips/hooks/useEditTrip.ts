@@ -1,19 +1,16 @@
 import { useState, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
-import { EXPENSE_REPO, TRIP_REPO, TRIP_STORE } from '../../../core/di/tokens';
-import { isOk } from '../../../core/types/Result';
+import { TRIP_STORE } from '../../../core/di/tokens';
 import type { Trip } from '../../../core/models/Trip';
 import type { AppError } from '../../../core/types/AppError';
 
+/** Validates and applies a trip edit save-first — see useEditExpense. */
 export function useEditTrip() {
-  const tripRepo    = useService(TRIP_REPO);
-  const expenseRepo = useService(EXPENSE_REPO);
-  const storeApi    = useService(TRIP_STORE);
-  const [loading, setLoading] = useState(false);
+  const storeApi = useService(TRIP_STORE);
   const [error, setError] = useState<AppError | null>(null);
 
   const editTrip = useCallback(
-    async (trip: Trip, name: string, currency: string): Promise<Trip | null> => {
+    (trip: Trip, name: string, currency: string): Trip | null => {
       setError(null);
 
       if (!name.trim()) {
@@ -21,43 +18,12 @@ export function useEditTrip() {
         return null;
       }
 
-      setLoading(true);
-      try {
-        const result = await tripRepo.updateTrip({ ...trip, name: name.trim(), currency });
-
-        if (!isOk(result)) {
-          setError(result.error);
-          return null;
-        }
-
-        storeApi.getState().replaceTrip(result.value);
-
-        if (currency !== trip.currency) {
-          const expenses = storeApi.getState().expenses[trip.id] ?? [];
-          await Promise.all(
-            expenses
-              .filter(e => e.currency === trip.currency)
-              .map(async e => {
-                const updated = { ...e, currency };
-                const r = await expenseRepo.updateExpense(updated);
-                if (isOk(r)) storeApi.getState().replaceExpense(r.value);
-              }),
-          );
-        }
-
-        return result.value;
-      } catch (e) {
-        // A thrown exception (a real network failure, distinct from a repo
-        // returning Result.err) used to propagate uncaught — loading never
-        // reset and the caller's post-save navigation never ran.
-        setError({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' });
-        return null;
-      } finally {
-        setLoading(false);
-      }
+      const updated = { ...trip, name: name.trim(), currency };
+      void storeApi.getState().editTrip(trip, updated);
+      return updated;
     },
-    [tripRepo, expenseRepo, storeApi],
+    [storeApi],
   );
 
-  return { editTrip, loading, error };
+  return { editTrip, error };
 }

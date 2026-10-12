@@ -1,9 +1,9 @@
 import React from 'react';
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useEditExpense } from '../hooks/useEditExpense';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { EXPENSE_REPO, SPLIT_REPO, ACTIVITY_LOG } from '../../../core/di/tokens';
+import { EXPENSE_REPO, SPLIT_REPO, ACTIVITY_LOG, TRIP_STORE } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
 import type { Expense } from '../../../core/models/Expense';
 import type { AddExpenseInput } from '../hooks/useAddExpense';
@@ -96,7 +96,7 @@ describe('useEditExpense — success', () => {
 
     let updated: Expense | null = null;
     await act(async () => {
-      updated = await result.current.editExpense(expenseFactory(), makeInput());
+      updated = result.current.editExpense(expenseFactory(), makeInput());
     });
 
     expect(updated).not.toBeNull();
@@ -109,7 +109,7 @@ describe('useEditExpense — success', () => {
 
     let updated: Expense | null = null;
     await act(async () => {
-      updated = await result.current.editExpense(
+      updated = result.current.editExpense(
         expenseFactory({ paidByUserId: 'jay' }),
         makeInput({ paidByUserId: 'marie' }),
       );
@@ -123,7 +123,7 @@ describe('useEditExpense — success', () => {
 
     let updated: Expense | null = null;
     await act(async () => {
-      updated = await result.current.editExpense(expenseFactory(), makeInput({
+      updated = result.current.editExpense(expenseFactory(), makeInput({
         splits: [{ userId: 'jay', amountOwedCents: 12000 }],
       }));
     });
@@ -133,105 +133,82 @@ describe('useEditExpense — success', () => {
     expect(updated?.splits[0].amountOwedCents).toBe(12000);
   });
 
-  it('old splits are removed from storage', async () => {
+  it('old splits are removed from storage once the background save lands', async () => {
     const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
     const splitRepo = container.resolve(SPLIT_REPO);
 
-    await act(async () => {
-      await result.current.editExpense(expenseFactory(), makeInput({
+    act(() => {
+      result.current.editExpense(expenseFactory(), makeInput({
         splits: [{ userId: 'jay', amountOwedCents: 12000 }],
       }));
     });
 
-    const remaining = await splitRepo.getSplitsForExpense('e1');
-    expect(remaining.ok).toBe(true);
-    if (remaining.ok) {
-      expect(remaining.value).toHaveLength(1);
-      expect(remaining.value[0].userId).toBe('jay');
-    }
+    await waitFor(async () => {
+      const remaining = await splitRepo.getSplitsForExpense('e1');
+      expect(remaining.ok && remaining.value.map(sp => sp.userId)).toEqual(['jay']);
+    });
   });
 
-  it('loading is false before and after submission', async () => {
+  it('updates the cache before the server answers', () => {
+    container.resolve(TRIP_STORE).setState({ expenses: { t1: [expenseFactory()] } });
     const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
-    expect(result.current.loading).toBe(false);
 
-    await act(async () => {
-      await result.current.editExpense(expenseFactory(), makeInput());
-    });
+    act(() => { result.current.editExpense(expenseFactory(), makeInput()); });
 
-    expect(result.current.loading).toBe(false);
+    expect(container.resolve(TRIP_STORE).getState().expenses['t1'][0].description).toBe('Updated Dinner');
   });
 
   it('appends an expense.updated activity event scoped to the trip', async () => {
     const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
     const activityLog = container.resolve(ACTIVITY_LOG);
 
-    await act(async () => {
-      await result.current.editExpense(expenseFactory(), makeInput());
-    });
+    act(() => { result.current.editExpense(expenseFactory(), makeInput()); });
 
-    const page = await activityLog.getEventsForTrip('t1');
-    expect(page.ok).toBe(true);
-    if (!page.ok) return;
-    expect(page.value.events).toHaveLength(1);
-    expect(page.value.events[0].eventType).toBe('expense.updated');
-    expect(page.value.events[0].expenseId).toBe('e1');
+    await waitFor(async () => {
+      const page = await activityLog.getEventsForTrip('t1');
+      expect(page.ok && page.value.events.map(e => e.eventType)).toEqual(['expense.updated']);
+    });
   });
 });
 
 describe('useEditExpense — storage error', () => {
-  it('returns null and sets error when expense does not exist in storage', async () => {
+  it('sets writeError, not the form error, when the server refuses the edit', async () => {
+    // 'e1' was never saved — updateExpense returns NotFoundError.
     const container = createTestContainer();
+    const store = container.resolve(TRIP_STORE);
+    store.setState({ expenses: { t1: [expenseFactory()] } });
     const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
 
-    // 'e1' was never saved — updateExpense returns NotFoundError.
-    let updated: Expense | null = expenseFactory();
-    await act(async () => {
-      updated = await result.current.editExpense(expenseFactory(), makeInput());
-    });
+    act(() => { result.current.editExpense(expenseFactory(), makeInput()); });
 
-    expect(updated).toBeNull();
-    expect(result.current.error).not.toBeNull();
+    await waitFor(() => expect(store.getState().writeError).toMatchObject({ kind: 'NotFoundError' }));
+    expect(result.current.error).toBeNull();
   });
-});
 
-// ── Exception safety ──────────────────────────────────────────────────────────
-// Same class of bug as useAddExpense's identical guard: editExpense had no
-// try/catch, so a thrown exception (a real network failure, distinct from a
-// repo returning Result.err) left `loading` stuck at true forever and never
-// let the screen's post-save navigation run.
-
-describe('useEditExpense — exception safety', () => {
-  it('resets loading and sets a NetworkError when updateExpense throws, instead of hanging forever', async () => {
+  it('sets a NetworkError writeError when updateExpense throws', async () => {
     const expenseRepo = new InMemoryExpenseRepository();
     await expenseRepo.saveExpense(expenseFactory());
     expenseRepo.updateExpense = async () => { throw new Error('fetch failed'); };
     const container = createTestContainer({ expenseRepo });
-
+    const store = container.resolve(TRIP_STORE);
     const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
 
-    let updated: unknown = 'not-null';
-    await act(async () => { updated = await result.current.editExpense(expenseFactory(), makeInput()); });
+    act(() => { result.current.editExpense(expenseFactory(), makeInput()); });
 
-    expect(updated).toBeNull();
-    expect(result.current.loading).toBe(false);
-    expect(result.current.error?.kind).toBe('NetworkError');
+    await waitFor(() => expect(store.getState().writeError).toEqual({ kind: 'NetworkError', message: 'fetch failed' }));
   });
 
-  it('resets loading and sets a NetworkError when a split save throws after the expense already updated', async () => {
+  it('sets writeError when saving a new split fails part-way', async () => {
+    const splitRepo = new InMemorySplitRepository();
+    splitRepo.saveSplit = async () => { throw new Error('split save failed'); };
     const expenseRepo = new InMemoryExpenseRepository();
     await expenseRepo.saveExpense(expenseFactory());
-    const splitRepo = new InMemorySplitRepository();
-    splitRepo.saveSplit = async () => { throw new Error('connection reset'); };
     const container = createTestContainer({ expenseRepo, splitRepo });
-
+    const store = container.resolve(TRIP_STORE);
     const { result } = renderHook(() => useEditExpense(), { wrapper: makeWrapper(container) });
 
-    let updated: unknown = 'not-null';
-    await act(async () => { updated = await result.current.editExpense(expenseFactory(), makeInput()); });
+    act(() => { result.current.editExpense(expenseFactory(), makeInput()); });
 
-    expect(updated).toBeNull();
-    expect(result.current.loading).toBe(false);
-    expect(result.current.error?.kind).toBe('NetworkError');
+    await waitFor(() => expect(store.getState().writeError).toEqual({ kind: 'NetworkError', message: 'split save failed' }));
   });
 });

@@ -1,9 +1,17 @@
+// Replace useFocusEffect with useEffect so the hook fires without navigation context.
+jest.mock('expo-router', () => ({
+  useFocusEffect: (cb: Parameters<typeof import('react').useEffect>[0]) => {
+    const { useEffect } = require('react');
+    useEffect(cb, [cb]);
+  },
+}));
+
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useGroupDetail } from '../hooks/useGroupDetail';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
-import { SPLIT_REQUEST_REPO, TRIP_STORE, TRIP_REPO } from '../../../core/di/tokens';
+import { SPLIT_REQUEST_REPO, TRIP_STORE, TRIP_REPO, EXPENSE_REPO } from '../../../core/di/tokens';
 import { InMemoryExpenseRepository } from '../../../__mocks__/InMemoryExpenseRepository';
 import { groupFactory, groupMemberFactory, tripFactory, expenseFactory, splitFactory } from '../../../__testUtils__/factories';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
@@ -91,7 +99,8 @@ describe('useGroupDetail — recordPayment', () => {
 
     const store = container.resolve(TRIP_STORE);
     store.getState().appendGroup(group);
-    store.getState().appendGroupExpense(expense);
+    // The group bucket revalidates from the repo on mount, so the expense lives there.
+    await container.resolve(EXPENSE_REPO).saveExpense(expense);
 
     const { result } = renderHook(() => useGroupDetail('g2'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));

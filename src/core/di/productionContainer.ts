@@ -1,7 +1,7 @@
 import { ServiceContainer } from './ServiceContainer';
 import {
   TRIP_REPO, MEMBER_REPO, EXPENSE_REPO, SPLIT_REPO, SPLIT_REQUEST_REPO,
-  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT, ACTIVITY_LOG,
+  AUTH, PAYMENT, SHARE, STRIPE, OPEN_BANKING, PAYMENT_REGISTRY, AUDIT_LOG, BANK_LIST, RECEIPT_PARSER, RECEIPT_STORAGE, EXCHANGE_RATE, TRIP_STORE, GROUP_REPO, RECURRING_EXPENSE_REPO, NOTIFICATION_SERVICE, REPORT_SERVICE, ENTITLEMENT, ACTIVITY_LOG, CACHE_STORAGE, REALTIME,
 } from './tokens';
 import { createTripSessionStore } from '../../store/tripSessionStore';
 import type { PaymentProvider } from '../interfaces/IPaymentService';
@@ -135,11 +135,16 @@ async function _create(): Promise<ServiceContainer> {
   container.register(EXCHANGE_RATE,    new ExchangeRateService());
   const groupRepo = new SupabaseGroupRepository();
   container.register(GROUP_REPO,              groupRepo);
-  container.register(RECURRING_EXPENSE_REPO,  new SupabaseRecurringExpenseRepository());
+  const recurringExpenseRepo = new SupabaseRecurringExpenseRepository();
+  container.register(RECURRING_EXPENSE_REPO,  recurringExpenseRepo);
   container.register(NOTIFICATION_SERVICE,    new SupabaseNotificationService());
   container.register(REPORT_SERVICE,          new SupabaseReportService());
   container.register(ENTITLEMENT,             new RevenueCatEntitlementService());
   container.register(ACTIVITY_LOG,            activityLogRepo);
-  container.register(TRIP_STORE,              createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo, auth: authService, activityLog: activityLogRepo }));
+  const { EncryptedCacheStorage } = await import('../../infrastructure/cache/EncryptedCacheStorage');
+  container.register(CACHE_STORAGE,           new EncryptedCacheStorage());
+  const { SupabaseRealtimeService } = await import('../../infrastructure/supabase/SupabaseRealtimeService');
+  container.register(REALTIME,                new SupabaseRealtimeService());
+  container.register(TRIP_STORE,              createTripSessionStore({ trips: tripRepo, expenses: expenseRepo, members: memberRepo, splits: splitRepo, splitRequests: splitRequestRepo, groups: groupRepo, auth: authService, activityLog: activityLogRepo, recurringExpenses: recurringExpenseRepo }));
   return container;
 }

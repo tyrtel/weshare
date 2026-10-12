@@ -21,6 +21,10 @@ export class InMemoryMemberRepository implements IMemberRepository {
     return ok(this.members.get(tripId) ?? []);
   };
 
+  getMembersForTrips = async (tripIds: string[]): Promise<Result<Record<string, TripMember[]>, AppError>> => {
+    return ok(Object.fromEntries(tripIds.map(id => [id, this.members.get(id) ?? []])));
+  };
+
   addMember = async (member: TripMember): Promise<Result<TripMember, AppError>> => {
     const existing = this.members.get(member.tripId) ?? [];
     this.members.set(member.tripId, [...existing, member]);

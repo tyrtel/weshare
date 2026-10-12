@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, FlatList, AppState, AppStateStatus, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { z } from 'zod';
 import { ScreenWrapper } from '../../../components/ui/ScreenWrapper';
 import { TAB_BAR_HEIGHT } from '../../../components/ui/UniversalTabBar';
@@ -18,6 +18,9 @@ import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
 import type { EnrichedSettlement } from '../hooks/useSettlement';
 import type { SplitRequest } from '../../../core/models/SplitRequest';
+import { bucket } from '../../../core/logic/cacheFreshness';
+import { useCacheExpired } from '../../../hooks/useCacheExpired';
+import { SyncBanner } from '../../../shared/components/SyncBanner';
 
 const settlementParamsSchema = z.object({
   tripId: z.string().min(1),
@@ -58,7 +61,6 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
     members,
     loading,
     error,
-    settling,
     currentUserId,
     tripStatus,
     allSettled,
@@ -66,15 +68,15 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
     closeTrip,
     reopenTrip,
     recordPayment,
-    refetch,
   } = useSettlement(tripId);
+
+  const syncBuckets = [bucket.trip(tripId), bucket.tripRequests(tripId)];
+  const expired     = useCacheExpired(syncBuckets);
 
   const hasRollableDebts = settlements.some(s => {
     const status = s.latestRequest?.status ?? null;
     return status === null || status === 'owed' || status === 'created';
   });
-
-  useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
 
   const handleCloseTrip = useCallback(() => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -143,6 +145,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
   return (
     <ScreenWrapper>
       <Stack.Screen options={{ title: t('settlement.screen.title') }} />
+      <SyncBanner buckets={syncBuckets} />
 
       {/* Balance summary card */}
       {currentUserId && (
@@ -204,15 +207,14 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
               isCurrentUserDebtor={item.fromUserId === currentUserId}
               index={index}
               onPay={
-                item.fromUserId === currentUserId
+                item.fromUserId === currentUserId && !expired
                   ? () => {
                       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setPayTarget(item);
                     }
                   : undefined
               }
-              onRecordPayment={() => setRecordTarget(item)}
-              recordPaymentBusy={settling}
+              onRecordPayment={expired ? undefined : () => setRecordTarget(item)}
               onHistory={() =>
                 router.push({
                   pathname: `/settle/audit/${tripId}` as never,
@@ -262,17 +264,16 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
           toLabel={recordTarget.toDisplayName}
           defaultAmountCents={recordTarget.amountCents}
           currency={recordTarget.currency}
-          busy={settling}
           onClose={() => setRecordTarget(null)}
           onConfirm={(amountCents) => {
-            void recordPayment(recordTarget.fromUserId, recordTarget.toUserId, amountCents, recordTarget.currency)
-              .then(() => setRecordTarget(null));
+            recordPayment(recordTarget.fromUserId, recordTarget.toUserId, amountCents, recordTarget.currency);
+            setRecordTarget(null);
           }}
         />
       )}
 
       {/* All settled — persistent close bar */}
-      {allSettled && (
+      {allSettled && !expired && (
         <Pressable
           testID="all-settled-bar"
           onPress={handleCloseTrip}
@@ -309,7 +310,7 @@ function SettlementScreenContent({ tripId }: { tripId: string }) {
               <Text variant="caption" color={colors.primary.default}>{t('settlement.screen.roll_over_debts')}</Text>
             </Pressable>
           )}
-          {tripStatus !== 'closed' && (
+          {tripStatus !== 'closed' && !expired && (
             <Pressable
               testID="close-trip-button"
               onPress={handleCloseTrip}

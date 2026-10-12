@@ -6,6 +6,8 @@ import { InMemorySplitRequestRepository } from '../../__mocks__/InMemorySplitReq
 import { InMemoryGroupRepository } from '../../__mocks__/InMemoryGroupRepository';
 import { MockAuthService } from '../../__mocks__/MockAuthService';
 import { InMemoryActivityLogRepository } from '../../__mocks__/InMemoryActivityLogRepository';
+import { InMemoryRecurringExpenseRepository } from '../../__mocks__/InMemoryRecurringExpenseRepository';
+import { FRESH_MS } from '../../core/logic/cacheFreshness';
 import { createTripSessionStore } from '../tripSessionStore';
 import type { TripSessionStoreApi, TripStoreRepos } from '../tripSessionStore';
 import { ok, err } from '../../core/types/Result';
@@ -75,6 +77,7 @@ function makeStore(overrides?: Partial<TripStoreRepos>): TripSessionStoreApi {
     groups:        overrides?.groups        ?? new InMemoryGroupRepository(),
     auth:          overrides?.auth          ?? new MockAuthService(),
     activityLog:   overrides?.activityLog   ?? new InMemoryActivityLogRepository(),
+    recurringExpenses: overrides?.recurringExpenses ?? new InMemoryRecurringExpenseRepository(),
   });
 }
 
@@ -87,7 +90,8 @@ function seededStore(overrides?: Partial<TripStoreRepos>): { repos: TripStoreRep
   const groups        = overrides?.groups        ?? new InMemoryGroupRepository();
   const auth          = overrides?.auth          ?? new MockAuthService();
   const activityLog   = overrides?.activityLog   ?? new InMemoryActivityLogRepository();
-  const repos: TripStoreRepos = { trips, expenses, members, splits, splitRequests, groups, auth, activityLog };
+  const recurringExpenses = overrides?.recurringExpenses ?? new InMemoryRecurringExpenseRepository();
+  const repos: TripStoreRepos = { trips, expenses, members, splits, splitRequests, groups, auth, activityLog, recurringExpenses };
   return { repos, store: createTripSessionStore(repos) };
 }
 
@@ -285,12 +289,20 @@ describe('removeExpense', () => {
     expect(expenses?.some((e) => e.id === 'e1')).toBe(false);
   });
 
-  it('sets hydrationError when storage fails', async () => {
+  it('sets writeError when storage fails', async () => {
     const expenses = new InMemoryExpenseRepository();
     expenses.deleteExpense = async () => err({ kind: 'NotFoundError', resource: 'Expense', id: 'e1' });
     const store = makeStore({ expenses });
     await store.getState().removeExpense('e1', 't1');
-    expect(store.getState().hydrationError).not.toBeNull();
+    expect(store.getState().writeError).toEqual({ kind: 'NotFoundError', resource: 'Expense', id: 'e1' });
+  });
+
+  it('removes the expense from the cache before the server answers', async () => {
+    const { store } = seededStore();
+    await store.getState().loadTripDetail('t1');
+    const pending = store.getState().removeExpense('e1', 't1');
+    expect(store.getState().expenses['t1']).toEqual([]);
+    await pending;
   });
 
   // Regression coverage, same class of bug as create/edit: callers gate
@@ -303,11 +315,11 @@ describe('removeExpense', () => {
     expect(result).toBe(true);
   });
 
-  it('resolves false, and leaves the cache untouched, when storage returns an error', async () => {
-    const expenses = new InMemoryExpenseRepository();
+  it('resolves false, and puts the expense back, when storage returns an error', async () => {
+    const expenses = new InMemoryExpenseRepository().seed([expense], [split]);
     expenses.deleteExpense = async () => err({ kind: 'NotFoundError', resource: 'Expense', id: 'e1' });
-    const store = makeStore({ expenses });
-    store.setState({ expenses: { t1: [expense] } });
+    const { store } = seededStore({ expenses });
+    await store.getState().loadTripDetail('t1');
 
     const result = await store.getState().removeExpense('e1', 't1');
 
@@ -323,7 +335,7 @@ describe('removeExpense', () => {
     const result = await store.getState().removeExpense('e1', 't1');
 
     expect(result).toBe(false);
-    expect(store.getState().hydrationError).toEqual({ kind: 'NetworkError', message: 'network down' });
+    expect(store.getState().writeError).toEqual({ kind: 'NetworkError', message: 'network down' });
   });
 
   it('appends an expense.deleted activity event scoped to the trip', async () => {
@@ -359,8 +371,8 @@ describe('removeGroupExpense', () => {
     expect(store.getState().groupExpenses['g1']?.some((e) => e.id === 'e1')).toBe(false);
   });
 
-  it('resolves false and leaves the group cache untouched when storage returns an error', async () => {
-    const expenses = new InMemoryExpenseRepository();
+  it('resolves false and puts the expense back when storage returns an error', async () => {
+    const expenses = new InMemoryExpenseRepository().seed([{ ...expense, tripId: undefined, groupId: 'g1' }]);
     expenses.deleteExpense = async () => err({ kind: 'NotFoundError', resource: 'Expense', id: 'e1' });
     const store = makeStore({ expenses });
     const groupExpense: Expense = { ...expense, tripId: undefined, groupId: 'g1' };
@@ -373,7 +385,7 @@ describe('removeGroupExpense', () => {
   });
 
   it('resolves false, without throwing, when the repo call itself throws', async () => {
-    const expenses = new InMemoryExpenseRepository();
+    const expenses = new InMemoryExpenseRepository().seed([{ ...expense, tripId: undefined, groupId: 'g1' }]);
     expenses.deleteExpense = async () => { throw new Error('network down'); };
     const store = makeStore({ expenses });
     const groupExpense: Expense = { ...expense, tripId: undefined, groupId: 'g1' };
@@ -382,7 +394,7 @@ describe('removeGroupExpense', () => {
     const result = await store.getState().removeGroupExpense('e1', 'g1');
 
     expect(result).toBe(false);
-    expect(store.getState().hydrationError).toEqual({ kind: 'NetworkError', message: 'network down' });
+    expect(store.getState().writeError).toEqual({ kind: 'NetworkError', message: 'network down' });
     expect(store.getState().groupExpenses['g1']?.some((e) => e.id === 'e1')).toBe(true);
   });
 
@@ -713,14 +725,26 @@ describe('setTripStatus', () => {
     expect(t2?.status).toBe('active');
   });
 
-  it('returns an error and sets hydrationError for a non-existent trip', async () => {
+  it('returns an error and sets writeError for a non-existent trip', async () => {
     const { store } = seededStore();
     await store.getState().loadTrips('u1');
 
     const result = await store.getState().setTripStatus('no-such-trip', 'settling');
 
     expect(result.ok).toBe(false);
-    expect(store.getState().hydrationError).not.toBeNull();
+    expect(store.getState().writeError).not.toBeNull();
+  });
+
+  it('shows the new status before the server answers, and restores the old one on failure', async () => {
+    const trips = new InMemoryTripRepository().seed([trip]);
+    trips.setTripStatus = async () => err({ kind: 'NetworkError', message: 'down' });
+    const { store } = seededStore({ trips });
+    await store.getState().loadTrips('u1');
+
+    const pending = store.getState().setTripStatus('t1', 'closed');
+    expect(store.getState().trips[0].status).toBe('closed');
+    await pending;
+    expect(store.getState().trips[0].status).toBe('active');
   });
 
   it('persists a non-null closedAt when status transitions to closed', async () => {
@@ -812,5 +836,176 @@ describe('addExpense — trip status guard', () => {
 
     // No error — guard only fires when the trip is known to be locked.
     expect(store.getState().hydrationError).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cache freshness
+// ---------------------------------------------------------------------------
+
+describe('revalidate', () => {
+  afterEach(() => { jest.restoreAllMocks(); });
+
+  it('stamps the bucket when a load succeeds', async () => {
+    const { store } = seededStore();
+    await store.getState().revalidate('trip:t1');
+    expect(store.getState().fetchedAt['trip:t1']).toEqual(expect.any(Number));
+    expect(store.getState().expenses['t1']).toHaveLength(1);
+  });
+
+  it('does not stamp the bucket when a load fails', async () => {
+    const expenses = new InMemoryExpenseRepository();
+    expenses.getExpensesForTrip = async () => err({ kind: 'NetworkError', message: 'down' });
+    const { store } = seededStore({ expenses });
+    await store.getState().revalidate('trip:t1');
+    expect(store.getState().fetchedAt['trip:t1']).toBeUndefined();
+  });
+
+  it('skips the server while a bucket is fresh, and refetches once it is stale', async () => {
+    const { repos, store } = seededStore();
+    const spy = jest.spyOn(repos.expenses, 'getExpensesForTrip');
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+
+    await store.getState().revalidate('trip:t1');
+    await store.getState().revalidate('trip:t1');
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    now.mockReturnValue(1_000_000 + FRESH_MS);
+    await store.getState().revalidate('trip:t1');
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('refetches a fresh bucket when forced', async () => {
+    const { repos, store } = seededStore();
+    const spy = jest.spyOn(repos.expenses, 'getExpensesForTrip');
+    await store.getState().revalidate('trip:t1');
+    await store.getState().revalidate('trip:t1', { force: true });
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares one request between concurrent callers', async () => {
+    const { repos, store } = seededStore();
+    const spy = jest.spyOn(repos.expenses, 'getExpensesForTrip');
+    await Promise.all([
+      store.getState().revalidate('trip:t1', { force: true }),
+      store.getState().revalidate('trip:t1', { force: true }),
+    ]);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidate makes the next revalidate go to the server', async () => {
+    const { repos, store } = seededStore();
+    const spy = jest.spyOn(repos.expenses, 'getExpensesForTrip');
+    await store.getState().revalidate('trip:t1');
+    store.getState().invalidate('trip:t1');
+    await store.getState().revalidate('trip:t1');
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('loads the trips list for the signed-in user only', async () => {
+    const auth = new MockAuthService();
+    const { repos, store } = seededStore({ auth });
+    const spy = jest.spyOn(repos.trips, 'getTripsForUser');
+
+    await store.getState().revalidate('trips');
+    expect(spy).not.toHaveBeenCalled();
+
+    await auth.signIn('jay@example.com', 'password');
+    await store.getState().revalidate('trips');
+    expect(spy).toHaveBeenCalledWith(auth.currentUser()!.id);
+    expect(store.getState().fetchedAt['trips']).toEqual(expect.any(Number));
+  });
+
+  it('loads recurring expenses into their group bucket', async () => {
+    const recurringExpenses = new InMemoryRecurringExpenseRepository();
+    const { store } = seededStore({ recurringExpenses });
+    await store.getState().revalidate('recurring:g1');
+    expect(store.getState().recurringExpenses['g1']).toEqual([]);
+    expect(store.getState().fetchedAt['recurring:g1']).toEqual(expect.any(Number));
+  });
+});
+
+describe('loadTrips — batched trip details', () => {
+  afterEach(() => { jest.restoreAllMocks(); });
+
+  it('loads every trip\'s expenses and members in two batched calls and stamps each trip bucket', async () => {
+    const trip2: Trip = { ...trip, id: 't2' };
+    const { repos, store } = seededStore({
+      trips:    new InMemoryTripRepository().seed([trip, trip2]),
+      members:  new InMemoryMemberRepository().seed([member, { ...member, tripId: 't2' }]),
+      expenses: new InMemoryExpenseRepository().seed([expense, { ...expense, id: 'e2', tripId: 't2' }], [split]),
+    });
+    const perTrip = jest.spyOn(repos.expenses, 'getExpensesForTrip');
+    const batched = jest.spyOn(repos.expenses, 'getExpensesForTrips');
+
+    await store.getState().loadTrips('u1');
+
+    expect(batched).toHaveBeenCalledTimes(1);
+    expect(perTrip).not.toHaveBeenCalled();
+    const state = store.getState();
+    expect(state.expenses['t1'].map(e => e.id)).toEqual(['e1']);
+    expect(state.expenses['t2'].map(e => e.id)).toEqual(['e2']);
+    expect(state.members['t2']).toHaveLength(1);
+    expect(state.fetchedAt['trip:t1']).toEqual(expect.any(Number));
+    expect(state.fetchedAt['trip:t2']).toEqual(expect.any(Number));
+  });
+
+  it('keeps the trips list but leaves trip buckets unstamped when the batched details fail', async () => {
+    const expenses = new InMemoryExpenseRepository();
+    expenses.getExpensesForTrips = async () => err({ kind: 'NetworkError', message: 'down' });
+    const { store } = seededStore({ expenses });
+
+    await store.getState().loadTrips('u1');
+
+    const state = store.getState();
+    expect(state.trips).toHaveLength(1);
+    expect(state.fetchedAt['trips']).toEqual(expect.any(Number));
+    expect(state.fetchedAt['trip:t1']).toBeUndefined();
+    expect(state.hydrationError).toMatchObject({ kind: 'NetworkError' });
+  });
+});
+
+describe('notifyRemoteChange', () => {
+  beforeEach(() => { jest.useFakeTimers(); });
+  afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
+
+  it('ignores a bucket this device never loaded', async () => {
+    const { repos, store } = seededStore();
+    const spy = jest.spyOn(repos.expenses, 'getExpensesForTrip');
+    store.getState().notifyRemoteChange('trip:t1');
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('refetches a loaded bucket once for a burst of changes', async () => {
+    const { repos, store } = seededStore();
+    await store.getState().loadTripDetail('t1');
+    const spy = jest.spyOn(repos.expenses, 'getExpensesForTrip');
+
+    store.getState().notifyRemoteChange('trip:t1');
+    store.getState().notifyRemoteChange('trip:t1');
+    store.getState().notifyRemoteChange('trip:t1');
+    await jest.advanceTimersByTimeAsync(1000);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for this device\'s own write to that bucket to finish before refetching', async () => {
+    const expenses = new InMemoryExpenseRepository().seed([expense], [split]);
+    let finishDelete: () => void = () => {};
+    expenses.deleteExpense = () => new Promise(resolve => { finishDelete = () => resolve(ok(undefined)); });
+    const { store } = seededStore({ expenses });
+    await store.getState().loadTripDetail('t1');
+    const spy = jest.spyOn(expenses, 'getExpensesForTrip');
+
+    const pending = store.getState().removeExpense('e1', 't1');
+    store.getState().notifyRemoteChange('trip:t1');
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(spy).not.toHaveBeenCalled();
+
+    finishDelete();
+    await pending;
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

@@ -46,6 +46,8 @@ async function seed(container: ServiceContainer, expenseOverrides: Parameters<ty
     ...expenseOverrides,
   });
 
+  // In the repo too: a failed save-first write refetches the group from it.
+  await container.resolve(EXPENSE_REPO).saveExpense(expense);
   const store = container.resolve(TRIP_STORE);
   store.getState().appendGroup(group);
   store.getState().appendGroupExpense(expense);
@@ -259,7 +261,7 @@ describe('GroupExpenseDetailScreen', () => {
     // Regression coverage, same class of bug as create/edit: the screen used
     // to navigate back unconditionally after awaiting removeGroupExpense,
     // regardless of whether the delete actually succeeded.
-    it('does not navigate away when the delete fails', async () => {
+    it('navigates back at once, then puts the expense back if the delete fails', async () => {
       const { InMemoryExpenseRepository } = require('../../../../src/__mocks__/InMemoryExpenseRepository');
       const failingExpenseRepo = new InMemoryExpenseRepository();
       failingExpenseRepo.deleteExpense = jest.fn(async () => ({
@@ -275,9 +277,8 @@ describe('GroupExpenseDetailScreen', () => {
       render(container);
       fireEvent.press(screen.getByText('Delete expense'));
 
-      await waitFor(() => expect(failingExpenseRepo.deleteExpense).toHaveBeenCalled());
-
-      expect(mockBack).not.toHaveBeenCalled();
+      await waitFor(() => expect(mockBack).toHaveBeenCalled());
+      await waitFor(() => expect(container.resolve(TRIP_STORE).getState().writeError).not.toBeNull());
       const remaining = container.resolve(TRIP_STORE).getState().groupExpenses['g1'];
       expect(remaining?.find((e: { id: string }) => e.id === 'e1')).toBeTruthy();
     });

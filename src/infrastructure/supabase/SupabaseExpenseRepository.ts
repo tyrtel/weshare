@@ -45,6 +45,10 @@ function rowToExpense(rawRow: unknown, rawSplits: unknown[]): Result<Expense, Ap
   });
 }
 
+// Must not exceed the project's PostgREST max_rows (Supabase default 1000): a
+// short page is how the loop below knows it has reached the end.
+const PAGE_SIZE = 1000;
+
 export class SupabaseExpenseRepository implements IExpenseRepository {
   async getExpense(id: string): Promise<Result<Expense, AppError>> {
     const { data, error } = await supabase
@@ -72,6 +76,30 @@ export class SupabaseExpenseRepository implements IExpenseRepository {
       expenses.push(result.value);
     }
     return ok(expenses);
+  }
+
+  async getExpensesForTrips(tripIds: string[]): Promise<Result<Record<string, Expense[]>, AppError>> {
+    const byTrip: Record<string, Expense[]> = Object.fromEntries(tripIds.map(id => [id, []]));
+    if (tripIds.length === 0) return ok(byTrip);
+
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*, splits(*)')
+        .in('trip_id', tripIds)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) return err(toAppError(error, 'Expense'));
+
+      const rows = data as Array<{ splits?: unknown[] } & Record<string, unknown>>;
+      for (const row of rows) {
+        const result = rowToExpense(row, row.splits ?? []);
+        if (!result.ok) return result;
+        byTrip[result.value.tripId!].push(result.value);
+      }
+      if (rows.length < PAGE_SIZE) return ok(byTrip);
+    }
   }
 
   async saveExpense(expense: Expense): Promise<Result<Expense, AppError>> {

@@ -1,5 +1,13 @@
+// Replace useFocusEffect with useEffect so the hook fires without navigation context.
+jest.mock('expo-router', () => ({
+  useFocusEffect: (cb: Parameters<typeof import('react').useEffect>[0]) => {
+    const { useEffect } = require('react');
+    useEffect(cb, [cb]);
+  },
+}));
+
 import React from 'react';
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { TRIP_STORE } from '../../../core/di/tokens';
@@ -51,19 +59,36 @@ describe('useRecurringExpenses', () => {
     expect(result.current.recurringExpenses[0].description).toBe('Monthly rent');
   });
 
-  it('reads from the store cache on second render without refetching', async () => {
+  it('does not refetch on a second mount while the cache is fresh', async () => {
+    const repo = new InMemoryRecurringExpenseRepository();
+    await repo.saveRecurringExpense(recurringExpenseFactory({ groupId: GROUP_ID }));
+    const container = makeContainer(repo);
+    const spy = jest.spyOn(repo, 'getRecurringExpensesForGroup');
+
+    const first = renderHook(() => useRecurringExpenses(GROUP_ID), { wrapper: makeWrapper(container) });
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    first.unmount();
+
+    const { result } = renderHook(() => useRecurringExpenses(GROUP_ID), { wrapper: makeWrapper(container) });
+    await act(async () => {});
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.recurringExpenses).toHaveLength(1);
+  });
+
+  it('refetches cached data that was never stamped by a server fetch', async () => {
     const repo = new InMemoryRecurringExpenseRepository();
     const container = makeContainer(repo);
     container.resolve(TRIP_STORE).getState().setRecurringExpensesForGroup(GROUP_ID, [
       recurringExpenseFactory({ groupId: GROUP_ID }),
     ]);
-
     const spy = jest.spyOn(repo, 'getRecurringExpensesForGroup');
-    const { result } = renderHook(() => useRecurringExpenses(GROUP_ID), { wrapper: makeWrapper(container) });
+
+    renderHook(() => useRecurringExpenses(GROUP_ID), { wrapper: makeWrapper(container) });
     await act(async () => {});
 
-    expect(spy).not.toHaveBeenCalled();
-    expect(result.current.recurringExpenses).toHaveLength(1);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
 

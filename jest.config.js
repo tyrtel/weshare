@@ -14,7 +14,7 @@ module.exports = {
   ],
   // Allow Jest to transform Expo and React Native packages written as ESM.
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|expo-contacts)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|expo-contacts|@noble/.*)',
   ],
   moduleNameMapper: {
     '^@sentry/react-native$': '<rootDir>/src/__mocks__/sentryMock.ts',
@@ -22,6 +22,7 @@ module.exports = {
     '^expo-haptics$': '<rootDir>/src/__mocks__/expo-haptics.ts',
     '^expo-localization$': '<rootDir>/src/__mocks__/expo-localization.ts',
     '^expo-secure-store$': '<rootDir>/src/__mocks__/expo-secure-store.ts',
+    '^expo-crypto$': '<rootDir>/src/__mocks__/expo-crypto.ts',
     '^expo-notifications$': '<rootDir>/src/__mocks__/expo-notifications.ts',
     '^@react-native-async-storage/async-storage$': '@react-native-async-storage/async-storage/jest/async-storage-mock',
     '^react-native-reanimated$': '<rootDir>/src/__mocks__/reanimatedMock.js',

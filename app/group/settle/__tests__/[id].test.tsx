@@ -269,7 +269,6 @@ describe('GroupSettlementScreen', () => {
         { userId: 'u2', balanceCents: -1500 },
       ],
       recordPayment,
-      recording: false,
     });
 
     render();

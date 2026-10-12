@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
-import { AUTH, TRIP_STORE } from '../../../core/di/tokens';
+import { AUTH } from '../../../core/di/tokens';
+import { bucket } from '../../../core/logic/cacheFreshness';
+import { useCacheRevalidation } from '../../../hooks/useCacheRevalidation';
 import { computeGroupBalances } from '../utils/computeGroupBalances';
 import { computeCompletedGroupPayments } from '../utils/computeCompletedPayments';
 import type { Expense } from '../../../core/models/Expense';
@@ -13,46 +15,30 @@ export interface GroupFinancialSummary {
   currency:    string;
 }
 
+const GROUPS_BUCKET = ['groups'] as const;
+
 export function useGroups() {
   const auth          = useService(AUTH);
-  const storeApi      = useService(TRIP_STORE);
   const groups        = useTripSessionStore(s => s.groups);
   const trips         = useTripSessionStore(s => s.trips);
   const tripExpenses  = useTripSessionStore(s => s.expenses);
   const groupExpenses = useTripSessionStore(s => s.groupExpenses);
   const groupSplitRequestsMap = useTripSessionStore(s => s.groupSplitRequests);
   const tripSplitRequests     = useTripSessionStore(s => s.splitRequests);
-  const loading       = useTripSessionStore(s => !s.isHydrated);
 
   const user = auth.currentUser();
 
-  // groupSummaries below needs each group's own standalone expenses
-  // (groupExpenses[group.id]), but nothing else loads those in bulk — only
-  // visiting that specific group's detail screen does (loadGroupDetail).
-  // Without this, a group's balance pill only reflects its trips' expenses
-  // until the user has opened it at least once this session.
-  useEffect(() => {
-    const missing = groups.filter(g => groupExpenses[g.id] === undefined);
-    if (missing.length === 0) return;
-    void Promise.all(missing.map(g => storeApi.getState().loadGroupDetail(g.id)));
-  }, [groups, groupExpenses, storeApi]);
-
-  // Same gap for completed payments: without these, a settled trip or a
-  // group-level "settle everything" never nets against the balance pill
-  // shown here, so a group could look permanently unsettled on the home
-  // screen even after the user pays up (see useGroupDetail's equivalent).
-  useEffect(() => {
-    const missing = groups.filter(g => groupSplitRequestsMap[g.id] === undefined);
-    if (missing.length === 0) return;
-    void Promise.all(missing.map(g => storeApi.getState().loadSplitRequestsForGroup(g.id)));
-  }, [groups, groupSplitRequestsMap, storeApi]);
-
-  useEffect(() => {
-    const groupTripIds = trips.filter(t => t.groupId).map(t => t.id);
-    const missing = groupTripIds.filter(id => tripSplitRequests[id] === undefined);
-    if (missing.length === 0) return;
-    void Promise.all(missing.map(id => storeApi.getState().loadSplitRequests(id)));
-  }, [trips, tripSplitRequests, storeApi]);
+  // groupSummaries below needs each group's standalone expenses and its
+  // completed payments (group- and trip-scoped) — without them a group's
+  // balance pill only reflects its trips' expenses, and a group could look
+  // permanently unsettled after the user pays up. These refresh in the
+  // background and never block the list.
+  const { loading, refresh } = useCacheRevalidation(GROUPS_BUCKET);
+  const detailBuckets = useMemo(() => [
+    ...groups.flatMap(g => [bucket.group(g.id), bucket.groupRequests(g.id)]),
+    ...trips.filter(t => t.groupId).map(t => bucket.tripRequests(t.id)),
+  ], [groups, trips]);
+  const { refresh: refreshDetails } = useCacheRevalidation(detailBuckets);
 
   const groupTripCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -109,10 +95,10 @@ export function useGroups() {
 
   const visibleGroups = user ? groups : [];
 
-  const refetch = useCallback(async () => {
-    if (!user) return;
-    await storeApi.getState().loadGroups(user.id);
-  }, [user, storeApi]);
+  const refetch = useCallback(
+    () => Promise.all([refresh(), refreshDetails()]).then(() => {}),
+    [refresh, refreshDetails],
+  );
 
-  return { groups: visibleGroups, groupTripCounts, groupSummaries, loading, refetch };
+  return { groups: visibleGroups, groupTripCounts, groupSummaries, loading: user ? loading : false, refetch };
 }

@@ -195,3 +195,38 @@ describe('SupabaseMemberRepository — claimMemberSlot', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe('SupabaseMemberRepository — getMembersForTrips', () => {
+  it('groups rows by trip and returns an empty list for trips with none', async () => {
+    supabase.from.mockReturnValue(mockChain({
+      data: [memberRow({ trip_id: 't1', user_id: 'u1' }), memberRow({ trip_id: 't1', user_id: 'u2' })],
+      error: null,
+    }));
+
+    const result = await new SupabaseMemberRepository().getMembersForTrips(['t1', 't2']);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value['t1'].map(m => m.userId)).toEqual(['u1', 'u2']);
+      expect(result.value['t2']).toEqual([]);
+    }
+  });
+
+  it('keeps paging while a page comes back full', async () => {
+    const fullPage = Array.from({ length: 1000 }, (_, i) => memberRow({ user_id: `u${i}` }));
+    supabase.from
+      .mockReturnValueOnce(mockChain({ data: fullPage, error: null }))
+      .mockReturnValueOnce(mockChain({ data: [], error: null }));
+
+    const result = await new SupabaseMemberRepository().getMembersForTrips(['t1']);
+
+    expect(supabase.from).toHaveBeenCalledTimes(2);
+    expect(result.ok && result.value['t1']).toHaveLength(1000);
+  });
+
+  it('makes no request for an empty id list', async () => {
+    const result = await new SupabaseMemberRepository().getMembersForTrips([]);
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, value: {} });
+  });
+});

@@ -9,6 +9,7 @@ import type { ISplitRequestRepository } from '../core/interfaces/ISplitRequestRe
 import type { IGroupRepository } from '../core/interfaces/IGroupRepository';
 import type { IAuthService } from '../core/interfaces/IAuthService';
 import type { IActivityLogRepository } from '../core/interfaces/IActivityLogRepository';
+import type { IRecurringExpenseRepository } from '../core/interfaces/IRecurringExpenseRepository';
 import type { ITripSessionStore, TripSessionState } from '../core/interfaces/ITripSessionStore';
 import type { AppError } from '../core/types/AppError';
 import type { Trip } from '../core/models/Trip';
@@ -19,7 +20,8 @@ import type { SplitRequest } from '../core/models/SplitRequest';
 import type { Group } from '../core/models/Group';
 import type { GroupMember } from '../core/models/GroupMember';
 import type { RecurringExpense } from '../core/models/RecurringExpense';
-import { ok, isOk, isErr } from '../core/types/Result';
+import { ok, err, isOk, isErr } from '../core/types/Result';
+import type { Result } from '../core/types/Result';
 import {
   safeParse,
   tripSchema,
@@ -29,6 +31,7 @@ import {
   splitSchema,
 } from '../core/schemas/billSessionSchema';
 import { newActivityEvent } from '../core/utils/activityEvents';
+import { freshness, parseBucket, bucket, type CacheBucket } from '../core/logic/cacheFreshness';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +46,7 @@ export interface TripStoreRepos {
   groups:        IGroupRepository;
   auth:          IAuthService;
   activityLog:   IActivityLogRepository;
+  recurringExpenses: IRecurringExpenseRepository;
 }
 
 export type TripSessionStoreApi = StoreApi<ITripSessionStore>;
@@ -64,13 +68,15 @@ const INITIAL_STATE: TripSessionState = {
   groups: [],
   groupExpenses: {},
   recurringExpenses: {},
+  fetchedAt: {},
+  writeError: null,
 };
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function parseMany<T>(
+export function parseMany<T>(
   items: unknown[],
   schema: Parameters<typeof safeParse>[0],
 ): T[] {
@@ -80,6 +86,90 @@ function parseMany<T>(
     if (isOk(r)) out.push(r.value as T);
   }
   return out;
+}
+
+// Repo members are authoritative; any userId already embedded in the Trip row
+// (e.g. the owner, written at creation time) is kept only if the member repo
+// doesn't also return them (same strategy as useTripDetail).
+function withMembers(trip: Trip, members: TripMember[]): Trip {
+  const repoUserIds = new Set(members.map(m => m.userId));
+  const embeddedOnly = trip.members.filter(m => !repoUserIds.has(m.userId));
+  return { ...trip, members: [...embeddedOnly, ...members] };
+}
+
+function stamp(fetchedAt: Record<string, number>, ...buckets: CacheBucket[]): Record<string, number> {
+  const now = Date.now();
+  const next = { ...fetchedAt };
+  for (const b of buckets) next[b] = now;
+  return next;
+}
+
+function loadBucket(s: ITripSessionStore, auth: IAuthService, b: CacheBucket): Promise<void> {
+  const { kind, id } = parseBucket(b);
+  const user = auth.currentUser();
+  switch (kind) {
+    case 'trips':         return user ? s.loadTrips(user.id) : Promise.resolve();
+    case 'groups':        return user ? s.loadGroups(user.id) : Promise.resolve();
+    case 'trip':          return s.loadTripDetail(id);
+    case 'group':         return s.loadGroupDetail(id);
+    case 'tripRequests':  return s.loadSplitRequests(id);
+    case 'groupRequests': return s.loadSplitRequestsForGroup(id);
+    case 'recurring':     return s.loadRecurringExpenses(id);
+    default:              return Promise.resolve();
+  }
+}
+
+const REMOTE_REFETCH_DEBOUNCE_MS = 500;
+
+function expenseBucket(e: Expense): CacheBucket {
+  return e.groupId ? bucket.group(e.groupId) : bucket.trip(e.tripId!);
+}
+
+function withRequests(
+  s: TripSessionState,
+  scope: SplitRequest,
+  fn: (list: SplitRequest[]) => SplitRequest[],
+): Partial<TripSessionState> {
+  if (scope.groupId) {
+    return { groupSplitRequests: { ...s.groupSplitRequests, [scope.groupId]: fn(s.groupSplitRequests[scope.groupId] ?? []) } };
+  }
+  return { splitRequests: { ...s.splitRequests, [scope.tripId!]: fn(s.splitRequests[scope.tripId!] ?? []) } };
+}
+
+/**
+ * Save-first write: apply the change to the cache, then persist it. If the
+ * server refuses (or the request throws), undo the change, surface it via
+ * writeError, and refetch the buckets — some writes are several requests and
+ * may have landed part-way, so only the server knows the true state.
+ */
+interface WriteTracker {
+  begin(buckets: CacheBucket[]): void;
+  end(buckets: CacheBucket[]): void;
+}
+
+async function saveFirst<T>(
+  store: Pick<TripSessionStoreApi, 'setState' | 'getState'>,
+  writes: WriteTracker,
+  apply: () => void,
+  revert: () => void,
+  persist: () => Promise<Result<T, AppError>>,
+  buckets: CacheBucket[],
+): Promise<Result<T, AppError>> {
+  apply();
+  writes.begin(buckets);
+  let result: Result<T, AppError>;
+  try {
+    result = await persist();
+  } catch (e) {
+    result = err({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' });
+  }
+  if (isErr(result)) {
+    revert();
+    store.setState({ writeError: result.error });
+    for (const b of buckets) void store.getState().revalidate(b, { force: true });
+  }
+  writes.end(buckets);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,22 +183,114 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
   // 15-second timeout. All concurrent callers share one in-flight query.
   let _loadTripsPromise:  Promise<void> | null = null;
   let _loadGroupsPromise: Promise<void> | null = null;
+  const _revalidating = new Map<CacheBucket, Promise<void>>();
 
-  return createStore<ITripSessionStore>()((set, get) => ({
+  // Remote changes refetch their bucket after a short debounce, so a burst of
+  // edits costs one request — and wait while one of this device's own
+  // save-first writes to that bucket is in flight, since a refetch mid-write
+  // (e.g. between an expense update and its new splits) would read it half-done.
+  const writesInFlight     = new Map<CacheBucket, number>();
+  const changedDuringWrite = new Set<CacheBucket>();
+  const refetchTimers      = new Map<CacheBucket, ReturnType<typeof setTimeout>>();
+
+  const scheduleRefetch = (b: CacheBucket) => {
+    clearTimeout(refetchTimers.get(b));
+    refetchTimers.set(b, setTimeout(() => {
+      refetchTimers.delete(b);
+      void store.getState().revalidate(b, { force: true });
+    }, REMOTE_REFETCH_DEBOUNCE_MS));
+  };
+
+  const writes: WriteTracker = {
+    begin: (buckets) => {
+      for (const b of buckets) writesInFlight.set(b, (writesInFlight.get(b) ?? 0) + 1);
+    },
+    end: (buckets) => {
+      for (const b of buckets) {
+        const left = (writesInFlight.get(b) ?? 1) - 1;
+        if (left > 0) { writesInFlight.set(b, left); continue; }
+        writesInFlight.delete(b);
+        if (changedDuringWrite.delete(b)) scheduleRefetch(b);
+      }
+    },
+  };
+
+  const store = createStore<ITripSessionStore>()((set, get, api) => ({
     ...INITIAL_STATE,
+
+    notifyRemoteChange(b: CacheBucket): void {
+      // A bucket this device never loaded has nothing to refresh.
+      if (get().fetchedAt[b] === undefined) return;
+      if (writesInFlight.has(b)) { changedDuringWrite.add(b); return; }
+      scheduleRefetch(b);
+    },
+
+    clearWriteError(): void {
+      set({ writeError: null });
+    },
+
+    // ── Cache freshness ─────────────────────────────────────────────────────
+
+    revalidate(b: CacheBucket, opts?: { force?: boolean }): Promise<void> {
+      if (!opts?.force && freshness(get().fetchedAt[b], Date.now()) === 'fresh') {
+        return Promise.resolve();
+      }
+      const inFlight = _revalidating.get(b);
+      if (inFlight) return inFlight;
+      const p = loadBucket(get(), repos.auth, b).finally(() => { _revalidating.delete(b); });
+      _revalidating.set(b, p);
+      return p;
+    },
+
+    invalidate(b: CacheBucket): void {
+      set((state) => {
+        const fetchedAt = { ...state.fetchedAt };
+        delete fetchedAt[b];
+        return { fetchedAt };
+      });
+    },
 
     // ── Trips ───────────────────────────────────────────────────────────────
 
     async loadTrips(userId: string): Promise<void> {
       if (_loadTripsPromise) return _loadTripsPromise;
       _loadTripsPromise = repos.trips.getTripsForUser(userId)
-        .then(result => {
+        .then(async result => {
           if (isErr(result)) {
             set({ hydrationError: result.error, isHydrated: true });
             return;
           }
           const trips = parseMany<Trip>(result.value, tripSchema);
-          set({ trips, isHydrated: true, hydrationError: null });
+          const ids   = trips.map(t => t.id);
+
+          // Every trip card needs its expenses and members, so fetch them for
+          // all trips in two batched queries rather than two per trip.
+          const [expensesResult, membersResult] = await Promise.all([
+            repos.expenses.getExpensesForTrips(ids),
+            repos.members.getMembersForTrips(ids),
+          ]);
+          // The list itself is good either way; on a detail failure the trip
+          // buckets stay unstamped so screens fall back to fetching each trip.
+          const listOnly = (error: AppError) => set((state) => ({
+            trips, isHydrated: true, hydrationError: error, fetchedAt: stamp(state.fetchedAt, 'trips'),
+          }));
+          if (isErr(expensesResult)) { listOnly(expensesResult.error); return; }
+          if (isErr(membersResult))  { listOnly(membersResult.error);  return; }
+
+          const expenses: Record<string, Expense[]>    = {};
+          const members:  Record<string, TripMember[]> = {};
+          for (const id of ids) {
+            expenses[id] = parseMany<Expense>(expensesResult.value[id], expenseSchema);
+            members[id]  = parseMany<TripMember>(membersResult.value[id], tripMemberSchema);
+          }
+          set((state) => ({
+            trips: trips.map(t => withMembers(t, members[t.id])),
+            expenses: { ...state.expenses, ...expenses },
+            members:  { ...state.members,  ...members },
+            isHydrated: true,
+            hydrationError: null,
+            fetchedAt: stamp(state.fetchedAt, 'trips', ...ids.map(bucket.trip)),
+          }));
         })
         .finally(() => { _loadTripsPromise = null; });
       return _loadTripsPromise;
@@ -134,25 +316,14 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       const expenses = parseMany<Expense>(expensesResult.value, expenseSchema);
       const members  = parseMany<TripMember>(membersResult.value, tripMemberSchema);
 
-      set((state) => {
-        // Merge repo members back into state.trips so TripCard member avatars stay
-        // in sync. Repo members are authoritative; any userId already embedded in the
-        // Trip row (e.g. the owner, written at creation time) is preserved only if the
-        // member repo doesn't also return them (same strategy as useTripDetail).
-        const repoUserIds = new Set(members.map(m => m.userId));
-        const trips = state.trips.map(t => {
-          if (t.id !== tripId) return t;
-          const embeddedOnly = t.members.filter(m => !repoUserIds.has(m.userId));
-          return { ...t, members: [...embeddedOnly, ...members] };
-        });
-
-        return {
-          expenses: { ...state.expenses, [tripId]: expenses },
-          members:  { ...state.members,  [tripId]: members },
-          trips,
-          hydrationError: null,
-        };
-      });
+      // Merge repo members back into state.trips so TripCard member avatars stay in sync.
+      set((state) => ({
+        expenses: { ...state.expenses, [tripId]: expenses },
+        members:  { ...state.members,  [tripId]: members },
+        trips: state.trips.map(t => (t.id === tripId ? withMembers(t, members) : t)),
+        hydrationError: null,
+        fetchedAt: stamp(state.fetchedAt, bucket.trip(tripId)),
+      }));
     },
 
     // ── Expenses ─────────────────────────────────────────────────────────────
@@ -215,42 +386,84 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
     },
 
     async removeExpense(expenseId: string, tripId: string): Promise<boolean> {
-      try {
-        const deleted = get().expenses[tripId]?.find((e) => e.id === expenseId);
-        const result = await repos.expenses.deleteExpense(expenseId);
-        if (isErr(result)) {
-          set({ hydrationError: result.error });
-          return false;
-        }
-        set((state) => ({
-          expenses: {
-            ...state.expenses,
-            [tripId]: (state.expenses[tripId] ?? []).filter((e) => e.id !== expenseId),
-          },
-          hydrationError: null,
-        }));
+      const deleted = get().expenses[tripId]?.find((e) => e.id === expenseId);
+      const result = await saveFirst(
+        api,
+        writes,
+        () => set((state) => ({
+          expenses: { ...state.expenses, [tripId]: (state.expenses[tripId] ?? []).filter((e) => e.id !== expenseId) },
+        })),
+        () => {
+          if (!deleted) return;
+          set((state) => ({ expenses: { ...state.expenses, [tripId]: [...(state.expenses[tripId] ?? []), deleted] } }));
+        },
+        () => repos.expenses.deleteExpense(expenseId),
+        [bucket.trip(tripId)],
+      );
+      if (isErr(result)) return false;
 
-        // Fire-and-forget: activity feed logging must never block or fail
-        // expense deletion.
-        repos.activityLog.appendEvent(newActivityEvent({
-          eventType:   'expense.deleted',
-          entityType:  'expense',
-          entityId:    expenseId,
-          tripId,
-          expenseId,
-          actorUserId: repos.auth.currentUser()?.id ?? '',
-          payload: deleted ? { description: deleted.description } : null,
-        })).catch(() => {});
+      // Fire-and-forget: activity feed logging must never block or fail
+      // expense deletion.
+      repos.activityLog.appendEvent(newActivityEvent({
+        eventType:   'expense.deleted',
+        entityType:  'expense',
+        entityId:    expenseId,
+        tripId,
+        expenseId,
+        actorUserId: repos.auth.currentUser()?.id ?? '',
+        payload: deleted ? { description: deleted.description } : null,
+      })).catch(() => {});
 
-        return true;
-      } catch (e) {
-        // A thrown exception (a real network failure, distinct from the repo
-        // returning Result.err) used to propagate uncaught — the caller's
-        // await never resolved, so its own post-delete navigation never ran
-        // and the screen was left stuck with no error shown.
-        set({ hydrationError: { kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' } });
-        return false;
-      }
+      return true;
+    },
+
+    async editExpense(existing: Expense, updated: Expense): Promise<boolean> {
+      const result = await saveFirst(
+        api,
+        writes,
+        () => get().replaceExpense(updated),
+        () => get().replaceExpense(existing),
+        async (): Promise<Result<Split[], AppError>> => {
+          const expResult = await repos.expenses.updateExpense(updated);
+          if (isErr(expResult)) return expResult;
+
+          // Delete old splits, then save new ones.
+          const oldSplits = await repos.splits.getSplitsForExpense(existing.id);
+          if (isOk(oldSplits)) {
+            await Promise.all(oldSplits.value.map(sp => repos.splits.deleteSplit(sp.id)));
+          }
+          const saved: Split[] = [];
+          for (const r of await Promise.all(updated.splits.map(sp => repos.splits.saveSplit(sp)))) {
+            if (isErr(r)) return r;
+            saved.push(r.value);
+          }
+          return ok(saved);
+        },
+        [expenseBucket(updated)],
+      );
+      if (isErr(result)) return false;
+
+      // `updated` (not the server echo) stays the base so the new paidByUserId
+      // and metadata hold regardless of what the DB returns.
+      get().replaceExpense({ ...updated, splits: result.value });
+
+      // Fire-and-forget: see removeExpense's identical guard.
+      repos.activityLog.appendEvent(newActivityEvent({
+        eventType:   'expense.updated',
+        entityType:  'expense',
+        entityId:    updated.id,
+        groupId:     updated.groupId,
+        tripId:      updated.tripId,
+        expenseId:   updated.id,
+        actorUserId: repos.auth.currentUser()?.id ?? '',
+        payload: {
+          description:      updated.description,
+          totalAmountCents: updated.totalAmountCents,
+          currency:         updated.currency,
+        },
+      })).catch(() => {});
+
+      return true;
     },
 
     // ── Splits / settlement ──────────────────────────────────────────────────
@@ -301,6 +514,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       set((state) => ({
         splitRequests: { ...state.splitRequests, [tripId]: result.value },
         hydrationError: null,
+        fetchedAt: stamp(state.fetchedAt, bucket.tripRequests(tripId)),
       }));
     },
 
@@ -313,77 +527,99 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       set((state) => ({
         groupSplitRequests: { ...state.groupSplitRequests, [groupId]: result.value },
         hydrationError: null,
+        fetchedAt: stamp(state.fetchedAt, bucket.groupRequests(groupId)),
       }));
     },
 
-    async saveSplitRequest(req: SplitRequest): Promise<void> {
-      const result = await repos.splitRequests.saveSplitRequest(req);
-      if (isErr(result)) {
-        set({ hydrationError: result.error });
-        return;
-      }
-      const saved = result.value;
-      if (saved.groupId) {
-        set((state) => ({
-          groupSplitRequests: {
-            ...state.groupSplitRequests,
-            [saved.groupId!]: [...(state.groupSplitRequests[saved.groupId!] ?? []), saved],
-          },
-          hydrationError: null,
-        }));
-        return;
-      }
-      set((state) => ({
-        splitRequests: {
-          ...state.splitRequests,
-          [saved.tripId!]: [...(state.splitRequests[saved.tripId!] ?? []), saved],
-        },
-        hydrationError: null,
-      }));
+    async saveSplitRequest(req: SplitRequest): Promise<boolean> {
+      const result = await saveFirst(
+        api,
+        writes,
+        () => set((state) => withRequests(state, req, list => [...list, req])),
+        () => set((state) => withRequests(state, req, list => list.filter(r => r.id !== req.id))),
+        () => repos.splitRequests.saveSplitRequest(req),
+        [req.groupId ? bucket.groupRequests(req.groupId) : bucket.tripRequests(req.tripId!)],
+      );
+      if (isErr(result)) return false;
+      set((state) => withRequests(state, req, list => list.map(r => (r.id === req.id ? result.value : r))));
+      return true;
     },
 
-    async updateSplitRequest(req: SplitRequest): Promise<void> {
-      const result = await repos.splitRequests.updateSplitRequest(req);
-      if (isErr(result)) {
-        set({ hydrationError: result.error });
-        return;
-      }
-      const updated = result.value;
-      if (updated.groupId) {
-        set((state) => ({
-          groupSplitRequests: {
-            ...state.groupSplitRequests,
-            [updated.groupId!]: (state.groupSplitRequests[updated.groupId!] ?? []).map(r =>
-              r.id === updated.id ? updated : r,
-            ),
-          },
-          hydrationError: null,
-        }));
-        return;
-      }
-      set((state) => ({
-        splitRequests: {
-          ...state.splitRequests,
-          [updated.tripId!]: (state.splitRequests[updated.tripId!] ?? []).map(r =>
-            r.id === updated.id ? updated : r,
-          ),
-        },
-        hydrationError: null,
-      }));
+    async updateSplitRequest(req: SplitRequest): Promise<boolean> {
+      const s0 = get();
+      const previous = (req.groupId ? s0.groupSplitRequests[req.groupId] : s0.splitRequests[req.tripId!])
+        ?.find(r => r.id === req.id);
+      const replaceWith = (next: SplitRequest) =>
+        set((state) => withRequests(state, req, list => list.map(r => (r.id === req.id ? next : r))));
+
+      const result = await saveFirst(
+        api,
+        writes,
+        () => replaceWith(req),
+        () => { if (previous) replaceWith(previous); },
+        () => repos.splitRequests.updateSplitRequest(req),
+        [req.groupId ? bucket.groupRequests(req.groupId) : bucket.tripRequests(req.tripId!)],
+      );
+      if (isErr(result)) return false;
+      replaceWith(result.value);
+      return true;
     },
 
     // ── Trip status ───────────────────────────────────────────────────────────
 
     async setTripStatus(tripId: string, status: TripStatus) {
-      const result = await repos.trips.setTripStatus(tripId, status);
-      if (isErr(result)) {
-        set({ hydrationError: result.error });
-        return result;
-      }
-      set((state) => ({
-        trips: state.trips.map(t => t.id === tripId ? result.value : t),
-      }));
+      const previous = get().trips.find(t => t.id === tripId);
+      const result = await saveFirst(
+        api,
+        writes,
+        () => set((state) => ({
+          trips: state.trips.map(t => (t.id === tripId
+            ? { ...t, status, closedAt: status === 'closed' ? new Date() : t.closedAt }
+            : t)),
+        })),
+        () => { if (previous) get().replaceTrip(previous); },
+        () => repos.trips.setTripStatus(tripId, status),
+        ['trips'],
+      );
+      if (isOk(result)) get().replaceTrip(result.value);
       return result;
+    },
+
+    async editTrip(existing: Trip, updated: Trip): Promise<boolean> {
+      // A currency change carries over to the trip's expenses still in the old one.
+      const before   = get().expenses[existing.id] ?? [];
+      const carried  = updated.currency === existing.currency
+        ? []
+        : before.filter(e => e.currency === existing.currency).map(e => ({ ...e, currency: updated.currency }));
+      const carriedIds = new Set(carried.map(e => e.id));
+
+      const result = await saveFirst(
+        api,
+        writes,
+        () => set((state) => ({
+          trips: state.trips.map(t => (t.id === existing.id ? updated : t)),
+          expenses: {
+            ...state.expenses,
+            [existing.id]: (state.expenses[existing.id] ?? []).map(e => (carriedIds.has(e.id) ? { ...e, currency: updated.currency } : e)),
+          },
+        })),
+        () => set((state) => ({
+          trips: state.trips.map(t => (t.id === existing.id ? existing : t)),
+          expenses: { ...state.expenses, [existing.id]: before },
+        })),
+        async (): Promise<Result<Trip, AppError>> => {
+          const tripResult = await repos.trips.updateTrip(updated);
+          if (isErr(tripResult)) return tripResult;
+          for (const r of await Promise.all(carried.map(e => repos.expenses.updateExpense(e)))) {
+            if (isErr(r)) return r;
+          }
+          return tripResult;
+        },
+        ['trips', bucket.trip(existing.id)],
+      );
+      if (isErr(result)) return false;
+      get().replaceTrip(result.value);
+      return true;
     },
 
     // ── Synchronous cache mutations (no repo call) ────────────────────────────
@@ -493,7 +729,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
             return;
           }
           const groups = parseMany<Group>(result.value, groupSchema);
-          set({ groups });
+          set((state) => ({ groups, fetchedAt: stamp(state.fetchedAt, 'groups') }));
         })
         .finally(() => { _loadGroupsPromise = null; });
       return _loadGroupsPromise;
@@ -509,6 +745,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       set((state) => ({
         groupExpenses: { ...state.groupExpenses, [groupId]: expenses },
         hydrationError: null,
+        fetchedAt: stamp(state.fetchedAt, bucket.group(groupId)),
       }));
     },
 
@@ -554,38 +791,84 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
     },
 
     async removeGroupExpense(expenseId: string, groupId: string): Promise<boolean> {
-      try {
-        const deleted = get().groupExpenses[groupId]?.find((e) => e.id === expenseId);
-        const result = await repos.expenses.deleteExpense(expenseId);
-        if (isErr(result)) {
-          set({ hydrationError: result.error });
-          return false;
-        }
-        set((state) => ({
+      const deleted = get().groupExpenses[groupId]?.find((e) => e.id === expenseId);
+      const result = await saveFirst(
+        api,
+        writes,
+        () => set((state) => ({
+          groupExpenses: { ...state.groupExpenses, [groupId]: (state.groupExpenses[groupId] ?? []).filter((e) => e.id !== expenseId) },
+        })),
+        () => {
+          if (!deleted) return;
+          set((state) => ({ groupExpenses: { ...state.groupExpenses, [groupId]: [...(state.groupExpenses[groupId] ?? []), deleted] } }));
+        },
+        () => repos.expenses.deleteExpense(expenseId),
+        [bucket.group(groupId)],
+      );
+      if (isErr(result)) return false;
+
+      // Fire-and-forget: see removeExpense's identical guard.
+      repos.activityLog.appendEvent(newActivityEvent({
+        eventType:   'expense.deleted',
+        entityType:  'expense',
+        entityId:    expenseId,
+        groupId,
+        expenseId,
+        actorUserId: repos.auth.currentUser()?.id ?? '',
+        payload: deleted ? { description: deleted.description } : null,
+      })).catch(() => {});
+
+      return true;
+    },
+
+    async settleGroupExpense(expenseId: string, groupId: string, settledAt: Date | null): Promise<boolean> {
+      const previous = get().groupExpenses[groupId]?.find(e => e.id === expenseId)?.settledAt ?? null;
+      const result = await saveFirst(
+        api,
+        writes,
+        () => get().settleGroupExpenseInStore(expenseId, groupId, settledAt),
+        () => get().settleGroupExpenseInStore(expenseId, groupId, previous),
+        () => repos.expenses.settleExpense(expenseId, settledAt),
+        [bucket.group(groupId)],
+      );
+      return isOk(result);
+    },
+
+    async editGroup(existing: Group, updated: Group): Promise<boolean> {
+      // A currency change carries over to the group's expenses still in the old one.
+      const before   = get().groupExpenses[existing.id] ?? [];
+      const carried  = updated.currency === existing.currency
+        ? []
+        : before.filter(e => e.currency === existing.currency).map(e => ({ ...e, currency: updated.currency }));
+      const carriedIds = new Set(carried.map(e => e.id));
+
+      const result = await saveFirst(
+        api,
+        writes,
+        () => set((state) => ({
+          groups: state.groups.map(g => (g.id === existing.id ? updated : g)),
           groupExpenses: {
             ...state.groupExpenses,
-            [groupId]: (state.groupExpenses[groupId] ?? []).filter((e) => e.id !== expenseId),
+            [existing.id]: (state.groupExpenses[existing.id] ?? []).map(e => (carriedIds.has(e.id) ? { ...e, currency: updated.currency } : e)),
           },
-          hydrationError: null,
-        }));
-
-        // Fire-and-forget: see removeExpense's identical guard.
-        repos.activityLog.appendEvent(newActivityEvent({
-          eventType:   'expense.deleted',
-          entityType:  'expense',
-          entityId:    expenseId,
-          groupId,
-          expenseId,
-          actorUserId: repos.auth.currentUser()?.id ?? '',
-          payload: deleted ? { description: deleted.description } : null,
-        })).catch(() => {});
-
-        return true;
-      } catch (e) {
-        // See removeExpense's identical guard.
-        set({ hydrationError: { kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' } });
-        return false;
-      }
+        })),
+        () => set((state) => ({
+          groups: state.groups.map(g => (g.id === existing.id ? existing : g)),
+          groupExpenses: { ...state.groupExpenses, [existing.id]: before },
+        })),
+        async (): Promise<Result<Group, AppError>> => {
+          const groupResult = await repos.groups.updateGroup(updated);
+          if (isErr(groupResult)) return groupResult;
+          for (const r of await Promise.all(carried.map(e => repos.expenses.updateExpense(e)))) {
+            if (isErr(r)) return r;
+          }
+          return groupResult;
+        },
+        ['groups', bucket.group(existing.id)],
+      );
+      if (isErr(result)) return false;
+      get().updateGroupInStore(result.value);
+      return true;
     },
 
     settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date | null): void {
@@ -659,6 +942,18 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
 
     // ── Recurring expenses ───────────────────────────────────────────────────
 
+    async loadRecurringExpenses(groupId: string): Promise<void> {
+      const result = await repos.recurringExpenses.getRecurringExpensesForGroup(groupId);
+      if (isErr(result)) {
+        set({ hydrationError: result.error });
+        return;
+      }
+      set((state) => ({
+        recurringExpenses: { ...state.recurringExpenses, [groupId]: result.value },
+        fetchedAt: stamp(state.fetchedAt, bucket.recurring(groupId)),
+      }));
+    },
+
     setRecurringExpensesForGroup(groupId: string, items: RecurringExpense[]): void {
       set((state) => ({
         recurringExpenses: { ...state.recurringExpenses, [groupId]: items },
@@ -698,7 +993,11 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     resetSession(): void {
+      for (const t of refetchTimers.values()) clearTimeout(t);
+      refetchTimers.clear();
+      changedDuringWrite.clear();
       set(INITIAL_STATE);
     },
   }));
+  return store;
 }

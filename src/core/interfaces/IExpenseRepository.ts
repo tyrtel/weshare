@@ -5,6 +5,8 @@ import type { Expense } from '../models/Expense';
 export interface IExpenseRepository {
   getExpense(id: string): Promise<Result<Expense, AppError>>;
   getExpensesForTrip(tripId: string): Promise<Result<Expense[], AppError>>;
+  /** Expenses for several trips in one round trip, keyed by tripId (every id present). */
+  getExpensesForTrips(tripIds: string[]): Promise<Result<Record<string, Expense[]>, AppError>>;
   getExpensesForGroup(groupId: string): Promise<Result<Expense[], AppError>>;
   saveExpense(expense: Expense): Promise<Result<Expense, AppError>>;
   updateExpense(expense: Expense): Promise<Result<Expense, AppError>>;

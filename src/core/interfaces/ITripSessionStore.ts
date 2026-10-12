@@ -8,6 +8,7 @@ import type { GroupMember } from '../models/GroupMember';
 import type { RecurringExpense } from '../models/RecurringExpense';
 import type { Result } from '../types/Result';
 import type { AppError } from '../types/AppError';
+import type { CacheBucket } from '../logic/cacheFreshness';
 
 export interface TripSessionState {
   activeTripId: string | null;
@@ -23,9 +24,37 @@ export interface TripSessionState {
   groups: Group[];
   groupExpenses: Record<string, Expense[]>;          // keyed by groupId
   recurringExpenses: Record<string, RecurringExpense[]>; // keyed by groupId
+  /** Epoch ms of the last successful server fetch per CacheBucket. */
+  fetchedAt: Record<string, number>;
+  /** Set when a save-first write fails and has been undone; shown app-wide. */
+  writeError: AppError | null;
 }
 
 export interface TripSessionActions {
+  /** Load a bucket from the server unless it is fresh (or always, with force).
+   *  Concurrent calls for the same bucket share one request. */
+  revalidate(bucket: CacheBucket, opts?: { force?: boolean }): Promise<void>;
+  /** Forget a bucket's fetch time so the next revalidate goes to the server. */
+  invalidate(bucket: CacheBucket): void;
+  /** Fetch and cache recurring expenses for one group. */
+  loadRecurringExpenses(groupId: string): Promise<void>;
+  clearWriteError(): void;
+  /** Another device (or this one) changed rows in this bucket on the server. */
+  notifyRemoteChange(bucket: CacheBucket): void;
+
+  // Save-first writes: the cache changes immediately and the returned promise
+  // resolves once the server has answered. On failure the change is undone,
+  // writeError is set, and the affected bucket is refetched (several of these
+  // are multi-step writes that can fail part-way).
+
+  /** Replace an expense (and its splits) — trip or group. */
+  editExpense(existing: Expense, updated: Expense): Promise<boolean>;
+  /** Close (settledAt set) or reopen (null) a group expense. */
+  settleGroupExpense(expenseId: string, groupId: string, settledAt: Date | null): Promise<boolean>;
+  /** Rename / change currency; a currency change carries over to expenses in the old currency. */
+  editTrip(existing: Trip, updated: Trip): Promise<boolean>;
+  editGroup(existing: Group, updated: Group): Promise<boolean>;
+
   /** Fetch all trips for a user and populate the cache. Sets isHydrated on completion. */
   loadTrips(userId: string): Promise<void>;
   /** Fetch and cache expenses + members for one trip. */
@@ -37,18 +66,16 @@ export interface TripSessionActions {
 
   /** Persist a new expense and append it to the cache (with optimistic write). */
   addExpense(expense: Expense): Promise<void>;
-  /** Delete an expense from storage and remove it from the cache. Resolves
-   *  false (never rejects) on failure, so a caller can gate navigation on it
-   *  instead of always proceeding as if the delete had succeeded. */
+  /** Save-first delete of a trip expense. Resolves false (never rejects) if the server refused. */
   removeExpense(expenseId: string, tripId: string): Promise<boolean>;
   /** Mark a split as fully paid, persist it, and update the nested split in the cache. */
   markSettled(split: Split): Promise<Result<Split, AppError>>;
-  /** Save a new split request to storage and append it to the cache — trip- or group-scoped, per req.tripId/req.groupId. */
-  saveSplitRequest(req: SplitRequest): Promise<void>;
-  /** Persist a split-request status change and update the cache in place — trip- or group-scoped. */
-  updateSplitRequest(req: SplitRequest): Promise<void>;
+  /** Save-first create of a split request — trip- or group-scoped, per req.tripId/req.groupId. */
+  saveSplitRequest(req: SplitRequest): Promise<boolean>;
+  /** Save-first update of a split request (e.g. a status change) — trip- or group-scoped. */
+  updateSplitRequest(req: SplitRequest): Promise<boolean>;
 
-  /** Persist a trip status change and update the cache in place. */
+  /** Save-first trip status change. */
   setTripStatus(tripId: string, status: TripStatus): Promise<Result<Trip, AppError>>;
 
   /** Append a newly-created trip to the cache (no repo call). */
@@ -78,8 +105,7 @@ export interface TripSessionActions {
   loadGroupDetail(groupId: string): Promise<void>;
   /** Persist a new group expense optimistically and append to the cache. */
   addGroupExpense(expense: Expense): Promise<void>;
-  /** Delete a group expense from storage and remove it from the cache.
-   *  Resolves false (never rejects) on failure — see removeExpense. */
+  /** Save-first delete of a group expense — see removeExpense. */
   removeGroupExpense(expenseId: string, groupId: string): Promise<boolean>;
   /** Mark a group expense closed (settledAt set) or reopen it (settledAt null) in the cache — after repo call. */
   settleGroupExpenseInStore(expenseId: string, groupId: string, settledAt: Date | null): void;

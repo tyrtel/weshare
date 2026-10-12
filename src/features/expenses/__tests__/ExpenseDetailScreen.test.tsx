@@ -144,16 +144,15 @@ describe('ExpenseDetailScreen — delete action', () => {
   // Regression coverage, same class of bug as create/edit: the screen used to
   // navigate back unconditionally after awaiting removeExpense, regardless of
   // whether the delete actually succeeded (it returned void, not a signal).
-  it('does not navigate away when removeExpense reports failure', async () => {
+  it('navigates back without waiting for the server (save-first delete)', async () => {
     mockConfirm.mockResolvedValue(true);
-    mockRemoveExpense.mockResolvedValueOnce(false);
+    mockRemoveExpense.mockReturnValueOnce(new Promise(() => {}));
 
     render(<ExpenseDetailScreen />);
     fireEvent.press(screen.getByLabelText('Delete expense'));
 
-    await waitFor(() => expect(mockRemoveExpense).toHaveBeenCalledWith('e1', 't1'));
-
-    expect(mockBack).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockRemoveExpense).toHaveBeenCalledWith('e1', 't1');
   });
 });
 

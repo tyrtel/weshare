@@ -1,24 +1,22 @@
 import { useState, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
-import { EXPENSE_REPO, SPLIT_REPO, TRIP_STORE, AUTH, ACTIVITY_LOG } from '../../../core/di/tokens';
-import { isOk } from '../../../core/types/Result';
+import { TRIP_STORE } from '../../../core/di/tokens';
 import { generateId } from '../../../core/utils/generateId';
-import { newActivityEvent } from '../../../core/utils/activityEvents';
 import type { Expense } from '../../../core/models/Expense';
 import type { AppError } from '../../../core/types/AppError';
 import type { AddExpenseInput } from './useAddExpense';
 
+/**
+ * Validates and applies an edit save-first: the cache updates immediately and
+ * the edited expense is returned so the form can close; the store persists it
+ * in the background and undoes it (surfacing writeError) if the server refuses.
+ */
 export function useEditExpense() {
-  const expenseRepo = useService(EXPENSE_REPO);
-  const splitRepo   = useService(SPLIT_REPO);
-  const storeApi    = useService(TRIP_STORE);
-  const auth        = useService(AUTH);
-  const activityLog = useService(ACTIVITY_LOG);
-  const [loading, setLoading] = useState(false);
+  const storeApi = useService(TRIP_STORE);
   const [error, setError] = useState<AppError | null>(null);
 
   const editExpense = useCallback(
-    async (existing: Expense, input: AddExpenseInput): Promise<Expense | null> => {
+    (existing: Expense, input: AddExpenseInput): Expense | null => {
       setError(null);
 
       if (!input.description.trim()) {
@@ -30,88 +28,32 @@ export function useEditExpense() {
         return null;
       }
 
-      setLoading(true);
-      try {
-        const updated: Expense = {
-          ...existing,
-          description:      input.description.trim(),
-          totalAmountCents: input.totalAmountCents,
-          currency:         input.currency,
-          paidByUserId:     input.paidByUserId,
-          metadata: {
-            category:       input.category,
-            receiptUrl:     input.receiptUrl,
-            lineItems:      input.lineItems,
-            originalAmount: input.originalAmount,
-          },
-        };
+      const updated: Expense = {
+        ...existing,
+        description:      input.description.trim(),
+        totalAmountCents: input.totalAmountCents,
+        currency:         input.currency,
+        paidByUserId:     input.paidByUserId,
+        metadata: {
+          category:       input.category,
+          receiptUrl:     input.receiptUrl,
+          lineItems:      input.lineItems,
+          originalAmount: input.originalAmount,
+        },
+        splits: input.splits.map(s => ({
+          id:              generateId(),
+          expenseId:       existing.id,
+          userId:          s.userId,
+          amountOwedCents: s.amountOwedCents,
+          amountPaidCents: 0,
+        })),
+      };
 
-        const expResult = await expenseRepo.updateExpense(updated);
-        if (!isOk(expResult)) {
-          setError(expResult.error);
-          return null;
-        }
-
-        // Delete old splits, then save new ones.
-        const oldSplits = await splitRepo.getSplitsForExpense(existing.id);
-        if (isOk(oldSplits)) {
-          await Promise.all(oldSplits.value.map(s => splitRepo.deleteSplit(s.id)));
-        }
-
-        const splitResults = await Promise.all(
-          input.splits.map(s =>
-            splitRepo.saveSplit({
-              id: generateId(),
-              expenseId: existing.id,
-              userId: s.userId,
-              amountOwedCents: s.amountOwedCents,
-              amountPaidCents: 0,
-            }),
-          ),
-        );
-
-        const firstError = splitResults.find(r => !isOk(r));
-        if (firstError && !isOk(firstError)) {
-          setError(firstError.error);
-          return null;
-        }
-
-        // Use `updated` (not the server response) as the store base so the new
-        // paidByUserId and metadata are reflected immediately, regardless of what
-        // the DB echoes back.
-        const savedExpense = { ...updated, splits: splitResults.filter(isOk).map(r => r.value) };
-        storeApi.getState().replaceExpense(savedExpense);
-
-        // Fire-and-forget: see useAddExpense's identical guard.
-        activityLog.appendEvent(newActivityEvent({
-          eventType:   'expense.updated',
-          entityType:  'expense',
-          entityId:    savedExpense.id,
-          groupId:     savedExpense.groupId,
-          tripId:      savedExpense.tripId,
-          expenseId:   savedExpense.id,
-          actorUserId: auth.currentUser()?.id ?? '',
-          payload: {
-            description:      savedExpense.description,
-            totalAmountCents: savedExpense.totalAmountCents,
-            currency:         savedExpense.currency,
-          },
-        })).catch(() => {});
-
-        return savedExpense;
-      } catch (e) {
-        // See useAddExpense's identical guard: an uncaught throw here (a real
-        // network failure, not an API error the repo already maps to
-        // Result.err) used to leave loading stuck true and never navigate
-        // the screen away.
-        setError({ kind: 'NetworkError', message: e instanceof Error ? e.message : 'Unexpected error' });
-        return null;
-      } finally {
-        setLoading(false);
-      }
+      void storeApi.getState().editExpense(existing, updated);
+      return updated;
     },
-    [expenseRepo, splitRepo, storeApi, auth, activityLog],
+    [storeApi],
   );
 
-  return { editExpense, loading, error };
+  return { editExpense, error };
 }

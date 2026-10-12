@@ -1,5 +1,5 @@
 import '../src/i18n'; // initialise i18next before any component renders
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useFonts } from 'expo-font';
 import {
   SpaceGrotesk_600SemiBold,
@@ -10,17 +10,19 @@ import {
   Inter_500Medium,
   Inter_600SemiBold,
 } from '@expo-google-fonts/inter';
-import { View, Text, ScrollView, Appearance } from 'react-native';
+import { View, Text, ScrollView, Appearance, AppState } from 'react-native';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { ServiceProvider, useService } from '../src/core/di/ServiceContext';
-import { AUTH, TRIP_STORE } from '../src/core/di/tokens';
+import { AUTH, TRIP_STORE, CACHE_STORAGE } from '../src/core/di/tokens';
+import { createCachePersistence } from '../src/store/cachePersistence';
 import type { User } from '../src/core/models/User';
 import { AppLoadingScreen } from '../src/components/ui/AppLoadingScreen';
 import { SimulationBanner } from '../src/shared/components/SimulationBanner';
 import { OfflineBanner } from '../src/components/OfflineBanner';
+import { WriteErrorBanner } from '../src/shared/components/WriteErrorBanner';
 import { UniversalTabBar } from '../src/components/ui/UniversalTabBar';
 import * as Sentry from '@sentry/react-native';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +30,8 @@ import i18next from 'i18next';
 import { useColors, getColors } from '../src/theme/colors';
 import { useResolvedTheme } from '../src/store/themeStore';
 import { useRegisterPushToken } from '../src/features/notifications/hooks/useRegisterPushToken';
+import { useRealtimeSync } from '../src/hooks/useRealtimeSync';
+import { usePushRefresh } from '../src/features/notifications/hooks/usePushRefresh';
 import { confirm } from '../src/core/utils/confirm';
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -86,6 +90,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const auth     = useService(AUTH);
   const storeApi = useService(TRIP_STORE);
+  const cacheStorage = useService(CACHE_STORAGE);
+  const persistence  = useMemo(() => createCachePersistence(storeApi, cacheStorage), [storeApi, cacheStorage]);
 
   const [user, setUser]       = useState<User | null>(null);
   const [phase, setPhase]     = useState<StartupPhase>('auth');
@@ -115,6 +121,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Last-known data from this device renders immediately; each screen
+      // revalidates its stale buckets behind it.
+      const restored = await persistence.restore(initialUser.id).catch(() => false);
+      if (cancelled || didResetRef.current) return;
+      if (restored) {
+        Sentry.addBreadcrumb({ category: 'startup', message: 'startup_cache_restored', level: 'info' });
+        setPhase('ready');
+        return;
+      }
+
       // ── Phase 2: initial trips load ────────────────────────────────────────
       setPhase('trips');
       Sentry.addBreadcrumb({ category: 'startup', message: 'startup_trips_start', level: 'info' });
@@ -133,11 +149,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       }
 
       if (!cancelled && !didResetRef.current) {
-        const trips = storeApi.getState().trips;
-        await Promise.all([
-          ...trips.map(t => storeApi.getState().loadTripDetail(t.id)),
-          storeApi.getState().loadGroups(initialUser.id),
-        ]).catch(() => {});
+        // loadTrips already fetched every trip's expenses and members.
+        await storeApi.getState().loadGroups(initialUser.id).catch(() => {});
         Sentry.addBreadcrumb({
           category: 'startup',
           message:  `startup_trips_done: count=${storeApi.getState().trips.length} err=${!!storeApi.getState().hydrationError}`,
@@ -149,7 +162,34 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
     startup();
     return () => { cancelled = true; };
-  }, [auth, storeApi]);
+  }, [auth, storeApi, persistence]);
+
+  const userId = user?.id ?? null;
+
+  // The store is per-user: on sign-out (or a switch to another account) drop
+  // everything in memory and on disk so it can't be shown to the next user.
+  const lastUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = lastUserIdRef.current;
+    lastUserIdRef.current = userId;
+    if (prev && prev !== userId) {
+      storeApi.getState().resetSession();
+      void persistence.clear();
+    }
+  }, [userId, storeApi, persistence]);
+
+  const ready = phase === 'ready';
+  useRealtimeSync(ready && userId !== null);
+  usePushRefresh(ready && userId !== null);
+  useEffect(() => {
+    if (!ready || !userId) return;
+    const session = persistence.start(userId);
+    // The OS may kill a backgrounded app without warning — save now.
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'background') void session.flush();
+    });
+    return () => { sub.remove(); session.stop(); };
+  }, [ready, userId, persistence]);
 
   // Post-startup auth changes: sign-out, new sign-in from auth screen, token refresh
   useEffect(() => {
@@ -185,10 +225,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       Sentry.captureMessage('debug_reset_auth_triggered', 'info');
       didResetRef.current = true;
       await auth.debugSignOut().catch(() => {});
+      storeApi.getState().resetSession();
+      await persistence.clear().catch(() => {});
       setUser(null);
       setPhase('ready');
     });
-  }, [auth, t]);
+  }, [auth, t, storeApi, persistence]);
 
   if (phase !== 'ready') {
     const message = phase === 'trips'
@@ -227,6 +269,7 @@ export default Sentry.wrap(function RootLayout() {
             <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
             <SimulationBanner />
             <OfflineBanner />
+            <WriteErrorBanner />
             <View style={{ flex: 1 }}>
               <Stack
                 style={{ flex: 1 }}

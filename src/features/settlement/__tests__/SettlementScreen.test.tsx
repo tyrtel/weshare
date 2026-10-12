@@ -232,3 +232,37 @@ describe('SettlementScreen — Reopen Trip link', () => {
     expect(reopenTrip).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cache older than FORCE_SYNC_MS
+// ---------------------------------------------------------------------------
+
+describe('SettlementScreen — expired cache', () => {
+  const { useTripSessionStore } = jest.requireMock('../../../core/di/ServiceContext') as { useTripSessionStore: jest.Mock };
+  const { FORCE_SYNC_MS } = jest.requireActual('../../../core/logic/cacheFreshness') as typeof import('../../../core/logic/cacheFreshness');
+
+  function withFetchedAt(fetchedAt: Record<string, number>) {
+    useTripSessionStore.mockImplementation((selector: (s: unknown) => unknown) => selector({ fetchedAt }));
+  }
+
+  beforeEach(() => {
+    mockParams.mockReturnValue({ tripId: 't1' });
+    mockUseSettlement.mockReturnValue({ ...IDLE_STATE, tripStatus: 'active' });
+  });
+
+  afterEach(() => { useTripSessionStore.mockReset(); });
+
+  it('shows the sync banner and hides Close Trip while the trip data is too old', () => {
+    withFetchedAt({ 'trip:t1': Date.now() - FORCE_SYNC_MS, 'tripRequests:t1': Date.now() });
+    render(<SettlementScreen />);
+    expect(screen.getByTestId('sync-banner')).toBeTruthy();
+    expect(screen.queryByTestId('close-trip-button')).toBeNull();
+  });
+
+  it('shows neither banner nor restriction once the data is fresh', () => {
+    withFetchedAt({ 'trip:t1': Date.now(), 'tripRequests:t1': Date.now() });
+    render(<SettlementScreen />);
+    expect(screen.queryByTestId('sync-banner')).toBeNull();
+    expect(screen.getByTestId('close-trip-button')).toBeTruthy();
+  });
+});

@@ -43,6 +43,14 @@ export class InMemoryExpenseRepository implements IExpenseRepository {
     return ok(result);
   };
 
+  getExpensesForTrips = async (tripIds: string[]): Promise<Result<Record<string, Expense[]>, AppError>> => {
+    const byTrip: Record<string, Expense[]> = Object.fromEntries(tripIds.map(id => [id, []]));
+    for (const expense of this.expenses.values()) {
+      if (expense.tripId && byTrip[expense.tripId]) byTrip[expense.tripId].push(this._hydrateSplits(expense));
+    }
+    return ok(byTrip);
+  };
+
   saveExpense = async (expense: Expense): Promise<Result<Expense, AppError>> => {
     this.expenses.set(expense.id, expense);
     return ok(expense);

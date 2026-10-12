@@ -16,7 +16,6 @@ export function useLedgerHistory(tripId: string, fromUserId: string, toUserId: s
     splitRequests,
     loading,
     error,
-    settling,
     recordPayment: recordPaymentForTrip,
     refetch,
   } = useSettlement(tripId);
@@ -55,5 +54,5 @@ export function useLedgerHistory(tripId: string, fromUserId: string, toUserId: s
 
   const balanceCents = entries[entries.length - 1]?.balanceCents ?? 0;
 
-  return { entries, balanceCents, currency, loading, error, settling, recordPayment, refetch };
+  return { entries, balanceCents, currency, loading, error, recordPayment, refetch };
 }

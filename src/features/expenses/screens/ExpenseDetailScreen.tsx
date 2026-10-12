@@ -14,6 +14,9 @@ import { ExpensePaidByCard } from '../../../components/ui/ExpensePaidByCard';
 import { ExpenseReceiptSection } from '../../../components/ui/ExpenseReceiptSection';
 import { ViewHistoryLink } from '../../history/components/ViewHistoryLink';
 import { useExpenseDetail } from '../hooks/useExpenseDetail';
+import { bucket } from '../../../core/logic/cacheFreshness';
+import { useCacheExpired } from '../../../hooks/useCacheExpired';
+import { SyncBanner } from '../../../shared/components/SyncBanner';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { MEMBER_REPO, TRIP_STORE } from '../../../core/di/tokens';
 import { useColors, personColorFor } from '../../../theme/colors';
@@ -61,6 +64,8 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   const tripClosed = useTripSessionStore(
     s => s.trips.find(t => t.id === expense?.tripId)?.status === 'closed',
   );
+  const syncBuckets = expense?.tripId ? [bucket.trip(expense.tripId)] : [];
+  const expired     = useCacheExpired(syncBuckets);
   const [members, setMembers] = useState<TripMember[]>([]);
 
   useEffect(() => {
@@ -73,11 +78,10 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
 
   const handleDelete = () => {
     if (!expense) return;
-    void confirm(t('expenses.detail.delete_alert_title'), t('common.cannot_be_undone'), t('expenses.detail.delete_alert_confirm')).then(async confirmed => {
-      if (confirmed) {
-        const removed = await storeApi.getState().removeExpense(expense.id, expense.tripId ?? '');
-        if (removed) router.back();
-      }
+    void confirm(t('expenses.detail.delete_alert_title'), t('common.cannot_be_undone'), t('expenses.detail.delete_alert_confirm')).then(confirmed => {
+      if (!confirmed) return;
+      void storeApi.getState().removeExpense(expense.id, expense.tripId ?? '');
+      router.back();
     });
   };
 
@@ -112,6 +116,7 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
   return (
     <ScreenWrapper>
       <Stack.Screen options={{ headerShown: false }} />
+      <SyncBanner buckets={syncBuckets} />
       <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
         <View style={detailStyles.titleRow}>
           <Pressable onPress={() => router.back()} hitSlop={10}>
@@ -238,8 +243,8 @@ function ExpenseDetailScreenContent({ id }: { id: string }) {
           })}
         </View>
 
-        {/* Delete — hidden for closed trips */}
-        {!tripClosed && (
+        {/* Delete — hidden for closed trips, and while the cache is too old to trust */}
+        {!tripClosed && !expired && (
           <Pressable
             onPress={handleDelete}
             accessibilityRole="button"

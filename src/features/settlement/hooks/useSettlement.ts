@@ -1,16 +1,17 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
 import { TRIP_STORE, AUTH } from '../../../core/di/tokens';
 import { calculateSettlements } from '../../../core/logic/settlement';
 import type { LedgerPayment } from '../../../core/logic/settlement';
 import { useStripePoller } from './useStripePoller';
 import { selectExpenses, selectMembers, selectSplitRequests } from '../../../store/selectors';
+import { bucket } from '../../../core/logic/cacheFreshness';
+import { useCacheRevalidation } from '../../../hooks/useCacheRevalidation';
 import type { Settlement } from '../../../core/models/Settlement';
 import { createManualPaymentRequest } from '../../../core/models/SplitRequest';
 import type { SplitRequest, SplitRequestStatus } from '../../../core/models/SplitRequest';
 import type { TripStatus } from '../../../core/models/Trip';
 import type { TripMember } from '../../../core/models/TripMember';
-import type { AppError } from '../../../core/types/AppError';
 
 export interface EnrichedSettlement extends Settlement {
   fromDisplayName: string;
@@ -27,22 +28,10 @@ export function useSettlement(tripId: string) {
   const expenses      = useTripSessionStore((s) => selectExpenses(s, tripId));
   const splitRequests = useTripSessionStore((s) => selectSplitRequests(s, tripId));
 
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<AppError | null>(null);
-  const [settling, setSettling] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    await Promise.all([
-      storeApi.getState().loadTripDetail(tripId),
-      storeApi.getState().loadSplitRequests(tripId),
-    ]);
-    setError(storeApi.getState().hydrationError);
-    setLoading(false);
-  }, [tripId, storeApi]);
-
-  useEffect(() => { load(); }, [load]);
+  const { loading, refresh } = useCacheRevalidation([bucket.trip(tripId), bucket.tripRequests(tripId)]);
+  const detailMissing  = useTripSessionStore((s) => s.fetchedAt[bucket.trip(tripId)] === undefined);
+  const hydrationError = useTripSessionStore((s) => s.hydrationError);
+  const error = detailMissing && !loading ? hydrationError : null;
 
   // ── Derived data ──────────────────────────────────────────────────────────────
   // Memoised: calculateSettlements is O(members × expenses); nameMap/requestMap
@@ -141,15 +130,10 @@ export function useSettlement(tripId: string) {
   // pair are meant to all sum (see settlement.ts's ledger model), not overwrite
   // a single "latest" request the way the old markDebtPaid did.
   const recordPayment = useCallback(
-    async (fromUserId: string, toUserId: string, amountCents: number, currency: string): Promise<void> => {
-      setSettling(true);
-      try {
-        await storeApi.getState().saveSplitRequest(
-          createManualPaymentRequest({ tripId, payerUserId: fromUserId, requesterUserId: toUserId, amountCents, currency }),
-        );
-      } finally {
-        setSettling(false);
-      }
+    (fromUserId: string, toUserId: string, amountCents: number, currency: string): void => {
+      void storeApi.getState().saveSplitRequest(
+        createManualPaymentRequest({ tripId, payerUserId: fromUserId, requesterUserId: toUserId, amountCents, currency }),
+      );
     },
     [tripId, storeApi],
   );
@@ -169,11 +153,10 @@ export function useSettlement(tripId: string) {
     splitRequests,
     loading,
     error,
-    settling,
     currentUserId,
     tripStatus,
     allSettled,
-    refetch:             load,
+    refetch:             refresh,
     updateRequestStatus,
     reopenTrip,
     closeTrip,

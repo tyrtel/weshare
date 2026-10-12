@@ -13,13 +13,15 @@ import { ViewHistoryLink } from '../../../src/features/history/components/ViewHi
 import { ExpenseReceiptSection } from '../../../src/components/ui/ExpenseReceiptSection';
 import { MakeRecurringSheet } from '../../../src/features/groups/components/MakeRecurringSheet';
 import { useService, useTripSessionStore } from '../../../src/core/di/ServiceContext';
-import { AUTH, TRIP_STORE, EXPENSE_REPO } from '../../../src/core/di/tokens';
+import { AUTH, TRIP_STORE } from '../../../src/core/di/tokens';
 import { useColors, personColorFor } from '../../../src/theme/colors';
 import { personColors } from '../../../src/theme/colors';
 import { tokens } from '../../../src/theme/tokens';
 import { formatCurrency } from '../../../src/core/utils/formatCurrency';
 import { confirm } from '../../../src/core/utils/confirm';
-import { isOk } from '../../../src/core/types/Result';
+import { bucket } from '../../../src/core/logic/cacheFreshness';
+import { useCacheExpired } from '../../../src/hooks/useCacheExpired';
+import { SyncBanner } from '../../../src/shared/components/SyncBanner';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -33,7 +35,6 @@ export default function GroupExpenseDetailScreen() {
   const auth                                        = useService(AUTH);
   const router                                      = useRouter();
   const storeApi                                    = useService(TRIP_STORE);
-  const expenseRepo                                 = useService(EXPENSE_REPO);
   const { id, groupId }                             = useLocalSearchParams<{ id: string; groupId: string }>();
   const [recurringSheetOpen, setRecurringSheetOpen] = useState(false);
 
@@ -42,6 +43,8 @@ export default function GroupExpenseDetailScreen() {
   );
 
   const group = useTripSessionStore(s => s.groups.find(g => g.id === groupId));
+  const syncBuckets = [bucket.group(groupId)];
+  const expired     = useCacheExpired(syncBuckets);
 
   if (!expense || !group) {
     return (
@@ -66,29 +69,22 @@ export default function GroupExpenseDetailScreen() {
   };
 
   const handleClose = () => {
-    void confirm(t('expenses.detail.close_alert_title'), t('expenses.detail.close_alert_message'), t('expenses.detail.close_alert_confirm')).then(async confirmed => {
+    void confirm(t('expenses.detail.close_alert_title'), t('expenses.detail.close_alert_message'), t('expenses.detail.close_alert_confirm')).then(confirmed => {
       if (!confirmed) return;
-      const settledAt = new Date();
-      const result = await expenseRepo.settleExpense(expense.id, settledAt);
-      if (isOk(result)) {
-        storeApi.getState().settleGroupExpenseInStore(expense.id, groupId, settledAt);
-        router.back();
-      }
+      void storeApi.getState().settleGroupExpense(expense.id, groupId, new Date());
+      router.back();
     });
   };
 
-  const handleReopen = async () => {
-    const result = await expenseRepo.settleExpense(expense.id, null);
-    if (isOk(result)) {
-      storeApi.getState().settleGroupExpenseInStore(expense.id, groupId, null);
-    }
+  const handleReopen = () => {
+    void storeApi.getState().settleGroupExpense(expense.id, groupId, null);
   };
 
   const handleDelete = () => {
-    void confirm(t('expenses.detail.delete_alert_title'), t('common.cannot_be_undone'), t('expenses.detail.delete_alert_confirm')).then(async confirmed => {
+    void confirm(t('expenses.detail.delete_alert_title'), t('common.cannot_be_undone'), t('expenses.detail.delete_alert_confirm')).then(confirmed => {
       if (!confirmed) return;
-      const removed = await storeApi.getState().removeGroupExpense(expense.id, groupId);
-      if (removed) router.back();
+      void storeApi.getState().removeGroupExpense(expense.id, groupId);
+      router.back();
     });
   };
 
@@ -109,6 +105,7 @@ export default function GroupExpenseDetailScreen() {
           ),
         }}
       />
+      <SyncBanner buckets={syncBuckets} />
       <ScrollView
         contentContainerStyle={{ padding: tokens.spacing.md, paddingBottom: tokens.spacing.md + TAB_BAR_HEIGHT }}
         showsVerticalScrollIndicator={false}
@@ -265,24 +262,27 @@ export default function GroupExpenseDetailScreen() {
           </Pressable>
         )}
 
-        {/* Delete — permanently removes the expense from the group ledger, unlike close/reopen above. */}
-        <Pressable
-          onPress={handleDelete}
-          accessibilityRole="button"
-          accessibilityLabel={t('expenses.detail.delete_label')}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            marginTop: 8,
-            paddingVertical: 10,
-            opacity: pressed ? 0.6 : 1,
-          })}
-        >
-          <Feather name="trash-2" size={15} color={colors.error.default} />
-          <Text variant="label" color={colors.error.default}>{t('expenses.detail.delete_button')}</Text>
-        </Pressable>
+        {/* Delete — permanently removes the expense from the group ledger, unlike
+            close/reopen above. Hidden while the cache is too old to trust. */}
+        {!expired && (
+          <Pressable
+            onPress={handleDelete}
+            accessibilityRole="button"
+            accessibilityLabel={t('expenses.detail.delete_label')}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              marginTop: 8,
+              paddingVertical: 10,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Feather name="trash-2" size={15} color={colors.error.default} />
+            <Text variant="label" color={colors.error.default}>{t('expenses.detail.delete_button')}</Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       {recurringSheetOpen && (

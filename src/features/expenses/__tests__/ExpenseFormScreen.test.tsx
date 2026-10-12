@@ -780,9 +780,12 @@ describe('ExpenseFormScreen — group mode edit', () => {
     await waitFor(() => expect(screen.getByTestId('expense-description-input').props.value).toBe('Groceries'));
     await fillDescription('Groceries (updated)');
     fireEvent.press(screen.getByText('Save expense'));
-    await waitFor(() => expect(screen.queryByText('Save expense')).toBeNull());
-
+    // Save-first: the form closes at once and the write lands in the background.
     const repo = container.resolve(EXPENSE_REPO);
+    await waitFor(async () => {
+      const r = await repo.getExpensesForGroup('grp1');
+      expect(r.ok && r.value[0].description).toBe('Groceries (updated)');
+    });
     const savedGroup = await repo.getExpensesForGroup('grp1');
     expect(savedGroup.ok && savedGroup.value).toHaveLength(1);
     expect(savedGroup.ok && savedGroup.value[0].id).toBe(expense.id);

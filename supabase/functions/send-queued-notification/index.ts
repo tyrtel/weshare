@@ -103,7 +103,12 @@ async function sendPush(
     to,
     title: payload.title as string | undefined,
     body:  payload.body  as string | undefined,
-    data:  { eventType: notif.event_type },
+    // Ids let the app refresh exactly the trip/group the notification is about.
+    data:  {
+      eventType: notif.event_type,
+      ...(typeof payload.tripId  === 'string' && { tripId:  payload.tripId }),
+      ...(typeof payload.groupId === 'string' && { groupId: payload.groupId }),
+    },
   }));
 
   const res = await fetch(EXPO_PUSH_ENDPOINT, {
