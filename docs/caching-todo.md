@@ -1,10 +1,10 @@
 # Caching & sync todo
 
 > **Status (2026-10-12).** All six phases built; full suite green (1646 tests,
-> type-check unchanged from baseline, lint clean). **Nothing deployed.** Waiting on:
-> (1) a new dev/EAS build for `expo-crypto`, (2) your OK to push migration 046 and
-> deploy `send-queued-notification`, (3) your on-device testing before any checkpoint
-> is ticked. Follow-ups that were deliberately left out: `docs/sync-followups-todo.md`.
+> type-check unchanged from baseline, lint clean). **Deployed 2026-10-13:** migration
+> 046 pushed (7 tables in `supabase_realtime`, verified) and `send-queued-notification`
+> redeployed; new build made with `expo-crypto`. Waiting on on-device testing before
+> any checkpoint is ticked. Follow-ups that were deliberately left out: `docs/sync-followups-todo.md`.
 > Decisions made: force-sync shows cached data with a "Syncing…" banner and
 > blocks money actions; cache is encrypted on device; in scope are save-first
 > edits with rollback, Supabase Realtime, push-notification refresh, and the
@@ -163,7 +163,7 @@ airplane mode they snap back with the red banner. ☐
       `trip_members`, `expenses`, `groups`, `group_members`, `split_requests`,
       `recurring_expenses` to `supabase_realtime` (idempotent). `splits` left out:
       no trip/group id on the row, and every split write comes with a write to its
-      parent expense. **Written, not pushed — production change, needs your OK.**
+      parent expense. **Pushed to production 2026-10-13.**
 - [x] `IRealtimeService` + `REALTIME` token; `SupabaseRealtimeService` (one channel,
       one `postgres_changes` listener per table; RLS scopes INSERT/UPDATE);
       `MockRealtimeService` with `emit()` for tests and simulation.
@@ -189,8 +189,8 @@ airplane mode they snap back with the red banner. ☐
       (`useCreateGroupExpense`), and the Edge Function forwarded only `eventType` —
       no ids, and the app had no notification listeners at all.
 - [x] Sender now puts `groupId` in the payload; `send-queued-notification` forwards
-      `tripId`/`groupId` in the push `data`. **Edge Function changed, not deployed —
-      needs your OK.** (No test harness exists for Edge Functions; 3-line change.)
+      `tripId`/`groupId` in the push `data`. **Deployed 2026-10-13.**
+      (No test harness exists for Edge Functions; 3-line change.)
 - [x] `usePushRefresh` (in AuthGate, signed-in only): on a notification received in
       the foreground or tapped, `bucketsForNotification()` → `notifyRemoteChange`
       (same debounce / in-flight rules as Realtime). Pushes from the old server
