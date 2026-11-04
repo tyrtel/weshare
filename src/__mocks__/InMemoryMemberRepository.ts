@@ -1,12 +1,17 @@
-import { ok } from '../core/types/Result';
+import { ok, err, isOk } from '../core/types/Result';
 import type { Result } from '../core/types/Result';
 import type { AppError } from '../core/types/AppError';
 import type { IMemberRepository } from '../core/interfaces/IMemberRepository';
 import type { TripMember } from '../core/models/TripMember';
+import type { User } from '../core/models/User';
+import type { ITripRepository } from '../core/interfaces/ITripRepository';
 
 export class InMemoryMemberRepository implements IMemberRepository {
   // keyed by tripId → members list
   private readonly members = new Map<string, TripMember[]>();
+
+  // `trips` resolves invite tokens for joinTripByInvite.
+  constructor(private readonly trips?: ITripRepository) {}
 
   seed(members: TripMember[]): this {
     for (const m of members) {
@@ -37,27 +42,29 @@ export class InMemoryMemberRepository implements IMemberRepository {
     return ok(undefined);
   };
 
-  findMemberByEmail = async (tripId: string, email: string): Promise<Result<TripMember | null, AppError>> => {
+  joinTripByInvite = async (token: string, user: User): Promise<Result<TripMember, AppError>> => {
+    if (!this.trips) throw new Error('InMemoryMemberRepository needs a trip repository to join by invite');
+    const invite = await this.trips.getTripInvitePreview(token);
+    if (!isOk(invite)) return invite;
+    const tripId = invite.value.id;
     const list = this.members.get(tripId) ?? [];
-    const match = list.find(m => m.email != null && m.email.toLowerCase() === email.toLowerCase()) ?? null;
-    return ok(match);
-  };
 
-  claimMemberSlot = async (
-    tripId: string,
-    placeholderUserId: string,
-    newUserId: string,
-    newDisplayName: string,
-  ): Promise<Result<TripMember, AppError>> => {
-    const list = this.members.get(tripId) ?? [];
-    const idx = list.findIndex(m => m.userId === placeholderUserId);
-    if (idx === -1) {
-      return { ok: false, error: { kind: 'NotFoundError', resource: 'TripMember', id: placeholderUserId } };
+    const existing = list.find(m => m.userId === user.id);
+    if (existing) return ok(existing);
+
+    const email = user.email?.toLowerCase();
+    const idx = email ? list.findIndex(m => m.email?.toLowerCase() === email) : -1;
+    if (idx !== -1) {
+      const claimed: TripMember = { ...list[idx], userId: user.id, displayName: user.name, isGuest: false, avatarUrl: user.avatarUrl ?? list[idx].avatarUrl };
+      this.members.set(tripId, list.map((m, i) => (i === idx ? claimed : m)));
+      return ok(claimed);
     }
-    const updated: TripMember = { ...list[idx], userId: newUserId, displayName: newDisplayName, isGuest: false };
-    const next = [...list];
-    next[idx] = updated;
-    this.members.set(tripId, next);
-    return ok(updated);
+    if (invite.value.expired) {
+      return err({ kind: 'ValidationError', field: 'inviteToken', message: 'Invite expired' });
+    }
+
+    const added: TripMember = { userId: user.id, tripId, displayName: user.name, isGuest: false, joinedAt: new Date(), avatarUrl: user.avatarUrl };
+    this.members.set(tripId, [...list, added]);
+    return ok(added);
   };
 }

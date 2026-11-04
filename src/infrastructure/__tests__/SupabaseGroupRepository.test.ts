@@ -153,41 +153,72 @@ describe('SupabaseGroupRepository — getGroupsForUser', () => {
   });
 });
 
-describe('SupabaseGroupRepository — getGroupByInviteToken', () => {
-  it('maps the matching group', async () => {
-    supabase.from.mockReturnValue(mockChain({ data: groupRow({ invite_token: 'abc123' }), error: null }));
+describe('SupabaseGroupRepository — getGroupInvitePreview', () => {
+  it('maps the preview row from the RPC', async () => {
+    supabase.rpc.mockReturnValue(mockChain({ data: { id: 'g1', name: 'Roomies', expired: true }, error: null }));
 
-    const result = await new SupabaseGroupRepository().getGroupByInviteToken('abc123');
+    const result = await new SupabaseGroupRepository().getGroupInvitePreview('abc123');
 
-    if (result.ok) expect(result.value.inviteToken).toBe('abc123');
+    expect(result).toEqual({ ok: true, value: { id: 'g1', name: 'Roomies', expired: true } });
+    expect(supabase.rpc).toHaveBeenCalledWith('preview_group_invite', { p_token: 'abc123' });
   });
 
   it('wraps a PGRST116 error as NotFoundError', async () => {
-    supabase.from.mockReturnValue(
+    supabase.rpc.mockReturnValue(
       mockChain({ data: null, error: { message: 'no rows', code: 'PGRST116' } }),
     );
 
-    const result = await new SupabaseGroupRepository().getGroupByInviteToken('no-such-token');
+    const result = await new SupabaseGroupRepository().getGroupInvitePreview('no-such-token');
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.kind).toBe('NotFoundError');
   });
 });
 
+describe('SupabaseGroupRepository — invite link settings', () => {
+  it('maps the invite lifetime columns', async () => {
+    supabase.from.mockReturnValue(mockChain({
+      data: groupRow({ invite_created_at: '2026-11-01T00:00:00.000Z', invite_ttl_hours: 24 }), error: null,
+    }));
+
+    const result = await new SupabaseGroupRepository().setInviteTtl('g1', 24);
+
+    expect(result.ok && result.value).toMatchObject({ inviteCreatedAt: new Date('2026-11-01T00:00:00.000Z'), inviteTtlHours: 24 });
+  });
+
+  it('resets through the owner-only RPC, then reloads the group', async () => {
+    supabase.rpc.mockResolvedValue({ error: null });
+    supabase.from.mockReturnValue(mockChain({ data: groupRow({ invite_token: 'NEWTOKEN' }), error: null }));
+
+    const result = await new SupabaseGroupRepository().resetInvite('g1');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('reset_group_invite', { p_group_id: 'g1' });
+    expect(result.ok && result.value.inviteToken).toBe('NEWTOKEN');
+  });
+
+  it('maps an expired-link refusal (WS410) to a ValidationError on the token', async () => {
+    supabase.rpc.mockReturnValue(mockChain({ data: null, error: { message: 'Invite expired', code: 'WS410' } }));
+
+    const result = await new SupabaseGroupRepository().joinGroupByInvite('tok', { id: 'u', name: 'U', createdAt: new Date() });
+
+    expect(!result.ok && result.error).toEqual({ kind: 'ValidationError', field: 'inviteToken', message: 'Invite expired' });
+  });
+});
+
 describe('SupabaseGroupRepository — saveGroup', () => {
   it('inserts the group only when there are no members to insert', async () => {
-    supabase.from.mockReturnValue(mockChain({ data: null, error: null }));
+    supabase.from.mockReturnValue(mockChain({ data: { invite_token: 'srv-token', invite_created_at: '2026-11-01T00:00:00.000Z', invite_ttl_hours: null }, error: null }));
 
-    const result = await new SupabaseGroupRepository().saveGroup(group({ members: [] }));
+    const result = await new SupabaseGroupRepository().saveGroup(group({ members: [], inviteToken: undefined }));
 
-    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.inviteToken).toBe('srv-token');
     expect(supabase.from).toHaveBeenCalledTimes(1);
     expect(supabase.from).toHaveBeenCalledWith('groups');
   });
 
   it('inserts both the group and its members when members are present', async () => {
     supabase.from
-      .mockReturnValueOnce(mockChain({ data: null, error: null }))
+      .mockReturnValueOnce(mockChain({ data: { invite_token: 'srv-token', invite_created_at: '2026-11-01T00:00:00.000Z', invite_ttl_hours: null }, error: null }))
       .mockReturnValueOnce(mockChain({ data: null, error: null }));
 
     const result = await new SupabaseGroupRepository().saveGroup(
@@ -213,7 +244,7 @@ describe('SupabaseGroupRepository — saveGroup', () => {
 
   it('returns an error when the member insert fails', async () => {
     supabase.from
-      .mockReturnValueOnce(mockChain({ data: null, error: null }))
+      .mockReturnValueOnce(mockChain({ data: { invite_token: 'srv-token', invite_created_at: '2026-11-01T00:00:00.000Z', invite_ttl_hours: null }, error: null }))
       .mockReturnValueOnce(mockChain({ data: null, error: { message: 'member insert failed' } }));
 
     const result = await new SupabaseGroupRepository().saveGroup(
@@ -283,72 +314,30 @@ describe('SupabaseGroupRepository — addMember', () => {
   });
 });
 
-describe('SupabaseGroupRepository — findMemberByEmail', () => {
-  it('maps the member when a row is found', async () => {
-    supabase.from.mockReturnValue(mockChain({ data: groupMemberRow({ email: 'marie@example.com' }), error: null }));
+describe('SupabaseGroupRepository — joinGroupByInvite', () => {
+  const user = { id: 'newUser', name: 'New Name', avatarUrl: 'https://a/b.png', createdAt: new Date() };
 
-    const result = await new SupabaseGroupRepository().findMemberByEmail('g1', 'marie@example.com');
-
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value?.email).toBe('marie@example.com');
-  });
-
-  it('returns ok(null) when no row matches', async () => {
-    supabase.from.mockReturnValue(mockChain({ data: null, error: null }));
-
-    const result = await new SupabaseGroupRepository().findMemberByEmail('g1', 'nobody@example.com');
-
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value).toBeNull();
-  });
-
-  it('returns a NetworkError on failure', async () => {
-    supabase.from.mockReturnValue(mockChain({ data: null, error: { message: 'query failed' } }));
-
-    const result = await new SupabaseGroupRepository().findMemberByEmail('g1', 'marie@example.com');
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.kind).toBe('NetworkError');
-  });
-});
-
-describe('SupabaseGroupRepository — claimGroupMemberSlot', () => {
-  it('runs the claim RPC then updates the display name and returns the mapped member', async () => {
-    supabase.rpc.mockResolvedValue({ error: null });
-    supabase.from.mockReturnValue(
+  it('calls the join RPC with the token and profile, and maps the member row', async () => {
+    supabase.rpc.mockReturnValue(
       mockChain({ data: groupMemberRow({ user_id: 'newUser', display_name: 'New Name' }), error: null }),
     );
 
-    const result = await new SupabaseGroupRepository().claimGroupMemberSlot('g1', 'placeholder1', 'newUser', 'New Name');
+    const result = await new SupabaseGroupRepository().joinGroupByInvite('tok123', user);
 
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.displayName).toBe('New Name');
-    expect(supabase.rpc).toHaveBeenCalledWith('claim_group_member_slot', {
-      p_group_id: 'g1',
-      p_placeholder_user_id: 'placeholder1',
+    expect(result.ok && result.value).toMatchObject({ userId: 'newUser', displayName: 'New Name' });
+    expect(supabase.rpc).toHaveBeenCalledWith('join_group_by_invite', {
+      p_token:        'tok123',
+      p_display_name: 'New Name',
+      p_avatar_url:   'https://a/b.png',
     });
   });
 
-  it('returns an error and never runs the update when the RPC fails', async () => {
-    supabase.rpc.mockResolvedValue({ error: { message: 'slot already claimed' } });
+  it('maps an unknown token (P0002) to NotFoundError', async () => {
+    supabase.rpc.mockReturnValue(mockChain({ data: null, error: { message: 'Invite not found', code: 'P0002' } }));
 
-    const result = await new SupabaseGroupRepository().claimGroupMemberSlot('g1', 'placeholder1', 'newUser', 'New Name');
+    const result = await new SupabaseGroupRepository().joinGroupByInvite('bad', user);
 
-    expect(result.ok).toBe(false);
-    expect(supabase.from).not.toHaveBeenCalled();
-  });
-
-  it('synthesizes a NetworkError when the post-claim update finds no matching row', async () => {
-    supabase.rpc.mockResolvedValue({ error: null });
-    supabase.from.mockReturnValue(mockChain({ data: null, error: null }));
-
-    const result = await new SupabaseGroupRepository().claimGroupMemberSlot('g1', 'placeholder1', 'newUser', 'New Name');
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.kind).toBe('NetworkError');
-      if (result.error.kind === 'NetworkError') expect(result.error.message).toBe('Member not found after claim');
-    }
+    expect(!result.ok && result.error.kind).toBe('NotFoundError');
   });
 });
 

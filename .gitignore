@@ -50,3 +50,4 @@ supabase/.branches/
 *.Zone.Identifier
 
 .env.local
+release/setup/.local-env.json

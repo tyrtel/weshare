@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   FlatList,
+  View,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -16,12 +17,15 @@ import { HeaderConfirmButton } from '../../src/components/ui';
 import { AddMemberNameField } from '../../src/components/ui/AddMemberNameField';
 import { ContactsPickerList } from '../../src/components/ui/ContactsPickerList';
 import { CurrentMembersList } from '../../src/components/ui/CurrentMembersList';
+import { InviteLinkSettings } from '../../src/components/ui/InviteLinkSettings';
 import type { ContactItem } from '../../src/components/ui/ContactsPickerList';
 import { useGroupDetail } from '../../src/features/groups/hooks/useGroupDetail';
 import { useAddGroupMember } from '../../src/features/groups/hooks/useAddGroupMember';
+import { useGroupInviteLink } from '../../src/features/groups/hooks/useGroupInviteLink';
+import { inviteLinkStatus } from '../../src/core/logic/inviteLink';
 import { generateId } from '../../src/core/utils/generateId';
 import { useService } from '../../src/core/di/ServiceContext';
-import { SHARE } from '../../src/core/di/tokens';
+import { AUTH, SHARE } from '../../src/core/di/tokens';
 import { useColors } from '../../src/theme/colors';
 import { tokens } from '../../src/theme/tokens';
 import type { GroupMember } from '../../src/core/models/GroupMember';
@@ -33,10 +37,12 @@ export default function GroupAddMemberScreen() {
   const colors      = useColors();
   const router      = useRouter();
   const share       = useService(SHARE);
+  const auth        = useService(AUTH);
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
 
   const { group } = useGroupDetail(groupId);
   const { addMember } = useAddGroupMember(groupId);
+  const inviteLink = useGroupInviteLink(groupId);
 
   const [localMembers,  setLocalMembers]  = useState<GroupMember[]>([]);
 
@@ -154,20 +160,33 @@ export default function GroupAddMemberScreen() {
               {/* Share invite link — lets someone join and self-claim a matching
                   placeholder, instead of always being added by name here. */}
               {group.inviteToken && (
-                <Pressable
-                  onPress={() => share.shareGroup(group.id, group.name, group.inviteToken!)}
-                  accessibilityRole="button"
-                  style={({ pressed }) => ({
-                    flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs,
-                    paddingVertical: tokens.spacing.sm, marginBottom: tokens.spacing.xs,
-                    opacity: pressed ? 0.7 : 1,
-                  })}
-                >
-                  <Ionicons name="link-outline" size={16} color={colors.primary.default} />
-                  <Text variant="label" color={colors.primary.default}>
-                    {t('groups.add_member.share_invite')}
-                  </Text>
-                </Pressable>
+                <View style={{ marginBottom: tokens.spacing.md }}>
+                  {inviteLinkStatus(group.inviteCreatedAt, group.inviteTtlHours, new Date()).kind !== 'expired' && (
+                    <Pressable
+                      onPress={() => share.shareGroup(group.id, group.name, group.inviteToken!)}
+                      accessibilityRole="button"
+                      style={({ pressed }) => ({
+                        flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs,
+                        paddingVertical: tokens.spacing.sm, marginBottom: tokens.spacing.xs,
+                        opacity: pressed ? 0.7 : 1,
+                      })}
+                    >
+                      <Ionicons name="link-outline" size={16} color={colors.primary.default} />
+                      <Text variant="label" color={colors.primary.default}>
+                        {t('groups.add_member.share_invite')}
+                      </Text>
+                    </Pressable>
+                  )}
+                  <InviteLinkSettings
+                    createdAt={group.inviteCreatedAt}
+                    ttlHours={group.inviteTtlHours}
+                    canManage={auth.currentUser()?.id === group.ownerId}
+                    busy={inviteLink.busy}
+                    error={inviteLink.error}
+                    onChangeTtl={inviteLink.setTtl}
+                    onReset={inviteLink.reset}
+                  />
+                </View>
               )}
 
               {/* Contacts toggle */}

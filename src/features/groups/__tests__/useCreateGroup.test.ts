@@ -118,7 +118,7 @@ describe('useCreateGroup', () => {
     }
   });
 
-  it('generates an inviteToken on the created group', async () => {
+  it('returns the inviteToken the repository assigned', async () => {
     const auth = container.resolve(AUTH);
     await auth.signIn('jay@example.com', 'password');
 

@@ -10,6 +10,8 @@ export interface Trip {
   ownerId: string;
   members: TripMember[];
   inviteToken?: string; // short token for invite deep-links
+  inviteCreatedAt?: Date;
+  inviteTtlHours?: number | null; // null: link never expires
   status: TripStatus;
   closedAt: Date | null;
   groupId?: string; // set when this trip belongs to a group

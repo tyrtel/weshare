@@ -36,7 +36,6 @@
       "reset_auth_button": "Réinitialiser l'auth"
     }
   },
-
   "auth": {
     "email_placeholder_example": "vous@exemple.com",
     "email_accessibility": "Adresse e-mail",
@@ -116,7 +115,6 @@
       "error_password_empty": "Veuillez saisir un nouveau mot de passe."
     }
   },
-
   "home": {
     "title": "Accueil",
     "fab_label": "Nouveau",
@@ -194,7 +192,9 @@
       "error_fallback": "Impossible de rejoindre le groupe. Veuillez réessayer.",
       "joining_in_progress": "Connexion…",
       "join_button": "Rejoindre {{group_name}}",
-      "go_home_button": "Retour à l'accueil"
+      "go_home_button": "Retour à l'accueil",
+      "expired_title": "Cette invitation a expiré",
+      "expired_body": "Demandez à la personne qui vous a invité de vous envoyer un nouveau lien."
     },
     "detail": {
       "title": "Groupe",
@@ -407,7 +407,6 @@
       "paid_by": "payé par {{name}}"
     }
   },
-
   "expenses": {
     "form": {
       "add_title": "Ajouter une dépense",
@@ -520,7 +519,6 @@
       "reopen_label": "Rouvrir la dépense"
     }
   },
-
   "settlement": {
     "screen": {
       "title": "Régler les dettes",
@@ -631,7 +629,6 @@
       "continue_button": "Continuer"
     }
   },
-
   "balance": {
     "screen": {
       "title": "Solde"
@@ -659,12 +656,10 @@
       "view_group_label": "Voir le groupe {{name}}"
     }
   },
-
   "balance_view": {
     "bars_label": "Vue barres",
     "list_label": "Vue liste"
   },
-
   "reports": {
     "generate_button": "Générer le PDF",
     "generate_label": "Générer le rapport PDF pour {{name}}",
@@ -687,7 +682,6 @@
       "next_month_label": "Mois suivant"
     }
   },
-
   "invite": {
     "screen": {
       "title": "Inviter à {{trip_name}}",
@@ -708,7 +702,9 @@
       "error_fallback": "Impossible de rejoindre le voyage. Veuillez réessayer.",
       "joining_in_progress": "Adhésion en cours…",
       "join_button": "Rejoindre {{trip_name}}",
-      "go_home_button": "Accueil"
+      "go_home_button": "Accueil",
+      "expired_title": "Cette invitation a expiré",
+      "expired_body": "Demandez à la personne qui vous a invité de vous envoyer un nouveau lien."
     },
     "add_participants": {
       "title": "Ajouter des participants",
@@ -782,5 +778,27 @@
       "expense_deleted": "A supprimé « {{description}} »",
       "unknown": "Activité"
     }
+  },
+  "invite_link": {
+    "never_expires": "Ce lien n'expire jamais",
+    "expires_in_days_one": "Expire dans {{count}} jour",
+    "expires_in_days_other": "Expire dans {{count}} jours",
+    "expires_in_hours_one": "Expire dans {{count}} heure",
+    "expires_in_hours_other": "Expire dans {{count}} heures",
+    "expires_in_minutes_one": "Expire dans {{count}} minute",
+    "expires_in_minutes_other": "Expire dans {{count}} minutes",
+    "expired": "Ce lien a expiré",
+    "closed": "Ce voyage est clôturé, son lien d'invitation ne fonctionne plus",
+    "ask_owner": "Demandez un nouveau lien au propriétaire.",
+    "lifetime_label": "Le lien expire après",
+    "ttl_24": "24 heures",
+    "ttl_168": "7 jours",
+    "ttl_720": "30 jours",
+    "ttl_never": "Jamais",
+    "reset_button": "Réinitialiser le lien",
+    "reset_confirm_title": "Réinitialiser le lien d'invitation ?",
+    "reset_confirm_body": "Le lien actuel ne fonctionnera plus. Partagez le nouveau lien avec les personnes qui doivent encore rejoindre.",
+    "reset_confirm_action": "Réinitialiser",
+    "error_fallback": "Impossible de mettre à jour le lien d'invitation."
   }
 }

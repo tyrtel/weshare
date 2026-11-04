@@ -13,7 +13,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "node node_modules/eslint/bin/eslint.js .",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "test:release": "jest -c jest.release.config.js"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -76,6 +77,7 @@
     "jest-expo": "~55.0.18",
     "patch-package": "^8.0.1",
     "prettier": "^3.8.2",
+    "supabase": "^2.109.1",
     "typescript": "~5.9.2"
   }
 }

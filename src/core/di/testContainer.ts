@@ -92,7 +92,7 @@ export function createTestContainer(overrides: ContainerOverrides = {}): Service
   const { createTripSessionStore } = require('../../store/tripSessionStore');
 
   const tripRepo   = overrides.tripRepo   ?? new InMemoryTripRepository();
-  const memberRepo = overrides.memberRepo ?? new InMemoryMemberRepository();
+  const memberRepo = overrides.memberRepo ?? new InMemoryMemberRepository(tripRepo);
   // Share the same splits Map so splitRepo.updateSplit() is visible to expenseRepo.getExpensesForTrip().
   const splitRepo  = overrides.splitRepo  ?? new InMemorySplitRepository();
   const expenseRepo = overrides.expenseRepo ?? new InMemoryExpenseRepository(

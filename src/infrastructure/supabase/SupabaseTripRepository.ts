@@ -4,6 +4,7 @@ import type { AppError } from '../../core/types/AppError';
 import type { ITripRepository } from '../../core/interfaces/ITripRepository';
 import type { Trip, TripStatus } from '../../core/models/Trip';
 import type { TripMember } from '../../core/models/TripMember';
+import type { InvitePreview } from '../../core/models/InvitePreview';
 import { supabase } from './supabaseClient';
 import { toAppError } from './supabaseErrors';
 import { parseTripRow, parseMemberRow, mapRows } from './rowSchemas';
@@ -37,6 +38,8 @@ function rowToTrip(rawRow: unknown, rawMembers: unknown[]): Result<Trip, AppErro
     ownerId:     row.owner_id,
     createdAt:   new Date(row.created_at),
     inviteToken: row.invite_token ?? undefined,
+    inviteCreatedAt: row.invite_created_at ? new Date(row.invite_created_at) : undefined,
+    inviteTtlHours:  row.invite_ttl_hours,
     status:      row.status as TripStatus,
     closedAt:    row.closed_at ? new Date(row.closed_at) : null,
     members:     membersResult.value,
@@ -84,15 +87,30 @@ export class SupabaseTripRepository implements ITripRepository {
     return ok(trips);
   }
 
-  async getTripByInviteToken(token: string): Promise<Result<Trip, AppError>> {
+  async getTripInvitePreview(token: string): Promise<Result<InvitePreview, AppError>> {
+    const { data, error } = await supabase
+      .rpc('preview_trip_invite', { p_token: token })
+      .single<InvitePreview>();
+    if (error) return err(toAppError(error, 'Trip', token));
+    return ok({ id: data.id, name: data.name, expired: data.expired });
+  }
+
+  async setInviteTtl(tripId: string, ttlHours: number | null): Promise<Result<Trip, AppError>> {
     const { data, error } = await supabase
       .from('trips')
+      .update({ invite_ttl_hours: ttlHours })
+      .eq('id', tripId)
       .select('*, trip_members(*)')
-      .eq('invite_token', token)
       .single();
-    if (error) return err(toAppError(error, 'Trip', token));
+    if (error) return err(toAppError(error, 'Trip', tripId));
     const raw = data as RawTripWithMembers;
     return rowToTrip(raw, raw.trip_members ?? []);
+  }
+
+  async resetInvite(tripId: string): Promise<Result<Trip, AppError>> {
+    const { error } = await supabase.rpc('reset_trip_invite', { p_trip_id: tripId });
+    if (error) return err(toAppError(error, 'Trip', tripId));
+    return this.getTrip(tripId);
   }
 
   async saveTrip(trip: Trip): Promise<Result<Trip, AppError>> {
@@ -103,7 +121,6 @@ export class SupabaseTripRepository implements ITripRepository {
         name:         trip.name,
         currency:     trip.currency,
         owner_id:     trip.ownerId,
-        invite_token: trip.inviteToken ?? null,
         status:       trip.status,
         closed_at:    trip.closedAt?.toISOString() ?? null,
       })
@@ -117,7 +134,7 @@ export class SupabaseTripRepository implements ITripRepository {
   async updateTrip(trip: Trip): Promise<Result<Trip, AppError>> {
     const { data, error } = await supabase
       .from('trips')
-      .update({ name: trip.name, currency: trip.currency, invite_token: trip.inviteToken ?? null, status: trip.status, closed_at: trip.closedAt?.toISOString() ?? null })
+      .update({ name: trip.name, currency: trip.currency, status: trip.status, closed_at: trip.closedAt?.toISOString() ?? null })
       .eq('id', trip.id)
       .select('*, trip_members(*)')
       .single();

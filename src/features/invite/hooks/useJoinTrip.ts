@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useService } from '../../../core/di/ServiceContext';
 import { TRIP_REPO, MEMBER_REPO, AUTH, TRIP_STORE } from '../../../core/di/tokens';
 import { isOk } from '../../../core/types/Result';
-import type { Trip } from '../../../core/models/Trip';
+import type { InvitePreview } from '../../../core/models/InvitePreview';
 import type { AppError } from '../../../core/types/AppError';
 
 interface UseJoinTripState {
-  trip: Trip | null;
+  trip: InvitePreview | null;
   loading: boolean;
   error: AppError | null;
   joining: boolean;
@@ -33,7 +33,7 @@ export function useJoinTrip(token: string) {
       return;
     }
     setState(s => ({ ...s, loading: true, error: null }));
-    tripRepo.getTripByInviteToken(token).then(result => {
+    tripRepo.getTripInvitePreview(token).then(result => {
       if (isOk(result)) {
         setState(s => ({ ...s, trip: result.value, loading: false }));
       } else {
@@ -42,7 +42,7 @@ export function useJoinTrip(token: string) {
     });
   }, [token, tripRepo]);
 
-  const joinAuthenticated = useCallback(async (): Promise<Trip | null> => {
+  const joinAuthenticated = useCallback(async (): Promise<InvitePreview | null> => {
     const { trip } = state;
     const user = auth.currentUser();
 
@@ -58,46 +58,12 @@ export function useJoinTrip(token: string) {
     setState(s => ({ ...s, joining: true, joinError: null }));
 
     try {
-      // Idempotency: skip if already a member.
-      const membersResult = await memberRepo.getMembersForTrip(trip.id);
-      if (isOk(membersResult) && membersResult.value.some(m => m.userId === user.id)) {
-        return trip;
-      }
-
-      // Email-based matching: merge into a placeholder row if email matches.
-      if (user.email) {
-        const matchResult = await memberRepo.findMemberByEmail(trip.id, user.email);
-        if (isOk(matchResult) && matchResult.value) {
-          const claimResult = await memberRepo.claimMemberSlot(
-            trip.id,
-            matchResult.value.userId,
-            user.id,
-            user.name,
-          );
-          if (!isOk(claimResult)) {
-            setState(s => ({ ...s, joinError: claimResult.error }));
-            return null;
-          }
-          storeApi.getState().appendMember(claimResult.value);
-          return trip;
-        }
-      }
-
-      const addResult = await memberRepo.addMember({
-        userId:      user.id,
-        tripId:      trip.id,
-        displayName: user.name,
-        isGuest:     false,
-        joinedAt:    new Date(),
-        avatarUrl:   user.avatarUrl,
-      });
-
-      if (!isOk(addResult)) {
-        setState(s => ({ ...s, joinError: addResult.error }));
+      const result = await memberRepo.joinTripByInvite(token, user);
+      if (!isOk(result)) {
+        setState(s => ({ ...s, joinError: result.error }));
         return null;
       }
-
-      storeApi.getState().appendMember(addResult.value);
+      storeApi.getState().appendMember(result.value);
       return trip;
     } catch (e) {
       // A thrown exception (a real network failure, distinct from a repo

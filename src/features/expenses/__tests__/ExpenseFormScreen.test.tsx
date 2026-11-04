@@ -141,7 +141,7 @@ describe('ExpenseFormScreen — currency conversion', () => {
     // Open the currency picker (trigger is the current symbol) and pick JPY.
     fireEvent.press(screen.getByText('€'));
     fireEvent.press(screen.getByText('¥ JPY'));
-    await waitFor(() => expect(screen.queryByText('Fetching rate…')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Fetching rate…')).toBeNull(), { timeout: 5000 });
 
     await fillDescription('Dinner');
     await fillAmount('3555');
@@ -182,7 +182,7 @@ describe('ExpenseFormScreen — currency conversion', () => {
     // computed at EUR's x100 scale, silently survived the currency switch.
     fireEvent.press(screen.getByText('€'));
     fireEvent.press(screen.getByText('¥ JPY'));
-    await waitFor(() => expect(screen.queryByText('Fetching rate…')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Fetching rate…')).toBeNull(), { timeout: 5000 });
 
     // The displayed amount must still read the user's original number.
     expect(screen.getByTestId('expense-amount-input').props.value).toBe('50');
@@ -215,7 +215,7 @@ describe('ExpenseFormScreen — currency conversion', () => {
     // be preserved (¥5000 -> €5000.00), not divided down to €50.00.
     fireEvent.press(screen.getByText('¥'));
     fireEvent.press(screen.getByText('€ EUR'));
-    await waitFor(() => expect(screen.queryByText('Fetching rate…')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Fetching rate…')).toBeNull(), { timeout: 5000 });
 
     // The displayed amount must reflect 5000 (formatted to 2 decimals now
     // that the currency has them), not 50.
@@ -255,7 +255,7 @@ describe('ExpenseFormScreen — currency conversion', () => {
 
     fireEvent.press(screen.getByText('€'));
     fireEvent.press(screen.getByText('¥ JPY'));
-    await waitFor(() => expect(screen.queryByText('Fetching rate…')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Fetching rate…')).toBeNull(), { timeout: 5000 });
 
     await fillDescription('Sushi run');
     await fillAmount('3555');

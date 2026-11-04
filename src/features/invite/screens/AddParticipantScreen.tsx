@@ -22,10 +22,13 @@ import { HeaderConfirmButton } from '../../../components/ui';
 import { AddMemberNameField } from '../../../components/ui/AddMemberNameField';
 import { ContactsPickerList } from '../../../components/ui/ContactsPickerList';
 import { CurrentMembersList } from '../../../components/ui/CurrentMembersList';
+import { InviteLinkSettings } from '../../../components/ui/InviteLinkSettings';
 import type { ContactItem } from '../../../components/ui/ContactsPickerList';
 import { useTripDetail } from '../../trips/hooks/useTripDetail';
 import { useService, useTripSessionStore } from '../../../core/di/ServiceContext';
-import { MEMBER_REPO, SHARE, TRIP_STORE } from '../../../core/di/tokens';
+import { AUTH, MEMBER_REPO, SHARE, TRIP_STORE } from '../../../core/di/tokens';
+import { inviteLinkStatus } from '../../../core/logic/inviteLink';
+import { useTripInviteLink } from '../hooks/useTripInviteLink';
 import { generateId } from '../../../core/utils/generateId';
 import { useColors } from '../../../theme/colors';
 import { tokens } from '../../../theme/tokens';
@@ -121,16 +124,18 @@ function FrequentPeopleSection({ currentTripId, currentMembers, onAdded }: Frequ
 // ── Share invite section ───────────────────────────────────────────────────────
 
 interface ShareInviteSectionProps {
-  inviteUrl: string;
+  // null while the link is expired: only the settings are shown.
+  inviteUrl: string | null;
   onShare: () => void;
+  children: React.ReactNode;
 }
 
-function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
+function ShareInviteSection({ inviteUrl, onShare, children }: ShareInviteSectionProps) {
   const { t } = useTranslation();
   const colors = useColors();
   const [expanded, setExpanded] = useState(false);
 
-  const handleCopy = () => Clipboard.setString(inviteUrl);
+  const handleCopy = () => { if (inviteUrl) Clipboard.setString(inviteUrl); };
 
   return (
     <View>
@@ -170,54 +175,59 @@ function ShareInviteSection({ inviteUrl, onShare }: ShareInviteSectionProps) {
           borderWidth: 1,
           borderColor: colors.border,
         }}>
-          <Text
-            variant="caption"
-            color={colors.primary.light}
-            numberOfLines={1}
-            style={{ marginBottom: tokens.spacing.sm }}
-          >
-            {inviteUrl}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: tokens.spacing.sm }}>
-            <Pressable
-              onPress={handleCopy}
-              accessibilityRole="button"
-              accessibilityLabel={t('invite.add_participants.copy_link_label')}
-              style={({ pressed }) => ({
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: tokens.spacing.xs,
-                paddingVertical: tokens.spacing.sm,
-                backgroundColor: colors.surfaceAlt,
-                borderRadius: tokens.radius.md,
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Ionicons name="copy-outline" size={16} color={colors.text.secondary} />
-              <Text variant="label" color={colors.text.secondary}>{t('invite.add_participants.copy_link')}</Text>
-            </Pressable>
-            <Pressable
-              onPress={onShare}
-              accessibilityRole="button"
-              accessibilityLabel={t('invite.add_participants.share_label')}
-              style={({ pressed }) => ({
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: tokens.spacing.xs,
-                paddingVertical: tokens.spacing.sm,
-                backgroundColor: colors.primary.subtle,
-                borderRadius: tokens.radius.md,
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Ionicons name="share-outline" size={16} color={colors.primary.default} />
-              <Text variant="label" color={colors.primary.default}>{t('common.share')}</Text>
-            </Pressable>
-          </View>
+          {inviteUrl && (
+            <>
+              <Text
+                variant="caption"
+                color={colors.primary.light}
+                numberOfLines={1}
+                style={{ marginBottom: tokens.spacing.sm }}
+              >
+                {inviteUrl}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: tokens.spacing.sm, marginBottom: tokens.spacing.md }}>
+                <Pressable
+                  onPress={handleCopy}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('invite.add_participants.copy_link_label')}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: tokens.spacing.xs,
+                    paddingVertical: tokens.spacing.sm,
+                    backgroundColor: colors.surfaceAlt,
+                    borderRadius: tokens.radius.md,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Ionicons name="copy-outline" size={16} color={colors.text.secondary} />
+                  <Text variant="label" color={colors.text.secondary}>{t('invite.add_participants.copy_link')}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={onShare}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('invite.add_participants.share_label')}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: tokens.spacing.xs,
+                    paddingVertical: tokens.spacing.sm,
+                    backgroundColor: colors.primary.subtle,
+                    borderRadius: tokens.radius.md,
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <Ionicons name="share-outline" size={16} color={colors.primary.default} />
+                  <Text variant="label" color={colors.primary.default}>{t('common.share')}</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+          {children}
         </View>
       )}
     </View>
@@ -232,9 +242,11 @@ export function AddParticipantScreen() {
   const colors     = useColors();
   const router     = useRouter();
   const share      = useService(SHARE);
+  const auth       = useService(AUTH);
   const memberRepo = useService(MEMBER_REPO);
   const store      = useService(TRIP_STORE);
   const { trip, loading } = useTripDetail(tripId);
+  const inviteLink = useTripInviteLink(tripId);
 
   // Local mirror of members so new additions reflect immediately in duplicate checks.
   // Resynced during render (rather than in an effect) whenever `trip` changes.
@@ -323,7 +335,8 @@ export function AddParticipantScreen() {
     }
   }, [tripId, memberRepo, store, handleAdded]);
 
-  const inviteUrl = trip?.inviteToken
+  const linkStatus = trip && inviteLinkStatus(trip.inviteCreatedAt, trip.inviteTtlHours, new Date());
+  const inviteUrl = trip?.inviteToken && (linkStatus?.kind === 'never' || linkStatus?.kind === 'expires')
     ? Linking.createURL(`/join/${trip.inviteToken}`)
     : null;
 
@@ -457,13 +470,23 @@ export function AddParticipantScreen() {
               />
 
               {/* Invite link — expandable share panel */}
-              {inviteUrl && (
+              {trip.inviteToken && (
                 <>
                   <Divider style={{ marginBottom: tokens.spacing.lg }} />
                   <ShareInviteSection
                     inviteUrl={inviteUrl}
                     onShare={() => share.shareTrip(trip.id, trip.name, trip.inviteToken ?? '')}
-                  />
+                  >
+                    <InviteLinkSettings
+                      createdAt={trip.inviteCreatedAt}
+                      ttlHours={trip.inviteTtlHours}
+                      canManage={auth.currentUser()?.id === trip.ownerId}
+                      busy={inviteLink.busy}
+                      error={inviteLink.error}
+                      onChangeTtl={inviteLink.setTtl}
+                      onReset={inviteLink.reset}
+                    />
+                  </ShareInviteSection>
                 </>
               )}
             </>

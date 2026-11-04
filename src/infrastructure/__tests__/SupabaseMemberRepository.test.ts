@@ -123,76 +123,28 @@ describe('SupabaseMemberRepository — removeMember', () => {
   });
 });
 
-describe('SupabaseMemberRepository — findMemberByEmail', () => {
-  it('returns the matching member when found (case-insensitive)', async () => {
-    supabase.from.mockReturnValue(mockChain({ data: memberRow({ email: 'marie@example.com' }), error: null }));
+describe('SupabaseMemberRepository — joinTripByInvite', () => {
+  const user = { id: 'real-u1', name: 'Marie Dupont', createdAt: new Date() };
 
-    const result = await new SupabaseMemberRepository().findMemberByEmail('t1', 'MARIE@example.com');
+  it('calls the join RPC with the token and profile, and maps the member row', async () => {
+    supabase.rpc.mockReturnValue(mockChain({ data: memberRow({ user_id: 'real-u1', display_name: 'Marie Dupont' }), error: null }));
 
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value?.email).toBe('marie@example.com');
+    const result = await new SupabaseMemberRepository().joinTripByInvite('TOKEN', user);
+
+    expect(result.ok && result.value).toMatchObject({ userId: 'real-u1', displayName: 'Marie Dupont' });
+    expect(supabase.rpc).toHaveBeenCalledWith('join_trip_by_invite', {
+      p_token:        'TOKEN',
+      p_display_name: 'Marie Dupont',
+      p_avatar_url:   null,
+    });
   });
 
-  it('returns null (not an error) when no member matches', async () => {
-    supabase.from.mockReturnValue(mockChain({ data: null, error: null }));
+  it('maps an unknown token (P0002) to NotFoundError', async () => {
+    supabase.rpc.mockReturnValue(mockChain({ data: null, error: { message: 'Invite not found', code: 'P0002' } }));
 
-    const result = await new SupabaseMemberRepository().findMemberByEmail('t1', 'nobody@example.com');
+    const result = await new SupabaseMemberRepository().joinTripByInvite('bad', user);
 
-    expect(result).toEqual({ ok: true, value: null });
-  });
-
-  it('returns a NetworkError when the query fails', async () => {
-    supabase.from.mockReturnValue(mockChain({ data: null, error: { message: 'timeout' } }));
-
-    const result = await new SupabaseMemberRepository().findMemberByEmail('t1', 'marie@example.com');
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.kind).toBe('NetworkError');
-  });
-});
-
-describe('SupabaseMemberRepository — claimMemberSlot', () => {
-  it('calls the claim RPC then renames the claimed slot and returns it', async () => {
-    supabase.rpc.mockResolvedValue({ error: null });
-    supabase.from.mockReturnValue(mockChain({ data: memberRow({ user_id: 'real-u1', display_name: 'Marie Dupont' }), error: null }));
-
-    const result = await new SupabaseMemberRepository().claimMemberSlot('t1', 'guest_abc', 'real-u1', 'Marie Dupont');
-
-    expect(supabase.rpc).toHaveBeenCalledWith('claim_member_slot', { p_trip_id: 't1', p_placeholder_user_id: 'guest_abc' });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.userId).toBe('real-u1');
-      expect(result.value.displayName).toBe('Marie Dupont');
-    }
-  });
-
-  it('returns a NetworkError without attempting the rename when the RPC fails', async () => {
-    supabase.rpc.mockResolvedValue({ error: { message: 'already claimed' } });
-
-    const result = await new SupabaseMemberRepository().claimMemberSlot('t1', 'guest_abc', 'real-u1', 'Marie');
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.kind).toBe('NetworkError');
-    expect(supabase.from).not.toHaveBeenCalled();
-  });
-
-  it('returns a NetworkError when the post-claim rename update fails', async () => {
-    supabase.rpc.mockResolvedValue({ error: null });
-    supabase.from.mockReturnValue(mockChain({ data: null, error: { message: 'row locked' } }));
-
-    const result = await new SupabaseMemberRepository().claimMemberSlot('t1', 'guest_abc', 'real-u1', 'Marie');
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.kind).toBe('NetworkError');
-  });
-
-  it('returns an error when the update reports no error but finds no row', async () => {
-    supabase.rpc.mockResolvedValue({ error: null });
-    supabase.from.mockReturnValue(mockChain({ data: null, error: null }));
-
-    const result = await new SupabaseMemberRepository().claimMemberSlot('t1', 'guest_abc', 'real-u1', 'Marie');
-
-    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.kind).toBe('NotFoundError');
   });
 });
 

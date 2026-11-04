@@ -36,6 +36,31 @@ describe('JoinScreen', () => {
     expect(screen.getByText('Go home')).toBeTruthy();
   });
 
+  it('shows the expired state for an expired link, even before sign-in', () => {
+    mockUseJoinTrip.mockReturnValue({
+      trip: { id: 't1', name: 'Ski Trip', expired: true }, loading: false, error: null,
+      joining: false, joinError: null, joinAuthenticated: jest.fn(),
+    });
+
+    renderScreen(<JoinScreen />, createTestContainer());
+
+    expect(screen.getByText('This invite has expired')).toBeTruthy();
+    expect(screen.queryByText('Sign in to join')).toBeNull();
+  });
+
+  it('switches to the expired state when the join is refused as expired', async () => {
+    const container = createTestContainer();
+    await container.resolve(AUTH).signIn('jay@example.com', 'password');
+    mockUseJoinTrip.mockReturnValue({
+      trip: { id: 't1', name: 'Ski Trip', expired: false }, loading: false, error: null, joining: false,
+      joinError: { kind: 'ValidationError', field: 'inviteToken', message: 'Invite expired' }, joinAuthenticated: jest.fn(),
+    });
+
+    renderScreen(<JoinScreen />, container);
+
+    expect(screen.getByText('This invite has expired')).toBeTruthy();
+  });
+
   it('prompts sign-in when the user is not authenticated', () => {
     mockUseJoinTrip.mockReturnValue({
       trip: tripFactory({ name: 'Ski Trip' }), loading: false, error: null,

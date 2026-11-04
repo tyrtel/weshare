@@ -5,7 +5,7 @@ import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { TRIP_REPO, MEMBER_REPO, AUTH } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { Trip } from '../../../core/models/Trip';
+import type { InvitePreview } from '../../../core/models/InvitePreview';
 import { tripFactory } from '../../../__testUtils__/factories';
 import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepository';
 
@@ -71,7 +71,7 @@ describe('useJoinTrip — joinAuthenticated', () => {
     const { result } = renderHook(() => useJoinTrip('TESTTOKEN'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    let joined: Trip | null = null;
+    let joined: InvitePreview | null = null;
     await act(async () => { joined = await result.current.joinAuthenticated(); });
 
     expect(joined).not.toBeNull();
@@ -148,7 +148,7 @@ describe('useJoinTrip — already a member', () => {
     const { result } = renderHook(() => useJoinTrip('TESTTOKEN'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    let joined: Trip | null = null;
+    let joined: InvitePreview | null = null;
     await act(async () => { joined = await result.current.joinAuthenticated(); });
 
     expect(joined).not.toBeNull();
@@ -161,9 +161,9 @@ describe('useJoinTrip — already a member', () => {
 // failure, distinct from a repo returning Result.err) left `joining` stuck at
 // true forever and skipped the caller's post-join navigation entirely.
 describe('useJoinTrip — exception safety', () => {
-  it('resets joining and sets a NetworkError when addMember throws, instead of hanging forever', async () => {
+  it('resets joining and sets a NetworkError when the join throws, instead of hanging forever', async () => {
     const memberRepo = new InMemoryMemberRepository();
-    memberRepo.addMember = async () => { throw new Error('fetch failed'); };
+    memberRepo.joinTripByInvite = async () => { throw new Error('fetch failed'); };
     const container = createTestContainer({ memberRepo });
     await container.resolve(TRIP_REPO).saveTrip(tripFactory({ inviteToken: 'TESTTOKEN' }));
     const auth = container.resolve(AUTH);

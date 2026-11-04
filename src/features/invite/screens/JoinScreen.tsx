@@ -44,8 +44,11 @@ export function JoinScreen() {
     );
   }
 
+  const expired = trip?.expired
+    || (joinError?.kind === 'ValidationError' && joinError.field === 'inviteToken');
+
   // ── Invalid / expired token ───────────────────────────────────────────────
-  if (error || !trip) {
+  if (error || !trip || expired) {
     return (
       <ScreenWrapper>
         <View
@@ -57,14 +60,14 @@ export function JoinScreen() {
           }}
         >
           <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm, textAlign: 'center' }}>
-            {t('invite.join.error_title')}
+            {expired ? t('invite.join.expired_title') : t('invite.join.error_title')}
           </Text>
           <Text
             variant="body"
             color={colors.text.secondary}
             style={{ textAlign: 'center', marginBottom: tokens.spacing.lg }}
           >
-            {t('invite.join.error_body')}
+            {expired ? t('invite.join.expired_body') : t('invite.join.error_body')}
           </Text>
           <Button label={t('invite.join.go_home_button')} onPress={() => router.replace('/')} variant="ghost" />
         </View>

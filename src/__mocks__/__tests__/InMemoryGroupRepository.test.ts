@@ -10,7 +10,7 @@ describe('InMemoryGroupRepository', () => {
 
   describe('saveGroup / getGroup', () => {
     it('saves and retrieves a group by id', async () => {
-      const group = groupFactory();
+      const group = groupFactory({ inviteToken: 'tok', inviteCreatedAt: new Date('2026-01-01'), inviteTtlHours: null });
       await repo.saveGroup(group);
       const result = await repo.getGroup(group.id);
       expect(result.ok).toBe(true);
@@ -54,20 +54,37 @@ describe('InMemoryGroupRepository', () => {
     });
   });
 
-  describe('getGroupByInviteToken', () => {
-    it('finds a group by token', async () => {
+  describe('getGroupInvitePreview', () => {
+    it('returns only the id and name for a token', async () => {
       const group = groupFactory({ inviteToken: 'abc123' });
       await repo.saveGroup(group);
-      const result = await repo.getGroupByInviteToken('abc123');
-      expect(result.ok).toBe(true);
-      if (result.ok) expect(result.value.id).toBe(group.id);
+      const result = await repo.getGroupInvitePreview('abc123');
+      expect(result).toEqual({ ok: true, value: { id: group.id, name: group.name, expired: false } });
     });
 
     it('returns NotFoundError for unknown token', async () => {
-      const result = await repo.getGroupByInviteToken('nope');
+      const result = await repo.getGroupInvitePreview('nope');
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.error.kind).toBe('NotFoundError');
     });
+  });
+
+  it('reports a link past its lifetime as expired', async () => {
+    await repo.saveGroup(groupFactory({ inviteToken: 'old', inviteCreatedAt: new Date(Date.now() - 25 * 3_600_000), inviteTtlHours: 24 }));
+    const result = await repo.getGroupInvitePreview('old');
+    expect(result.ok && result.value.expired).toBe(true);
+  });
+
+  it('resetInvite issues a new token and the old one stops resolving', async () => {
+    await repo.saveGroup(groupFactory({ id: 'g1', inviteToken: 'old' }));
+    const reset = await repo.resetInvite('g1');
+    expect(reset.ok && reset.value.inviteToken).not.toBe('old');
+    expect((await repo.getGroupInvitePreview('old')).ok).toBe(false);
+  });
+
+  it('saveGroup fills in an invite token when none is given', async () => {
+    const result = await repo.saveGroup(groupFactory({ inviteToken: undefined }));
+    expect(result.ok && result.value.inviteToken).toBeTruthy();
   });
 
   describe('updateGroup', () => {
@@ -119,49 +136,32 @@ describe('InMemoryGroupRepository', () => {
 
   // ── Guest merge (TODO_userMerge.md Chunk A) ─────────────────────────────────
 
-  describe('findMemberByEmail', () => {
-    it('finds a placeholder member by email, case-insensitively', async () => {
-      const placeholder = groupMemberFactory({ userId: 'guest_1', groupId: 'g1', email: 'Marie@Example.com' });
-      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [placeholder] })]);
+  describe('joinGroupByInvite', () => {
+    const marie = { id: 'user_marie', name: 'Marie', email: 'marie@example.com', createdAt: new Date() };
 
-      const result = await repo.findMemberByEmail('g1', 'marie@example.com');
-      expect(result.ok).toBe(true);
-      if (result.ok) expect(result.value?.userId).toBe('guest_1');
-    });
+    it('claims a placeholder whose email matches, case-insensitively', async () => {
+      const placeholder = groupMemberFactory({ userId: 'guest_1', groupId: 'g1', email: 'Marie@Example.com', isGuest: true, displayName: 'Marie (placeholder)' });
+      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', inviteToken: 'TOK', members: [placeholder] })]);
 
-    it('returns null when no member has that email', async () => {
-      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [] })]);
-      const result = await repo.findMemberByEmail('g1', 'nobody@example.com');
-      expect(result.ok).toBe(true);
-      if (result.ok) expect(result.value).toBeNull();
-    });
-  });
-
-  describe('claimGroupMemberSlot', () => {
-    it('re-parents the placeholder to the new user and flips isGuest false', async () => {
-      const placeholder = groupMemberFactory({ userId: 'guest_1', groupId: 'g1', email: 'marie@example.com', isGuest: true, displayName: 'Marie (placeholder)' });
-      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [placeholder] })]);
-
-      const result = await repo.claimGroupMemberSlot('g1', 'guest_1', 'user_marie', 'Marie');
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value.userId).toBe('user_marie');
-        expect(result.value.isGuest).toBe(false);
-        expect(result.value.displayName).toBe('Marie');
-      }
+      const result = await repo.joinGroupByInvite('TOK', marie);
+      expect(result.ok && result.value).toMatchObject({ userId: 'user_marie', isGuest: false, displayName: 'Marie' });
 
       const group = await repo.getGroup('g1');
-      if (group.ok) {
-        expect(group.value.members).toHaveLength(1);
-        expect(group.value.members[0].userId).toBe('user_marie');
-      }
+      expect(group.ok && group.value.members.map(m => m.userId)).toEqual(['user_marie']);
     });
 
-    it('returns NotFoundError when the placeholder does not exist', async () => {
-      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', members: [] })]);
-      const result = await repo.claimGroupMemberSlot('g1', 'guest_missing', 'user_marie', 'Marie');
-      expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.error.kind).toBe('NotFoundError');
+    it('adds a new member when no email matches, and is idempotent', async () => {
+      repo.seed([groupFactory({ id: 'g1', ownerId: 'u1', inviteToken: 'TOK', members: [] })]);
+      await repo.joinGroupByInvite('TOK', marie);
+      await repo.joinGroupByInvite('TOK', marie);
+
+      const group = await repo.getGroup('g1');
+      expect(group.ok && group.value.members.map(m => m.userId)).toEqual(['user_marie']);
+    });
+
+    it('returns NotFoundError for an unknown token', async () => {
+      const result = await repo.joinGroupByInvite('nope', marie);
+      expect(!result.ok && result.error.kind).toBe('NotFoundError');
     });
   });
 

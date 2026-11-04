@@ -4,6 +4,8 @@ import type { AppError } from '../../core/types/AppError';
 import type { IGroupRepository } from '../../core/interfaces/IGroupRepository';
 import type { Group } from '../../core/models/Group';
 import type { GroupMember } from '../../core/models/GroupMember';
+import type { InvitePreview } from '../../core/models/InvitePreview';
+import type { User } from '../../core/models/User';
 import { supabase } from './supabaseClient';
 import { toAppError } from './supabaseErrors';
 import { parseGroupRow, parseGroupMemberRow, mapRows } from './rowSchemas';
@@ -39,6 +41,8 @@ function rowToGroup(rawRow: unknown, rawMembers: unknown[]): Result<Group, AppEr
     ownerId:     row.owner_id,
     createdAt:   new Date(row.created_at),
     inviteToken: row.invite_token ?? undefined,
+    inviteCreatedAt: row.invite_created_at ? new Date(row.invite_created_at) : undefined,
+    inviteTtlHours:  row.invite_ttl_hours,
     members:     membersResult.value,
   });
 }
@@ -79,27 +83,43 @@ export class SupabaseGroupRepository implements IGroupRepository {
     return ok(groups);
   }
 
-  async getGroupByInviteToken(token: string): Promise<Result<Group, AppError>> {
+  async getGroupInvitePreview(token: string): Promise<Result<InvitePreview, AppError>> {
+    const { data, error } = await supabase
+      .rpc('preview_group_invite', { p_token: token })
+      .single<InvitePreview>();
+    if (error) return err(toAppError(error, 'Group', token));
+    return ok({ id: data.id, name: data.name, expired: data.expired });
+  }
+
+  async setInviteTtl(groupId: string, ttlHours: number | null): Promise<Result<Group, AppError>> {
     const { data, error } = await supabase
       .from('groups')
+      .update({ invite_ttl_hours: ttlHours })
+      .eq('id', groupId)
       .select('*, group_members(*)')
-      .eq('invite_token', token)
       .single();
-    if (error) return err(toAppError(error, 'Group', token));
+    if (error) return err(toAppError(error, 'Group', groupId));
     const raw = data as RawGroupWithMembers;
     return rowToGroup(raw, raw.group_members ?? []);
   }
 
+  async resetInvite(groupId: string): Promise<Result<Group, AppError>> {
+    const { error } = await supabase.rpc('reset_group_invite', { p_group_id: groupId });
+    if (error) return err(toAppError(error, 'Group', groupId));
+    return this.getGroup(groupId);
+  }
+
   async saveGroup(group: Group): Promise<Result<Group, AppError>> {
-    const { error: groupError } = await supabase
+    const { data: groupRow, error: groupError } = await supabase
       .from('groups')
       .insert({
-        id:           group.id,
-        name:         group.name,
-        currency:     group.currency,
-        owner_id:     group.ownerId,
-        invite_token: group.inviteToken ?? null,
-      });
+        id:       group.id,
+        name:     group.name,
+        currency: group.currency,
+        owner_id: group.ownerId,
+      })
+      .select('invite_token, invite_created_at, invite_ttl_hours')
+      .single<{ invite_token: string; invite_created_at: string; invite_ttl_hours: number | null }>();
     if (groupError) return err(toAppError(groupError, 'Group', group.id));
 
     if (group.members.length > 0) {
@@ -120,13 +140,18 @@ export class SupabaseGroupRepository implements IGroupRepository {
       if (memberError) return err(toAppError(memberError, 'GroupMember', group.id));
     }
 
-    return ok(group);
+    return ok({
+      ...group,
+      inviteToken:     groupRow.invite_token,
+      inviteCreatedAt: new Date(groupRow.invite_created_at),
+      inviteTtlHours:  groupRow.invite_ttl_hours,
+    });
   }
 
   async updateGroup(group: Group): Promise<Result<Group, AppError>> {
     const { data, error } = await supabase
       .from('groups')
-      .update({ name: group.name, currency: group.currency, invite_token: group.inviteToken ?? null })
+      .update({ name: group.name, currency: group.currency })
       .eq('id', group.id)
       .select('*, group_members(*)')
       .single();
@@ -160,38 +185,15 @@ export class SupabaseGroupRepository implements IGroupRepository {
     return rowToGroupMember(data);
   }
 
-  async findMemberByEmail(groupId: string, email: string): Promise<Result<GroupMember | null, AppError>> {
+  async joinGroupByInvite(token: string, user: User): Promise<Result<GroupMember, AppError>> {
     const { data, error } = await supabase
-      .from('group_members')
-      .select()
-      .eq('group_id', groupId)
-      .ilike('email', email)
-      .maybeSingle();
-    if (error) return err(toAppError(error, 'GroupMember'));
-    if (!data) return ok(null);
-    return rowToGroupMember(data);
-  }
-
-  async claimGroupMemberSlot(
-    groupId: string,
-    placeholderUserId: string,
-    newUserId: string,
-    newDisplayName: string,
-  ): Promise<Result<GroupMember, AppError>> {
-    const { error: rpcError } = await supabase.rpc('claim_group_member_slot', {
-      p_group_id: groupId,
-      p_placeholder_user_id: placeholderUserId,
-    });
-    if (rpcError) return err(toAppError(rpcError, 'GroupMember'));
-
-    const { data, error } = await supabase
-      .from('group_members')
-      .update({ display_name: newDisplayName })
-      .eq('group_id', groupId)
-      .eq('user_id', newUserId)
-      .select()
+      .rpc('join_group_by_invite', {
+        p_token:        token,
+        p_display_name: user.name,
+        p_avatar_url:   user.avatarUrl ?? null,
+      })
       .single();
-    if (error || !data) return err(toAppError(error ?? { message: 'Member not found after claim', code: '404', details: '', hint: '' }, 'GroupMember'));
+    if (error) return err(toAppError(error, 'Group', token));
     return rowToGroupMember(data);
   }
 

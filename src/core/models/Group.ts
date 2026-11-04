@@ -8,4 +8,6 @@ export interface Group {
   createdAt: Date;
   members: GroupMember[];
   inviteToken?: string;
+  inviteCreatedAt?: Date;
+  inviteTtlHours?: number | null; // null: link never expires
 }

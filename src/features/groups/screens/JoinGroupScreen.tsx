@@ -44,8 +44,11 @@ export function JoinGroupScreen() {
     );
   }
 
+  const expired = group?.expired
+    || (joinError?.kind === 'ValidationError' && joinError.field === 'inviteToken');
+
   // ── Invalid / expired token ───────────────────────────────────────────────
-  if (error || !group) {
+  if (error || !group || expired) {
     return (
       <ScreenWrapper>
         <View
@@ -57,14 +60,14 @@ export function JoinGroupScreen() {
           }}
         >
           <Text variant="heading2" style={{ marginBottom: tokens.spacing.sm, textAlign: 'center' }}>
-            {t('groups.join.error_title')}
+            {expired ? t('groups.join.expired_title') : t('groups.join.error_title')}
           </Text>
           <Text
             variant="body"
             color={colors.text.secondary}
             style={{ textAlign: 'center', marginBottom: tokens.spacing.lg }}
           >
-            {t('groups.join.error_body')}
+            {expired ? t('groups.join.expired_body') : t('groups.join.error_body')}
           </Text>
           <Button label={t('groups.join.go_home_button')} onPress={() => router.replace('/')} variant="ghost" />
         </View>

@@ -36,7 +36,6 @@
       "reset_auth_button": "Reset auth"
     }
   },
-
   "auth": {
     "email_placeholder_example": "you@example.com",
     "email_accessibility": "Email address",
@@ -116,7 +115,6 @@
       "error_password_empty": "Please enter a new password."
     }
   },
-
   "home": {
     "title": "Home",
     "fab_label": "New",
@@ -194,7 +192,9 @@
       "error_fallback": "Could not join group. Please try again.",
       "joining_in_progress": "Joining…",
       "join_button": "Join {{group_name}}",
-      "go_home_button": "Go home"
+      "go_home_button": "Go home",
+      "expired_title": "This invite has expired",
+      "expired_body": "Ask the person who invited you to send a new link."
     },
     "detail": {
       "title": "Group",
@@ -407,7 +407,6 @@
       "paid_by": "paid by {{name}}"
     }
   },
-
   "expenses": {
     "form": {
       "add_title": "Add Expense",
@@ -520,7 +519,6 @@
       "reopen_label": "Reopen expense"
     }
   },
-
   "settlement": {
     "screen": {
       "title": "Settle Up",
@@ -631,7 +629,6 @@
       "continue_button": "Continue"
     }
   },
-
   "balance": {
     "screen": {
       "title": "Balance"
@@ -659,12 +656,10 @@
       "view_group_label": "View group {{name}}"
     }
   },
-
   "balance_view": {
     "bars_label": "Bar view",
     "list_label": "List view"
   },
-
   "reports": {
     "generate_button": "Generate PDF",
     "generate_label": "Generate PDF report for {{name}}",
@@ -687,7 +682,6 @@
       "next_month_label": "Next month"
     }
   },
-
   "invite": {
     "screen": {
       "title": "Invite to {{trip_name}}",
@@ -708,7 +702,9 @@
       "error_fallback": "Could not join trip. Please try again.",
       "joining_in_progress": "Joining…",
       "join_button": "Join {{trip_name}}",
-      "go_home_button": "Go home"
+      "go_home_button": "Go home",
+      "expired_title": "This invite has expired",
+      "expired_body": "Ask the person who invited you to send a new link."
     },
     "add_participants": {
       "title": "Add Participants",
@@ -782,5 +778,27 @@
       "expense_deleted": "Deleted \"{{description}}\"",
       "unknown": "Activity"
     }
+  },
+  "invite_link": {
+    "never_expires": "This link never expires",
+    "expires_in_days_one": "Expires in {{count}} day",
+    "expires_in_days_other": "Expires in {{count}} days",
+    "expires_in_hours_one": "Expires in {{count}} hour",
+    "expires_in_hours_other": "Expires in {{count}} hours",
+    "expires_in_minutes_one": "Expires in {{count}} minute",
+    "expires_in_minutes_other": "Expires in {{count}} minutes",
+    "expired": "This link has expired",
+    "closed": "This trip is closed, so its invite link no longer works",
+    "ask_owner": "Ask the owner for a new link.",
+    "lifetime_label": "Link expires after",
+    "ttl_24": "24 hours",
+    "ttl_168": "7 days",
+    "ttl_720": "30 days",
+    "ttl_never": "Never",
+    "reset_button": "Reset link",
+    "reset_confirm_title": "Reset invite link?",
+    "reset_confirm_body": "The current link will stop working. Share the new link with anyone who still needs to join.",
+    "reset_confirm_action": "Reset",
+    "error_fallback": "Could not update the invite link."
   }
 }

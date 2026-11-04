@@ -5,7 +5,7 @@ import { ServiceContext } from '../../../core/di/ServiceContext';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { GROUP_REPO, AUTH } from '../../../core/di/tokens';
 import type { ServiceContainer } from '../../../core/di/ServiceContainer';
-import type { Group } from '../../../core/models/Group';
+import type { InvitePreview } from '../../../core/models/InvitePreview';
 import { groupFactory } from '../../../__testUtils__/factories';
 import { InMemoryGroupRepository } from '../../../__mocks__/InMemoryGroupRepository';
 
@@ -69,7 +69,7 @@ describe('useJoinGroup — joinAuthenticated', () => {
     const { result } = renderHook(() => useJoinGroup('TESTTOKEN'), { wrapper: makeWrapper(container) });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    let joined: Group | null = null;
+    let joined: InvitePreview | null = null;
     await act(async () => { joined = await result.current.joinAuthenticated(); });
 
     expect(joined).not.toBeNull();
@@ -132,10 +132,10 @@ describe('useJoinGroup — already a member', () => {
 // failure, distinct from a repo returning Result.err) left `joining` stuck at
 // true forever and skipped the caller's post-join navigation entirely.
 describe('useJoinGroup — exception safety', () => {
-  it('resets joining and sets a NetworkError when addMember throws, instead of hanging forever', async () => {
+  it('resets joining and sets a NetworkError when the join throws, instead of hanging forever', async () => {
     const groupRepo = new InMemoryGroupRepository();
     await groupRepo.saveGroup(groupFactory({ inviteToken: 'TESTTOKEN' }));
-    groupRepo.addMember = async () => { throw new Error('fetch failed'); };
+    groupRepo.joinGroupByInvite = async () => { throw new Error('fetch failed'); };
     const container = createTestContainer({ groupRepo });
     const auth = container.resolve(AUTH);
     await auth.signIn('jay@example.com', 'password');

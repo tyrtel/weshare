@@ -18,6 +18,7 @@ import * as ExpoContacts from 'expo-contacts';
 import { useRouter } from 'expo-router';
 import { AddParticipantScreen } from '../screens/AddParticipantScreen';
 import { ServiceContext } from '../../../core/di/ServiceContext';
+import { InMemoryTripRepository } from '../../../__mocks__/InMemoryTripRepository';
 import { createTestContainer } from '../../../core/di/testContainer';
 import { TRIP_REPO } from '../../../core/di/tokens';
 import { InMemoryMemberRepository } from '../../../__mocks__/InMemoryMemberRepository';
@@ -239,8 +240,8 @@ describe('AddParticipantScreen — invite link', () => {
   });
 
   it('does not render invite button when trip has no token', async () => {
-    const container = createTestContainer();
-    await container.resolve(TRIP_REPO).saveTrip(tripFactory({ inviteToken: undefined }));
+    // seed() bypasses saveTrip, which fills in a token like the database does.
+    const container = createTestContainer({ tripRepo: new InMemoryTripRepository().seed([tripFactory({ inviteToken: undefined })]) });
 
     const { queryByLabelText } = await renderScreen(container);
 

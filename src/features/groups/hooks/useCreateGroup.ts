@@ -6,13 +6,6 @@ import { generateId } from '../../../core/utils/generateId';
 import type { Group } from '../../../core/models/Group';
 import type { AppError } from '../../../core/types/AppError';
 
-function generateInviteToken(): string {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let token = '';
-  for (let i = 0; i < 8; i++) token += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return token;
-}
-
 export function useCreateGroup() {
   const groupRepo   = useService(GROUP_REPO);
   const auth        = useService(AUTH);
@@ -65,7 +58,6 @@ export function useCreateGroup() {
           currency,
           ownerId:     user.id,
           createdAt:   new Date(),
-          inviteToken: generateInviteToken(),
           members:     [owner],
         };
         const result = await groupRepo.saveGroup(group);

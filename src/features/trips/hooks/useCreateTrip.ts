@@ -23,17 +23,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-// Matches the alphabet in supabase/migrations/002_invite_tokens.sql.
-// In production the SQL trigger generates this; in mock/simulation we do it here.
-function generateInviteToken(): string {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let token = '';
-  for (let i = 0; i < 8; i++) {
-    token += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return token;
-}
-
 export function useCreateTrip() {
   const tripRepo   = useService(TRIP_REPO);
   const memberRepo = useService(MEMBER_REPO);
@@ -90,7 +79,6 @@ export function useCreateTrip() {
           currency,
           ownerId:     user.id,
           createdAt:   new Date(),
-          inviteToken: generateInviteToken(),
           status:      'active',
           closedAt:    null,
           groupId:     opts?.groupId,

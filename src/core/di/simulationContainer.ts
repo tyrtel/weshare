@@ -73,7 +73,7 @@ async function _create(): Promise<ServiceContainer> {
   const merged = mergeFixtures(restaurantScenario, twoPersonScenario, settlingScenario, groupScenario);
 
   const tripRepo   = new InMemoryTripRepository().seed(merged.trips ?? []);
-  const memberRepo = new InMemoryMemberRepository().seed(merged.members ?? []);
+  const memberRepo = new InMemoryMemberRepository(tripRepo).seed(merged.members ?? []);
   // Share the splits Map so splitRepo.updateSplit() is visible to expenseRepo.getExpensesForTrip().
   const splitRepo  = new InMemorySplitRepository().seed(merged.splits ?? []);
   const expenseRepo = new InMemoryExpenseRepository(splitRepo.splits).seed(merged.expenses ?? [], merged.splits ?? []);

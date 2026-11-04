@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { replayMigrations, normalizeName, PolicyDef } from './migrationReplay';
 
 // ---------------------------------------------------------------------------
 // Detects the "infinite recursion detected in policy for relation X" class of
@@ -23,100 +22,6 @@ import path from 'path';
 // policy that references itself, which Postgres treats identically).
 // ---------------------------------------------------------------------------
 
-const MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
-
-interface PolicyDef {
-  table: string;
-  name: string;
-  file: string;
-  body: string; // the USING/WITH CHECK SQL text, used to find table dependencies
-}
-
-// Splits a SQL file into top-level statements on ';', without breaking up
-// dollar-quoted function bodies ($$...$$ or $tag$...$tag$), which contain
-// their own internal semicolons (plpgsql statement separators).
-function splitStatements(sql: string): string[] {
-  const statements: string[] = [];
-  let current = '';
-  let dollarTag: string | null = null;
-  let i = 0;
-
-  while (i < sql.length) {
-    const dollarMatch = /^\$[a-zA-Z_]*\$/.exec(sql.slice(i));
-    if (dollarMatch) {
-      const tag = dollarMatch[0];
-      current += tag;
-      i += tag.length;
-      dollarTag = dollarTag === null ? tag : (tag === dollarTag ? null : dollarTag);
-      continue;
-    }
-    const ch = sql[i];
-    if (ch === ';' && dollarTag === null) {
-      statements.push(current);
-      current = '';
-      i += 1;
-      continue;
-    }
-    current += ch;
-    i += 1;
-  }
-  if (current.trim()) statements.push(current);
-  return statements;
-}
-
-function stripLineComments(sql: string): string {
-  return sql
-    .split('\n')
-    .map(line => {
-      const idx = line.indexOf('--');
-      return idx === -1 ? line : line.slice(0, idx);
-    })
-    .join('\n');
-}
-
-function normalizeTableName(raw: string): string {
-  return raw.replace(/^public\./i, '').replace(/"/g, '').toLowerCase();
-}
-
-function loadEffectivePolicies(): Map<string, PolicyDef> {
-  const files = fs.readdirSync(MIGRATIONS_DIR)
-    .filter(f => f.endsWith('.sql'))
-    .sort();
-
-  // Keyed by `${table}::${policyName}` so DROP/CREATE of the same name replaces,
-  // and DROP with no later CREATE removes it — this is the *current* state.
-  const policies = new Map<string, PolicyDef>();
-
-  for (const file of files) {
-    const raw = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
-    const cleaned = stripLineComments(raw);
-
-    for (const stmt of splitStatements(cleaned)) {
-      const trimmed = stmt.trim();
-
-      const dropMatch = /^drop\s+policy\s+(?:if\s+exists\s+)?"?([^"\n]+?)"?\s+on\s+(?:public\.)?"?(\w+)"?/i
-        .exec(trimmed);
-      if (dropMatch) {
-        const table = normalizeTableName(dropMatch[2]);
-        const name = dropMatch[1].trim().toLowerCase();
-        policies.delete(`${table}::${name}`);
-        continue;
-      }
-
-      const createMatch = /^create\s+policy\s+"?([^"\n]+?)"?\s+on\s+(?:public\.)?"?(\w+)"?\s+for\s+\w+([\s\S]*)$/i
-        .exec(trimmed);
-      if (createMatch) {
-        const name = createMatch[1].trim().toLowerCase();
-        const table = normalizeTableName(createMatch[2]);
-        const body = createMatch[3];
-        policies.set(`${table}::${name}`, { table, name, file, body });
-      }
-    }
-  }
-
-  return policies;
-}
-
 // A raw FROM/JOIN inside a policy body always triggers the referenced
 // table's RLS policy. A SECURITY DEFINER helper call (e.g. is_trip_member(id))
 // does not appear as FROM/JOIN text here, so calls to such helpers are
@@ -127,7 +32,7 @@ function directTableDependencies(body: string): Set<string> {
   const pattern = /\b(?:from|join)\s+(?:public\.)?"?(\w+)"?/gi;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(body)) !== null) {
-    deps.add(normalizeTableName(match[1]));
+    deps.add(normalizeName(match[1]));
   }
   return deps;
 }
@@ -170,7 +75,7 @@ function findCycle(graph: Map<string, Set<string>>): string[] | null {
 
 describe('RLS policy recursion (static analysis)', () => {
   it('has no cycles in the table-dependency graph formed by RLS policies', () => {
-    const policies = loadEffectivePolicies();
+    const policies = replayMigrations().policies;
     expect(policies.size).toBeGreaterThan(0); // sanity: parser actually found policies
 
     const graph = new Map<string, Set<string>>();
@@ -206,7 +111,7 @@ describe('RLS policy recursion (static analysis)', () => {
     // Guards against the regexes above silently matching zero policies due to
     // a future SQL formatting change — this test is only useful if the parser
     // is actually finding the real policies.
-    const policies = loadEffectivePolicies();
+    const policies = replayMigrations().policies;
     const tables = Array.from(new Set(Array.from(policies.values()).map(p => p.table)));
     expect(tables).toEqual(expect.arrayContaining(['trips', 'trip_members', 'groups', 'group_members']));
   });

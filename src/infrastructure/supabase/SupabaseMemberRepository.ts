@@ -3,6 +3,7 @@ import type { Result } from '../../core/types/Result';
 import type { AppError } from '../../core/types/AppError';
 import type { IMemberRepository } from '../../core/interfaces/IMemberRepository';
 import type { TripMember } from '../../core/models/TripMember';
+import type { User } from '../../core/models/User';
 import { supabase } from './supabaseClient';
 import { toAppError } from './supabaseErrors';
 import { parseMemberRow, mapRows } from './rowSchemas';
@@ -86,39 +87,15 @@ export class SupabaseMemberRepository implements IMemberRepository {
     return ok(undefined);
   }
 
-  async findMemberByEmail(tripId: string, email: string): Promise<Result<TripMember | null, AppError>> {
+  async joinTripByInvite(token: string, user: User): Promise<Result<TripMember, AppError>> {
     const { data, error } = await supabase
-      .from('trip_members')
-      .select()
-      .eq('trip_id', tripId)
-      .ilike('email', email)
-      .maybeSingle();
-    if (error) return err(toAppError(error, 'TripMember'));
-    if (!data) return ok(null);
-    return rowToMember(data);
-  }
-
-  async claimMemberSlot(
-    tripId: string,
-    placeholderUserId: string,
-    newUserId: string,
-    newDisplayName: string,
-  ): Promise<Result<TripMember, AppError>> {
-    const { error: rpcError } = await supabase.rpc('claim_member_slot', {
-      p_trip_id: tripId,
-      p_placeholder_user_id: placeholderUserId,
-    });
-    if (rpcError) return err(toAppError(rpcError, 'TripMember'));
-
-    const { data, error } = await supabase
-      .from('trip_members')
-      .update({ display_name: newDisplayName })
-      .eq('trip_id', tripId)
-      .eq('user_id', newUserId)
-      .select()
+      .rpc('join_trip_by_invite', {
+        p_token:        token,
+        p_display_name: user.name,
+        p_avatar_url:   user.avatarUrl ?? null,
+      })
       .single();
-    if (error || !data) return err(toAppError(error ?? { message: 'Member not found after claim', code: '404', details: '', hint: '' }, 'TripMember'));
+    if (error) return err(toAppError(error, 'Trip', token));
     return rowToMember(data);
   }
 }
-

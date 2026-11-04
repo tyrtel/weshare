@@ -701,12 +701,12 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
       set((state) => ({
         members: {
           ...state.members,
-          [member.tripId]: [...(state.members[member.tripId] ?? []), member],
+          [member.tripId]: [...(state.members[member.tripId] ?? []).filter(m => m.userId !== member.userId), member],
         },
         // Keep the trips list in sync so TripCard member avatars update immediately.
         trips: state.trips.map(t =>
           t.id === member.tripId
-            ? { ...t, members: [...t.members, member] }
+            ? { ...t, members: [...t.members.filter(m => m.userId !== member.userId), member] }
             : t
         ),
       }));
@@ -925,7 +925,7 @@ export function createTripSessionStore(repos: TripStoreRepos): TripSessionStoreA
     addMemberToGroupInStore(groupId: string, member: GroupMember): void {
       set((state) => ({
         groups: state.groups.map(g =>
-          g.id === groupId ? { ...g, members: [...g.members, member] } : g,
+          g.id === groupId ? { ...g, members: [...g.members.filter(m => m.userId !== member.userId), member] } : g,
         ),
       }));
     },

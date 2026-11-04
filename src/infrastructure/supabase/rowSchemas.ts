@@ -12,6 +12,8 @@ const tripRowSchema = z.object({
   owner_id:     z.string().min(1),
   created_at:   z.string(),
   invite_token: z.string().nullable(),
+  invite_created_at: z.string().optional(),
+  invite_ttl_hours:  z.number().int().nullable().optional(),
   status:       z.enum(['active', 'settling', 'closed']).default('active'),
   closed_at:    z.string().nullable().default(null),
   group_id:     z.string().nullable().optional(),
@@ -78,6 +80,8 @@ const groupRowSchema = z.object({
   owner_id:     z.string().min(1),
   created_at:   z.string(),
   invite_token: z.string().nullable().optional(),
+  invite_created_at: z.string().optional(),
+  invite_ttl_hours:  z.number().int().nullable().optional(),
 });
 
 const recurringExpenseRowSchema = z.object({
