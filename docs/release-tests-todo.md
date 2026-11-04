@@ -1,10 +1,10 @@
 # Release tests todo
 
-> **Status (2026-11-03).** Phases A–D built; Phase E survey done with the
-> high-priority items implemented. `npm test` green apart from a pre-existing
-> timing flake (see Follow-ups); `npm run test:release` green: 57 tests, 6 files;
-> `it.failing` tests document the remaining known bugs. **Not pushed:** 051 (invite links), 052 (link expiry) and migrations 049
-> (grants, no-op in prod) and 050 (reset_user_data security fix) need your OK.
+> **Status (2026-11-04).** Phases A–D built; Phase E survey done with the
+> high-priority items implemented. `npm test` green (1667); `npm run test:release`
+> green: 57 tests, 6 files; `it.failing` tests document the remaining known bugs.
+> **Pushed to production 2026-11-04:** 049 (grants), 050 (reset_user_data fix),
+> 051 (invite links), 052 (link expiry).
 > **Decisions needed:** see "Findings needing a decision". No checkpoint ticked.
 > Triggered by two production bugs the unit tests could not see (047, 048).
 
